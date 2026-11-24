@@ -36,3 +36,18 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     IP adresy, příkazy pro zjišťování konfigurace, hub/switch/router) a okruh 15 Internetové
     technologie (DNS, www, e-mail). Didaktik podle toho doplní vazby místo „potvrdit“.
 12. **Provoz:** GitHub Pages + jednosouborová offline verze z `tools/bundle.mjs` (podle `docs/VYVOJ.md`).
+
+## 2026-11-24 — po schválení slovníku projektantem
+
+13. **Úroveň 2 ukazuje porty na jednoduchém UDP provozu** (aplikace „zprávy“ Alice → Bob,
+    zdrojový a cílový port), ne na pingu. ICMP a ping přicházejí až s úrovní 3 (ICMP nemá
+    porty, jede přímo v IP paketu). Proč: navazuje na úroveň 1 (stejná zpráva, teď s adresami)
+    a odpovídá Michalovu snímku „Identifikace / Adresování“ (MAC / IP / port). Projektant dodá
+    `docs/spec/udp.md`.
+14. **Úroveň 2 bez ARP:** MAC cíle je předvyplněná v ARP tabulce scénáře (`initial_state.arp_cache`)
+    a simulátor to řekne („Simulátor zjednodušuje: MAC adresu Boba už PC A zná; jak ji zjistí,
+    uvidíš v úrovni 3“).
+15. **Štítek L2 je „zdrojová MAC → cílová MAC“**, nikdy „odesílatel → příjemce“ (za routerem je cíl
+    další skok). V rentgenu skutečné pořadí polí (cílová MAC první).
+16. **Hub se neoznačuje jako „opakovač“** (repeater je jiné zařízení). Rozbalení L2 odstraní hlavičku
+    i patičku. Bity na drátě bez preambule = označené zjednodušení.

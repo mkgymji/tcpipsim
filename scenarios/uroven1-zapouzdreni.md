@@ -14,7 +14,7 @@ Výukové cíle: viz `docs/didaktika.md`, úroveň 1.
 
 - Dva uzly vedle sebe: **Alice** (odesílá), **Bob** (přijímá). Mezi nimi jeden drát.
 - U každého uzlu sloupec vrstev shora dolů (aplikační nahoře, fyzická dole).
-- Zpráva: text „Ahoj, Bobe!“ (10 znaků v bajtech; velikost se nezobrazuje).
+- Zpráva: text „Ahoj, Bobe!“ (11 znaků = 11 bajtů v UTF-8, jen ASCII; velikost se nezobrazuje).
 - Žádné adresy, žádné protokoly, žádná další zařízení.
 - Ovládání: tlačítka Krok vpřed, Krok zpět, Přehrát/Pauza, rychlost; přepínač **ISO/OSI (7) | TCP/IP (4)**;
   přepínač „Barvy | Barvy + písmena“ (přístupnost, viz kreativec); tlačítko „Obnovit“.
@@ -72,7 +72,8 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
   Popisek „rámec“.
 - Text: „Vrstva síťového rozhraní přidala poslední obálku. Výsledek je rámec.“
   (V režimu ISO/OSI: „V ISO/OSI to dělá linková vrstva (L2).“)
-- Simulátor zjednodušuje: rámec má na konci ještě kontrolní součet (FCS); ukáže se až v rentgenu.
+- Na konci rámce je vidět proužek „konec rámce“ (patička, FCS = kontrola chyb); obsah FCS
+  se ukáže až v rentgenu (`docs/rozhodnuti.md` bod 2).
 
 ### Krok 5: Z rámce se stanou bity
 
@@ -175,8 +176,8 @@ obsah dopisu čte až adresát.“
   dopis je jeden kus.
 - **Doručení.** Pošta slibuje doručit a při ztrátě reklamuješ; IP nic neslibuje, o spolehlivosti
   rozhoduje až TCP (úroveň 4).
-- **Hloubka obálek.** U pošty je „pytel“ jednorázový, v síti se rámec na každém zařízení rozbalí
-  a znovu obalí novou obálkou (viz úroveň 3). Analogie tento mechanismus neukáže.
+- **Hloubka obálek.** U pošty je „pytel“ jednorázový, v síti se rámec na každém routeru rozbalí
+  a paket se obalí novým rámcem (viz úroveň 3); switch rámec přepošle beze změny. Analogie tento mechanismus neukáže.
 - **Čas.** Dopis jde dny, bity jdou zlomek sekundy; animace čas zrychluje.
 
 Použití: analogie slouží jen k první orientaci; po úrovni 1 se vypíná a kontrolní otázky se kladou
@@ -195,3 +196,22 @@ v počítačovém pohledu.
 1. ISO/OSI: vrstvy 7–5 jako jedna skupina bez obálek (návrh), nebo tři obálky?
 2. Zobrazit FCS (patičku) rámce už zde, nebo jen v rentgenu?
 3. Zda kontrolní otázka 5 (nahlížení do vyšších vrstev) nepatří raději až do úrovně 5.
+
+**Odpovědi projektanta (2026-11-24)**
+
+1. Projektant: jedna skupina „data“ bez obálek (rozhodnutí bod 1). TCP/IP má čtyři vrstvy
+   (RFC 1122, kap. 1.1.3), relační a prezentační funkce dělá aplikace a hlavičku nepřidávají.
+   Počet obálek v obou režimech je 3 (L4, L3, L2), jak říkají testovací kritéria. Věta
+   „Simulátor zjednodušuje“ u tohoto bodu není nutná, je to realita, stačí vysvětlivka.
+2. Projektant: zde, jako proužek „konec rámce“ (rozhodnutí bod 2); obsah FCS v rentgenu.
+   Opraveno v kroku 4 (původní text tvrdil, že se FCS ukáže až v rentgenu).
+3. Projektant: otázku 5 nechat v úrovni 1, je to správná vlastnost vrstvového modelu (RFC 1122
+   kap. 1.1.3, princip vrstvení). Poznámku pro učitele zpřesnit: zařízení, která nahlížejí výš,
+   než je jejich vrstva (firewall, NAT, který mění porty, L3 switch), se probírají v úrovni 5;
+   studentovi v úrovni 1 stačí odpověď „ne, každá vrstva zpracuje svou hlavičku“. Jedno zpřesnění,
+   které nic neodnaučí: vrstva čte z hlavičky i údaj „co je uvnitř“ (EtherType, Protocol, port),
+   aby věděla, které vyšší vrstvě obsah předat; obsah samotný nečte. Hodí se do rentgenu v úrovni 2.
+
+**Další věcné opravy projektanta v tomto scénáři:** „Ahoj, Bobe!“ má 11 znaků, ne 10; analogie
+s dopisem: rámec se rozbaluje a obaluje novým na každém **routeru**, ne na každém zařízení
+(switch rámec nemění).

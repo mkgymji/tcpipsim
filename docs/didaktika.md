@@ -76,8 +76,12 @@ transportní port. Zařízení rozhoduje podle adresy své vrstvy.
 - vysvětlí, proč je potřeba víc adres současně (MAC a IP a port se doplňují, nenahrazují).
 
 **Skryté / zjednodušené.** Všichni v jedné síti, IP adresy se jen ukazují, nepočítá se s maskou.
-ARP se ještě neukazuje: simulátor zjednodušuje a MAC cíle „zná“ (označit). Broadcast jen pro
-neznámou adresu v přepínači a pro ukázku.
+ARP se ještě neukazuje: simulátor zjednodušuje a MAC cíle „zná“ (označit). Flooding (rozeslání
+na všechny porty kromě příchozího) jen pro neznámou cílovou MAC v přepínači; broadcast jen pro ukázku.
+(Projektant: neznámý unicast se flooduje, ale broadcast to není, cílová MAC zůstává unicastová.
+„MAC cíle zná“ realizovat předvyplněnou ARP tabulkou ve scénáři (`initial_state.arp_cache`),
+což je pravdivé: tak to vypadá po předchozí komunikaci. Pozor: ping je ICMP, ten nemá porty ani
+obálku L4; pro ukázku portů na úrovni 2 je potřeba provoz s UDP/TCP, viz otázka 5 níže.)
 
 **Miskoncepce.**
 - „Switch posílá všem.“ Simulátor: u přepínače se po naučení MAC přenáší rámec jen na jeden port;
@@ -141,7 +145,7 @@ spolehlivost (TCP). Aplikační protokol (DNS, HTTP) je dohoda klient–server o
 dotazu a odpovědi.
 
 **Výukové cíle.** Student po úrovni:
-- vysvětlí, že spojení je určeno čtveřicí (zdrojová IP:port, cílová IP:port) a že socket je dvojice IP:port;
+- vysvětlí, že spojení je určeno čtveřicí (zdrojová IP:port, cílová IP:port; spolu s protokolem TCP/UDP) a že socket je dvojice IP:port;
 - popíše klient–server: server naslouchá (LISTENING) na známém portu, klient má náhodný zdrojový port;
 - rozliší UDP (bez spojení, bez potvrzování) a TCP (spojení, potvrzování, opakované odeslání) a ke
   každému uvede vhodný příklad;
@@ -156,13 +160,16 @@ dotazu a odpovědi.
 - „Port je díra v počítači (kterou je potřeba otevřít).“ Port je číslo v hlavičce; „otevřený“
   znamená, že tam nějaká aplikace naslouchá. Simulátor ukáže odpověď na zavřený port (RST / ICMP
   port unreachable, upřesní projektant) vs. na otevřený.
-- „UDP je horší než TCP.“ Je jiné: nižší režie, nevadí ztráta (DNS, video, hry). Simulátor ukáže
+- „UDP je horší než TCP.“ Je jiné: nižší režie, bez navazování spojení; hodí se tam, kde je opožděná
+  data zbytečné opakovat (video, hry) nebo kde si opakování řeší aplikace sama (DNS: krátký dotaz,
+  při ztrátě ho klient po timeoutu pošle znovu). Simulátor ukáže
   ztrátu u obou.
 - „Handshake je jen formalita.“ Student vidí, že bez něj nejsou domluvena čísla (sekvenční čísla)
   a spojení neexistuje.
 - „HTTP a TCP jsou totéž / webová stránka jede po internetu jako celek.“ HTTP je zpráva uvnitř TCP
   segmentu; stránka se může rozdělit do více segmentů.
-- „DNS je součástí internetu jako drát.“ DNS je aplikace (UDP/53) s vlastním serverem.
+- „DNS je součástí internetu jako drát.“ DNS je aplikace (běžné dotazy UDP/53, velké odpovědi
+  a přenosy zón TCP/53) s vlastním serverem.
 
 **Maturita IVT.** Služby internetu, DNS, HTTP, klient–server (potvrdit). **CCNA.** ITN: transportní
 a aplikační vrstva (TCP, UDP, DNS, HTTP, DHCP). Sedí na Michalovu prezentaci „4. aplikační vrstva“
@@ -208,3 +215,35 @@ Chyby jsou předpřipravené (nevhodná maska, chybná brána, chybějící tras
 2. Zobrazit u rámce patičku (FCS) už na úrovni 1, nebo až v rentgenu?
 3. Přesné chování „zavřený port“ v simulaci (RST u TCP, ICMP port unreachable u UDP).
 4. Požadavky maturity IVT: potřebujeme znění pro vazby výše.
+
+**Odpovědi projektanta (2026-11-24)**
+
+1. Projektant: vrstvy 7–5 bez obálek, jako jedna skupina „data“ (rozhodnuto i v `docs/rozhodnuti.md`
+   bod 1). TCP/IP sada má čtyři vrstvy: aplikační, transportní, internetovou (síťovou) a linkovou
+   (RFC 1122, kap. 1.1.3); funkce relační a prezentační vrstvy dělá aplikace (TLS, kódování znaků,
+   komprese), žádnou vlastní hlavičku do PDU nepřidávají. Obálky L5/L6 by student musel v CCNA
+   odnaučit. Formulace „Simulátor zjednodušuje“ tu ani není nutná: to není zjednodušení, ale realita
+   TCP/IP; vysvětlivka stačí („v TCP/IP tyto úkoly řeší aplikace“).
+2. Projektant: na úrovni 1 jako proužek „konec rámce“ (rozhodnutí bod 2), obsah (FCS, CRC-32,
+   32 bitů, IEEE 802.3) až v rentgenu s poznámkou „nepočítá se“. Pozor na formulaci: FCS není
+   „kontrolní součet“ v užším smyslu, ale CRC; v textu pro studenty stačí „kontrola chyb (FCS)“.
+3. Projektant: chování bez firewallu (do úrovně 5):
+   - **TCP na zavřený port:** cíl odpoví segmentem **RST** (RFC 9293, kap. 3.10.7.1, stav CLOSED).
+     Na SYN přijde RST+ACK se SEQ = 0 a ACK = SEQ ze SYN + 1. Klient hlásí „Connection refused“
+     (Python `ConnectionRefusedError`). Žádné ICMP.
+   - **UDP na zavřený port:** cíl pošle **ICMP Destination Unreachable, typ 3, kód 3 (port
+     unreachable)** (RFC 1122, kap. 4.1.3.1 „SHOULD“; RFC 792). Přiloží IP hlavičku + 8 B
+     původního paketu (= celá UDP hlavička, proto odesílatel pozná, který socket to byl).
+   - **S firewallem** (realita školních Windows): zahození bez odpovědi, klient čeká do timeoutu.
+     Rozdíl „odmítnuto (port zavřený)“ vs. „bez odpovědi (filtrováno)“ je dobrý diagnostický
+     bod pro úroveň 5 (stejně to rozlišuje `nmap`: closed vs. filtered). Do úrovně 5 označit:
+     „Simulátor zjednodušuje: počítač nemá firewall.“ Pozor i u pingu: Windows ve výchozím stavu
+     Echo Request z jiné sítě blokuje (`docs/spec/icmp.md` kap. 2), ve škole časté „ping nejde“.
+4. Projektant: znění dodal orchestrátor (`docs/rozhodnuti.md` bod 11: okruh 12 Počítačové sítě,
+   okruh 15 Internetové technologie); přiřazení k úrovním je na didaktikovi.
+5. Projektant (nová připomínka): **porty na úrovni 2.** Výukový cíl úrovně 2 ukazuje port jako
+   adresu L4, ale ping (ICMP) žádnou transportní vrstvu nemá: ICMP zpráva jede přímo v IP paketu
+   (Protocol = 1). Na úrovni 2 tedy buď (a) port ukázat na jednoduchém UDP provozu (dvě aplikace
+   na jednom PC, např. „chat“ na dvou portech), nebo (b) port na úrovni 2 jen zmínit a ukázat
+   až v úrovni 4. Nesmí vzniknout obrázek, kde ping má obálku L4 s porty. UDP spec dodám, jakmile
+   se didaktik rozhodne pro (a).
