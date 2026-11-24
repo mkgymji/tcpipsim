@@ -118,7 +118,7 @@ Příjem rámce:
    (událost `nic_drop`). Student to vidí u hubu: rámec dojde, ale PC ho nezpracuje.
 2. Podle EtherType: 0x0806 → ARP (`arp.md`), 0x0800 → IP (`ipv4.md`).
 3. IP: je cílová IP moje (nebo broadcast)? Pokud ne, zahodit (hostitel nepřeposílá).
-4. Podle Protocol: 1 → ICMP (`icmp.md`); 6/17 → TCP/UDP (další iterace).
+4. Podle Protocol: 1 → ICMP (`icmp.md`); 17 → UDP (`udp.md`, podle cílového portu aplikaci); 6 → TCP (další iterace).
 
 Odeslání IP paketu: rozhodnutí podle směrovací tabulky (přímé doručení v téže síti, jinak
 přes výchozí bránu), získání MAC dalšího skoku přes ARP, sestavení rámce. Podrobně `ipv4.md` kap. 4.
@@ -193,7 +193,7 @@ Pravidlo: každé zjednodušení je v UI i ve specifikaci označeno „Simuláto
 ## 9. Vyšší vrstvy (další iterace)
 
 V této iteraci se nespecifikují, model s nimi ale počítá:
-- **UDP** (RFC 768): datagram, porty, bez spojení. Protocol = 17.
+- **UDP** (RFC 768): datagram, porty, bez spojení. Protocol = 17. Specifikováno v `udp.md` (úroveň 2).
 - **TCP** (RFC 9293): segmenty, three-way handshake, sekvenční čísla, ACK, retransmise, ukončení.
   Protocol = 6.
 - **DNS** (RFC 1034/1035): typicky nad UDP port 53; překlad jména `www.seznam.cz` → `77.75.75.172`.

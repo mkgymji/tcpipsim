@@ -65,3 +65,25 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
 21. **Adresa stránky nese stav:** `#k=<číslo kroku jako v UI, např. 8b>&m=osi|tcpip`, aby šlo poslat
     odkaz na konkrétní krok (učitel → studenti).
 22. **IPv4 Identification** = čítač na uzel od 1 (podle ipv4.md), ne náhoda.
+
+## 2026-11-24 — sjednocení specifikace úrovně 2 „Adresy“
+
+23. **Kroky úrovně 2 určuje scénář didaktika** (`scenarios/uroven2-adresy.md`, kroky 0–17);
+    prototyp kreativce (12 kroků) je jen vizuální vzor.
+24. **MAC tabulka switche ukazuje jen naučené záznamy.** Žádný řádek s „?“ pro neznámou MAC
+    (v prototypu je) — switch Boba v okamžiku floodingu nezná, právě proto flooduje.
+25. **Jednotné adresy ve všech úrovních:** uzly PC1–PC3 se jmény Alice, Bob, Cyril; MAC
+    `02:00:00:00:00:0N`, IP 192.168.1.10/.20/.30. Úroveň 1 se sjednotí (Alice 01, Bob 02), aby
+    rentgen a hexdump seděly s vektory projektanta.
+26. **Předvyplněná ARP tabulka** (rozhodnutí 14) se zdůvodní textem „switch byl právě zapnut,
+    počítače se už dřív znaly“ + označené zjednodušení. Bob má předvyplněnou i Alici (kvůli odpovědi).
+    `arp -a` ukazuje typ `dynamic` a i statické broadcastové/multicastové řádky jako skutečné Windows
+    (pravdivé, vybízí k otázce „co to je?“; v detailu jedna věta).
+27. **`ipconfig` na úrovni 2:** Default Gateway prázdná (jedna síť bez routeru — pravdivá konfigurace).
+    Výstupy anglicky (rozhodnutí 10). `getmac` se nedělá.
+28. **Zdrojový port** jde deterministicky od 49152; rentgen to označí „Simulátor zjednodušuje:
+    skutečný systém volí číslo náhodně z rozsahu 49152–65535.“
+29. **Rentgen UDP** ukazuje všechna 4 pole, zvýrazněné jsou porty. Bob má dvě aplikace (5000 zprávy,
+    6000 poznámky) — vyvrací „port = díra“.
+30. **Formát `show mac address-table` a místa „ověřit“ v `cmd.md`** se ověří snímkem z Packet Traceru
+    a školního PC při pilotu (požádat Michala až s pilotem, neblokuje vývoj).

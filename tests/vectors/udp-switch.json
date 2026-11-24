@@ -1,0 +1,545 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "udp-switch",
+  "title": "Úroveň 2: zpráva UDP Alice -> Bob přes switch, prázdná MAC tabulka",
+  "description": "ARP tabulky Alice a Boba jsou předvyplněné (rozhodnutí 14), switch byl právě zapnut (prázdná MAC tabulka). První rámec s neznámou cílovou MAC switch rozešle na všechny porty kromě příchozího (unknown unicast flooding); Cyril (PC3) ho zahodí na L2. Switch se naučí MAC Alice z rámce 1 a MAC Boba z odpovědi; odpověď už jde jen na port Alice. Na Bobově PC rozhoduje cílový port 5000 mezi aplikacemi zprávy a hra.",
+  "level": 2,
+  "spec_refs": [
+    "docs/spec/model.md",
+    "docs/spec/ethernet.md",
+    "docs/spec/ipv4.md",
+    "docs/spec/udp.md",
+    "docs/spec/rentgen.md"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": null
+          }
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.1.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000,
+            "auto_reply": "Ahoj, Alice!"
+          },
+          {
+            "name": "hra",
+            "proto": "udp",
+            "port": 5001
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000
+          }
+        ]
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3"
+        ]
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC2",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/2"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [
+        {
+          "ip": "192.168.1.20",
+          "mac": "02:00:00:00:00:02",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "PC2": [
+        {
+          "ip": "192.168.1.10",
+          "mac": "02:00:00:00:00:01",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "PC3": []
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    },
+    "mac_table": {
+      "SW1": []
+    },
+    "udp_sockets": {
+      "PC1": [],
+      "PC2": [
+        {
+          "app": "zpravy",
+          "port": 5000
+        },
+        {
+          "app": "hra",
+          "port": 5001
+        }
+      ],
+      "PC3": [
+        {
+          "app": "zpravy",
+          "port": 5000
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "udp_send",
+      "args": {
+        "app": "zpravy",
+        "dst": "192.168.1.20",
+        "dport": 5000,
+        "text": "Ahoj, Bobe!"
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [
+      {
+        "n": 1,
+        "step": 1,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "UDP 192.168.1.10:49152 -> 192.168.1.20:5000 \"Ahoj, Bobe!\"",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:02",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.20",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 39
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 5000,
+            "length": 19
+          },
+          "data": {
+            "text": "Ahoj, Bobe!",
+            "len": 11
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 2,
+        "step": 2,
+        "link": "L2",
+        "from": "SW1",
+        "to": "PC2",
+        "summary": "UDP 192.168.1.10:49152 -> 192.168.1.20:5000 \"Ahoj, Bobe!\"",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:02",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.20",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 39
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 5000,
+            "length": 19
+          },
+          "data": {
+            "text": "Ahoj, Bobe!",
+            "len": 11
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 3,
+        "step": 2,
+        "link": "L3",
+        "from": "SW1",
+        "to": "PC3",
+        "summary": "UDP 192.168.1.10:49152 -> 192.168.1.20:5000 \"Ahoj, Bobe!\"",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:02",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.20",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 39
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 5000,
+            "length": 19
+          },
+          "data": {
+            "text": "Ahoj, Bobe!",
+            "len": 11
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 4,
+        "step": 3,
+        "link": "L2",
+        "from": "PC2",
+        "to": "SW1",
+        "summary": "UDP 192.168.1.20:5000 -> 192.168.1.10:49152 \"Ahoj, Alice!\"",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.20",
+            "dst": "192.168.1.10",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 40
+          },
+          "udp": {
+            "sport": 5000,
+            "dport": 49152,
+            "length": 20
+          },
+          "data": {
+            "text": "Ahoj, Alice!",
+            "len": 12
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 5,
+        "step": 4,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "UDP 192.168.1.20:5000 -> 192.168.1.10:49152 \"Ahoj, Alice!\"",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.20",
+            "dst": "192.168.1.10",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 40
+          },
+          "udp": {
+            "sport": 5000,
+            "dport": 49152,
+            "length": 20
+          },
+          "data": {
+            "text": "Ahoj, Alice!",
+            "len": 12
+          },
+          "frame_len": 60
+        }
+      }
+    ],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "udp_send",
+        "detail": "OS přidělil aplikaci zprávy dynamický port 49152; MAC adresa k 192.168.1.20 je v ARP tabulce, ARP se neposílá"
+      },
+      {
+        "step": 1,
+        "node": "SW1",
+        "event": "mac_learn",
+        "detail": "02:00:00:00:00:01 na Fa0/1"
+      },
+      {
+        "step": 1,
+        "node": "SW1",
+        "event": "flood",
+        "detail": "unknown unicast: 02:00:00:00:00:02 není v tabulce -> Fa0/2, Fa0/3"
+      },
+      {
+        "step": 2,
+        "node": "PC3",
+        "event": "nic_drop",
+        "detail": "cílová MAC 02:00:00:00:00:02 není moje ani broadcast"
+      },
+      {
+        "step": 2,
+        "node": "PC2",
+        "event": "udp_deliver",
+        "detail": "cílový port 5000 -> aplikace zprávy (ne hra na 5001)"
+      },
+      {
+        "step": 2,
+        "node": "PC2",
+        "event": "udp_send",
+        "detail": "automatická odpověď na 192.168.1.10:49152 (zdrojová adresa a port přijatého datagramu)"
+      },
+      {
+        "step": 3,
+        "node": "SW1",
+        "event": "mac_learn",
+        "detail": "02:00:00:00:00:02 na Fa0/2"
+      },
+      {
+        "step": 3,
+        "node": "SW1",
+        "event": "forward",
+        "detail": "02:00:00:00:00:01 známá -> jen Fa0/1"
+      },
+      {
+        "step": 4,
+        "node": "PC1",
+        "event": "udp_deliver",
+        "detail": "cílový port 49152 -> aplikace zprávy"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [
+          {
+            "ip": "192.168.1.20",
+            "mac": "02:00:00:00:00:02",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "PC2": [
+          {
+            "ip": "192.168.1.10",
+            "mac": "02:00:00:00:00:01",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "PC3": []
+      },
+      "mac_table": {
+        "SW1": [
+          {
+            "mac": "02:00:00:00:00:01",
+            "port": "Fa0/1",
+            "vlan": 1,
+            "type": "dynamic"
+          },
+          {
+            "mac": "02:00:00:00:00:02",
+            "port": "Fa0/2",
+            "vlan": 1,
+            "type": "dynamic"
+          }
+        ]
+      },
+      "udp_sockets": {
+        "PC1": [
+          {
+            "app": "zpravy",
+            "port": 49152
+          }
+        ],
+        "PC2": [
+          {
+            "app": "zpravy",
+            "port": 5000
+          },
+          {
+            "app": "hra",
+            "port": 5001
+          }
+        ],
+        "PC3": [
+          {
+            "app": "zpravy",
+            "port": 5000
+          }
+        ]
+      }
+    },
+    "app_result": {
+      "received": [
+        {
+          "node": "PC2",
+          "app": "zpravy",
+          "port": 5000,
+          "from": "192.168.1.10:49152",
+          "text": "Ahoj, Bobe!"
+        },
+        {
+          "node": "PC1",
+          "app": "zpravy",
+          "port": 49152,
+          "from": "192.168.1.20:5000",
+          "text": "Ahoj, Alice!"
+        }
+      ],
+      "not_received": [
+        {
+          "node": "PC2",
+          "app": "hra",
+          "port": 5001
+        },
+        {
+          "node": "PC3",
+          "app": "zpravy",
+          "port": 5000
+        }
+      ]
+    }
+  }
+}

@@ -1,6 +1,7 @@
 # Formát testovacích vektorů
 
-Stav: návrh, iterace 1. Verze formátu: `tcpipsim-vector/1`. Soubory: `tests/vectors/*.json`.
+Stav: návrh, iterace 1, doplněno v iteraci 2 (UDP, úroveň 2). Verze formátu: `tcpipsim-vector/1`
+(doplňky iterace 2 jsou zpětně kompatibilní: jen nové nepovinné klíče). Soubory: `tests/vectors/*.json`.
 
 Testovací vektor popisuje **výchozí stav sítě + akci → co se musí stát na linkách a jak mají
 vypadat tabulky na konci**. Formát nezávisí na implementaci: popisuje jen pozorovatelné chování
@@ -40,6 +41,8 @@ anglicky (jsou to data pro kód), texty (`title`, `description`, `summary`, `det
 | `ports` | pole stringů | hub, switch | názvy portů |
 | `gateway` | IP | ne | výchozí brána hostitele |
 | `ttl_default` | číslo | ne | výchozí TTL (jinak podle `type`, `ipv4.md` kap. 3) |
+| `label` | string | ne | jméno pro UI („Alice“); jádro ho nepoužívá |
+| `apps` | pole | ne | aplikace na uzlu: `{ "name", "proto": "udp", "port": číslo \| null, "auto_reply"?: text }`; `port: null` = klient bez pevného portu (OS přidělí dynamický, `udp.md` kap. 4.2); `auto_reply` = po přijetí zprávy hned odpoví tímto textem na zdrojovou IP a port (`udp.md` kap. 5) |
 
 **Linka** (`links[]`): `{ "id": "L1", "a": { "node": "PC1", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/1" } }`.
 Každé rozhraní/port je nejvýše v jedné lince.
@@ -54,6 +57,7 @@ ji má prázdnou.
 | `arp_cache` | `{ "ip", "mac", "if", "type": "dynamic" \| "static" }` |
 | `mac_table` | `{ "mac", "port", "vlan", "type" }` |
 | `routing_table` | `{ "prefix": "síť/délka", "next_hop": IP \| null, "if", "type": "connected" \| "local" \| "static" \| "default" }` |
+| `udp_sockets` | `{ "app", "port" }` — otevřené UDP sockety (port, na kterém aplikace přijímá). Odvozené z `apps` s pevným portem; klient se objeví až po prvním odeslání. Uvedené ve vektoru, aby šlo začít stavem „po předchozí komunikaci“ |
 
 `routing_table` je **odvozená** z konfigurace v `topology` (adresy rozhraní, brána). Je ve vektoru
 proto, aby test ověřil i to odvození: implementace musí z topologie vytvořit stejnou tabulku
@@ -62,7 +66,9 @@ proto, aby test ověřil i to odvození: implementace musí z topologie vytvoři
 ## 4. `actions`
 
 `{ "time": 0, "node": "PC1", "command": "ping", "args": { "dst": "192.168.1.20", "count": 1 } }`.
-`time` je simulovaný čas v sekundách. Další příkazy (`arp -d`, `tracert`, CLI routeru) přibudou
+`time` je simulovaný čas v sekundách. Úroveň 2: `{ "command": "udp_send", "args": { "app": "zpravy", "dst": IP, "dport": 5000, "text": "…" } }`
+(aplikace `app` na uzlu `node` pošle text v UTF-8; zdrojový port = port socketu aplikace, případně nově
+přidělený dynamický). Další příkazy (`arp -d`, `tracert`, CLI routeru) přibudou
 s dalšími iteracemi; seznam povolených příkazů bude ve specifikaci příslušného protokolu.
 
 ## 5. `expected.transmissions` — PDU na linkách
@@ -88,6 +94,8 @@ Každý záznam = jeden přenos jednoho rámce po jedné lince jedním směrem:
 | `pdu.arp` | `op` (`request`/`reply`), `sha`, `spa`, `tha`, `tpa` |
 | `pdu.ip` | `src`, `dst`, `ttl`, `protocol` (číslo), `total_length` |
 | `pdu.icmp` | `type`, `code`, `id`, `seq`, `data_len` |
+| `pdu.udp` | `sport`, `dport`, `length` (UDP Length = 8 + data v bajtech) |
+| `pdu.data` | `text` (data aplikace jako text), `len` (délka v bajtech UTF-8) |
 | `pdu.frame_len` | délka rámce v bajtech bez preambule a FCS, včetně výplně |
 
 **Pravidla porovnání (normativní):**
@@ -107,7 +115,9 @@ Každý záznam = jeden přenos jednoho rámce po jedné lince jedním směrem:
 
 `{ "step": 2, "node": "PC3", "event": "nic_drop", "detail": "…" }`.
 Slovník: `nic_drop`, `arp_learn`, `arp_ignore`, `arp_queue`, `mac_learn`, `flood`, `forward`, `filter`,
-`ip_forward`, `ip_deliver`, `ip_drop`. Slouží k vysvětlení a vizualizaci. **Nejsou normativní**
+`repeat` (hub zopakoval rámec), `ip_forward`, `ip_deliver`, `ip_drop`, `udp_send` (aplikace odeslala
+datagram, případně přidělení dynamického portu), `udp_deliver` (cílový port → aplikace),
+`udp_no_listener` (na cílovém portu nikdo nepřijímá, `udp.md` kap. 4.3). Slouží k vysvětlení a vizualizaci. **Nejsou normativní**
 (nemusí být úplné); pokud implementace hlásí události se stejným slovníkem, test je smí porovnat
 jako podmnožinu (každá uvedená událost musí nastat ve stejném kroku a uzlu).
 
@@ -120,6 +130,9 @@ jako podmnožinu (každá uvedená událost musí nastat ve stejném kroku a uzl
   a dřív, než by vypršel jakýkoli časovač stárnutí.
 - `app_result`: výsledek příkazu, např. ping: `sent`, `received`, `replies[]` (`from`, `bytes`, `ttl`).
   Čas odezvy se nekontroluje.
+- `app_result` pro UDP (úroveň 2): `received[]` = co dostaly aplikace (`node`, `app`, `port`, `from` ve tvaru
+  `IP:port`, `text`), v libovolném pořadí, přesná shoda množiny; `not_received[]` = aplikace (`node`, `app`,
+  `port`), které nesmí dostat nic (např. jiná aplikace na stejném PC, PC za hubem).
 
 ## 8. Konvence ve scénářích a vektorech
 
@@ -134,3 +147,11 @@ jako podmnožinu (každá uvedená událost musí nastat ve stejném kroku a uzl
 | `ping-switch.json` | ARP broadcast/unicast, učení MAC tabulky, flooding vs. forwarding, RFC 826 (PC3 si nic neuloží, PC2 se učí z requestu) | 9 |
 | `ping-hub.json` | hub opakuje vše na všechny porty, PC3 zahazuje cizí rámce na L2 | 12 |
 | `ping-router.json` | ARP na bránu, TTL − 1 na routeru, přepis MAC, IP beze změny, TTL odpovědi 63, fronta během ARP na routeru | 8 |
+
+Iterace 2 (úroveň 2, UDP, předvyplněné ARP tabulky podle rozhodnutí 14, `"level": 2` v kořeni vektoru):
+
+| Soubor | Co ověřuje | Přenosů |
+|---|---|---|
+| `udp-switch.json` | prázdná MAC tabulka: unknown unicast flooding prvního rámce, učení ze zdrojové MAC, odpověď už jen na port Alice; PC3 zahodí cizí rámec; demultiplexing podle cílového portu (5000 zprávy vs. 5001 hra); dynamický port 49152; prohozené porty v odpovědi; výplň rámce na 60 B | 5 |
+| `udp-hub.json` | hub opakuje oba rámce na všechny ostatní porty, nic se neučí; PC3 zahodí oba | 6 |
+| `udp-switch-naucene.json` | naučená MAC tabulka: žádný flooding, jen obnovení záznamů; existující socket klienta (port 49152 znovu); délky v bajtech UTF-8 u textu s diakritikou | 4 |

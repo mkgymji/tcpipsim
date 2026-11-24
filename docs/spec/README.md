@@ -12,11 +12,15 @@ proti vektorům v `tests/vectors/`. Zjednodušení jsou vždy označena „Simul
 | `arp.md` | ARP zpráva (pole), algoritmus příjmu podle RFC 826, ARP cache, fronta a neúspěch |
 | `ipv4.md` | adresa a maska, IP hlavička (pole), TTL a výchozí hodnoty, rozhodování hostitele, router, longest prefix match |
 | `icmp.md` | Echo Request/Reply (ping), Destination Unreachable, Time Exceeded |
+| `udp.md` | UDP hlavička, pseudohlavička a kontrolní součet, rozsahy portů (IANA, Windows), socket a demultiplexing, aplikace „zprávy“ (úroveň 2) |
+| `rentgen.md` | rentgen úrovně 2: pole Ethernet II, IPv4, UDP v pořadí na drátě, názvy česky i z Wiresharku, formáty, zvýraznění, hexdump s mapováním bajtů |
+| `cmd.md` | příkazy terminálu na úrovni 2: `ipconfig`, `ipconfig /all`, `arp -a`, (`getmac`), switch `show mac address-table`; vzory výstupů |
 | `vektory.md` | formát testovacích vektorů a pravidla porovnání |
 
-Vektory: `tests/vectors/ping-switch.json`, `ping-hub.json`, `ping-router.json`.
+Vektory: `tests/vectors/ping-switch.json`, `ping-hub.json`, `ping-router.json`; úroveň 2:
+`udp-switch.json`, `udp-hub.json`, `udp-switch-naucene.json`.
 
-Další iterace: UDP, TCP, DNS, HTTP (zmíněno v `model.md` kap. 9), `tracert`, později DHCP, NAT, filtrace.
+Další iterace: TCP, DNS, HTTP (zmíněno v `model.md` kap. 9), `tracert`, později DHCP, NAT, filtrace.
 
 ## Otevřené otázky
 
@@ -41,3 +45,7 @@ Další iterace: UDP, TCP, DNS, HTTP (zmíněno v `model.md` kap. 9), `tracert`,
     jsou označena „ověřit“.
 11. `docs/slovnik.md` zatím neexistuje; termíny v této specifikaci (rámec, paket, flooding, longest
     prefix match, next hop, výchozí brána, ARP cache, MAC tabulka) do něj navrhnout.
+12. **Formáty výstupů terminálu** (`cmd.md`): místa označená „ověřit“ porovnat se školním PC
+    (Windows EN i CZ) a s Packet Tracerem / switchem 2960.
+13. **Zdrojový port klienta** je v simulaci deterministický (49152, 49153, …); skutečné OS ho
+    volí náhodně (RFC 6056). Stačí to pro úroveň 4 (víc klientů, `netstat`)?
