@@ -25,4 +25,6 @@ a `docs/ui.md`.
   `chromium --headless --screenshot=out.png --window-size=1400,900 file://…`).
 - Kód a komentáře: identifikátory anglicky, komentáře česky stručně. Texty UI česky.
 - Hotovo = testy prošly a stránka se v headless Chromiu načte bez chyb v konzoli.
+- Základy webu nezapomínat: favicon (`img/favicon.svg`), `<title>` podle úrovně, `lang="cs"`,
+  meta viewport a description; nová stránka/soubor HTML je dostane taky.
 - Na konci vrať stručné shrnutí: co jsi změnil, jak jsi to ověřil, rizika.
