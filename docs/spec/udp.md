@@ -107,8 +107,8 @@ hlavičku a data dává `0xFFFF` (tj. správně).
   (Python `recvfrom` vrací `(data, (ip, port))`), aby mohla odpovědět.
 - Odpověď: aplikace pošle datagram na **zdrojovou IP a zdrojový port** přijatého datagramu; v
   odpovědi jsou porty prohozené (zdrojový 5000, cílový 49152).
-- Na jednom počítači může běžet víc aplikací, každá na jiném portu (vektor: Bob má „zprávy“ na 5000
-  a „hra“ na 5001); stejná IP, stejná MAC, rozhoduje port.
+- Na jednom počítači může běžet víc aplikací, každá na jiném portu (vektory i scénář: Bob má „zprávy“ na 5000
+  a „poznámky“ na 6000, rozhodnutí 29); stejná IP, stejná MAC, rozhoduje port.
 - **Žádná aplikace na cílovém portu** (zavřený port): RFC 1122 4.1.3.1 „UDP SHOULD send an ICMP
   Port Unreachable message“ (typ 3, kód 3). Na úrovni 2 se nevyskytuje (scénáře posílají jen na
   otevřené porty); přijde s úrovní 4 (viz `didaktika.md`, odpověď projektanta 3). Do té doby:

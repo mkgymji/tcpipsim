@@ -68,7 +68,13 @@ proto, aby test ověřil i to odvození: implementace musí z topologie vytvoři
 `{ "time": 0, "node": "PC1", "command": "ping", "args": { "dst": "192.168.1.20", "count": 1 } }`.
 `time` je simulovaný čas v sekundách. Úroveň 2: `{ "command": "udp_send", "args": { "app": "zpravy", "dst": IP, "dport": 5000, "text": "…" } }`
 (aplikace `app` na uzlu `node` pošle text v UTF-8; zdrojový port = port socketu aplikace, případně nově
-přidělený dynamický). Další příkazy (`arp -d`, `tracert`, CLI routeru) přibudou
+přidělený dynamický).
+Výměna zařízení (úroveň 2, hub za switch se stejnými kabely):
+`{ "time": 1, "node": "HUB1", "command": "swap", "args": { "with": { "id": "SW1", "type": "switch", "ports": ["Fa0/1", "Fa0/2", "Fa0/3"] }, "ports": { "P1": "Fa0/1", "P2": "Fa0/2", "P3": "Fa0/3" } } }`
+— uzel `node` se nahradí uzlem `with` (nový switch má prázdnou MAC tabulku, jako po zapnutí), konce
+linek se přejmenují podle mapy `ports`, `id` linek zůstanou; přenosy po výměně mají v `from`/`to` nový uzel.
+Akce se stejným `time` se provedou v pořadí, v jakém jsou ve vektoru (nejdřív výměna, pak odeslání).
+Další příkazy (`arp -d`, `tracert`, CLI routeru) přibudou
 s dalšími iteracemi; seznam povolených příkazů bude ve specifikaci příslušného protokolu.
 
 ## 5. `expected.transmissions` — PDU na linkách
@@ -155,3 +161,4 @@ Iterace 2 (úroveň 2, UDP, předvyplněné ARP tabulky podle rozhodnutí 14, `"
 | `udp-switch.json` | prázdná MAC tabulka: unknown unicast flooding prvního rámce, učení ze zdrojové MAC, odpověď už jen na port Alice; PC3 zahodí cizí rámec; demultiplexing podle cílového portu (5000 zprávy vs. 5001 hra); dynamický port 49152; prohozené porty v odpovědi; výplň rámce na 60 B | 5 |
 | `udp-hub.json` | hub opakuje oba rámce na všechny ostatní porty, nic se neučí; PC3 zahodí oba | 6 |
 | `udp-switch-naucene.json` | naučená MAC tabulka: žádný flooding, jen obnovení záznamů; existující socket klienta (port 49152 znovu); délky v bajtech UTF-8 u textu s diakritikou | 4 |
+| `udp-switch-port6000.json` | celý děj scénáře úrovně 2: hub (opakování, Cyril zahazuje), akce `swap` na switch s prázdnou tabulkou (flooding, učení, přeposlání odpovědi), zpráva na port 6000 doručená aplikaci „poznámky“ (demultiplexing na stejném PC), rámec přesně 60 B bez výplně, hostitelé bez brány (rozhodnutí 27) | 13 |

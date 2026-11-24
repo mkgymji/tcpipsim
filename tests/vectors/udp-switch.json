@@ -26,7 +26,6 @@
             "prefix": 24
           }
         ],
-        "gateway": "192.168.1.1",
         "apps": [
           {
             "name": "zpravy",
@@ -48,7 +47,6 @@
             "prefix": 24
           }
         ],
-        "gateway": "192.168.1.1",
         "apps": [
           {
             "name": "zpravy",
@@ -57,9 +55,9 @@
             "auto_reply": "Ahoj, Alice!"
           },
           {
-            "name": "hra",
+            "name": "poznamky",
             "proto": "udp",
-            "port": 5001
+            "port": 6000
           }
         ]
       },
@@ -76,7 +74,6 @@
             "prefix": 24
           }
         ],
-        "gateway": "192.168.1.1",
         "apps": [
           {
             "name": "zpravy",
@@ -158,12 +155,6 @@
           "next_hop": null,
           "if": "eth0",
           "type": "connected"
-        },
-        {
-          "prefix": "0.0.0.0/0",
-          "next_hop": "192.168.1.1",
-          "if": "eth0",
-          "type": "default"
         }
       ],
       "PC2": [
@@ -172,12 +163,6 @@
           "next_hop": null,
           "if": "eth0",
           "type": "connected"
-        },
-        {
-          "prefix": "0.0.0.0/0",
-          "next_hop": "192.168.1.1",
-          "if": "eth0",
-          "type": "default"
         }
       ],
       "PC3": [
@@ -186,12 +171,6 @@
           "next_hop": null,
           "if": "eth0",
           "type": "connected"
-        },
-        {
-          "prefix": "0.0.0.0/0",
-          "next_hop": "192.168.1.1",
-          "if": "eth0",
-          "type": "default"
         }
       ]
     },
@@ -206,8 +185,8 @@
           "port": 5000
         },
         {
-          "app": "hra",
-          "port": 5001
+          "app": "poznamky",
+          "port": 6000
         }
       ],
       "PC3": [
@@ -423,7 +402,7 @@
         "step": 2,
         "node": "PC2",
         "event": "udp_deliver",
-        "detail": "cílový port 5000 -> aplikace zprávy (ne hra na 5001)"
+        "detail": "cílový port 5000 -> aplikace zprávy (ne poznámky na 6000)"
       },
       {
         "step": 2,
@@ -499,8 +478,8 @@
             "port": 5000
           },
           {
-            "app": "hra",
-            "port": 5001
+            "app": "poznamky",
+            "port": 6000
           }
         ],
         "PC3": [
@@ -531,8 +510,8 @@
       "not_received": [
         {
           "node": "PC2",
-          "app": "hra",
-          "port": 5001
+          "app": "poznamky",
+          "port": 6000
         },
         {
           "node": "PC3",
