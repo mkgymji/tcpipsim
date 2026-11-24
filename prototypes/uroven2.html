@@ -1,0 +1,353 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tcpipsim - Úroveň 2 Adresy (prototyp)</title>
+<style>
+:root{
+  --bg:#F7F8FA; --panel:#FFFFFF; --ink:#14181C; --muted:#4B5563; --line:#9AA5B1; --focus:#0B57D0;
+  --L1:#4A5A66; --L1t:#DEE1E3; --L2:#8A5200; --L2t:#EAE0D1; --L3:#00695C; --L3t:#D1E4E2;
+  --L4:#1B5FAA; --L4t:#D6E2F0; --L5:#6A3FA0; --L5t:#E4DCEE; --L6:#A02C72; --L6t:#EED9E6; --L7:#B3301A; --L7t:#F1DAD6;
+  --wait:#3A4450;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;
+  --aside:420px; --topo:300px; --rowh:46px; --card:292px;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:18px/1.3 var(--font);display:grid;grid-template-rows:56px minmax(0,1fr) 84px;height:100vh;overflow:hidden}
+header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--panel);border-bottom:2px solid var(--line)}
+header h1{font-size:22px;margin:0} header .lvl{font-size:16px;color:var(--muted);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.hbtn{margin-left:auto;border:3px solid var(--ink);border-radius:8px;padding:5px 14px;font-weight:700;font-size:16px;background:#fff}
+.seg{display:flex;border:2px solid var(--ink);border-radius:8px;overflow:hidden;flex:none}
+.seg span{padding:6px 16px;font-weight:600;font-size:16px} .seg .on{background:var(--ink);color:#fff}
+main{display:grid;grid-template-columns:minmax(0,1fr) var(--aside);gap:16px;padding:14px 20px 8px;min-height:0}
+.left{display:grid;grid-template-rows:var(--topo) minmax(0,1fr);gap:12px;min-height:0;position:relative}
+.mac{font-family:var(--mono);font-size:16px;white-space:nowrap;color:var(--muted)} .mac b{color:var(--ink);font-weight:800}
+
+/* ---------- topologie ---------- */
+.topo{background:var(--panel);border:2px solid var(--line);border-radius:10px;position:relative;padding:28px 14px 6px;
+  display:grid;grid-template-columns:124px minmax(0,1fr) var(--card) minmax(0,1fr) 124px;grid-template-rows:1fr 1fr;align-items:center}
+.topo .tag{position:absolute;top:6px;left:14px;font-size:15px;color:var(--muted);font-weight:700;letter-spacing:.04em}
+.topo .key{position:absolute;top:6px;right:14px;font-size:15px;color:var(--muted)}
+.dev{display:flex;flex-direction:column;align-items:center;font-weight:700;font-size:18px;padding:2px 6px;border:3px solid transparent;border-radius:10px;line-height:1.15;justify-self:center}
+.dev>svg{width:62px;height:54px} .dev .m{font:15px var(--mono);color:var(--muted);font-weight:400}
+.dev.act{border-color:var(--ink);box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--ink)}
+.pill{margin-top:3px;font-size:15px;font-weight:700;border:2px solid var(--ink);border-radius:14px;padding:0 8px;display:inline-flex;align-items:center;gap:5px;background:#fff;white-space:nowrap}
+.pill svg{width:16px;height:16px}
+.pill.drop{border-style:solid;border-width:3px}
+.cable{position:relative;height:60px;align-self:center}
+.cable::before{content:"";position:absolute;left:0;right:0;top:27px;height:6px;background:var(--ink);border-radius:3px}
+.chip{position:absolute;left:var(--cx,50%);top:0;transform:translateX(-50%);background:var(--L2t);border:3px solid var(--L2);border-radius:6px;padding:0 7px;font-weight:700;font-size:15px;color:var(--ink);display:flex;align-items:center;gap:4px;white-space:nowrap;height:26px}
+.chip::after{content:"";border:6px solid transparent;border-left:9px solid var(--L2);margin-right:-4px}
+.chip.in::after{display:none} .chip.ghost{border-style:dashed;background:#fff}
+.chip.cp{top:-1px}
+.cable .cn{position:absolute;left:0;right:0;top:38px;text-align:center;font-size:15px;color:var(--muted)}
+.a-cable{grid-column:2;grid-row:1/3} .b-cable{grid-column:4;grid-row:1} .c-cable{grid-column:4;grid-row:2}
+.pc-a{grid-column:1;grid-row:1/3} .pc-b{grid-column:5;grid-row:1} .pc-c{grid-column:5;grid-row:2}
+.sw{grid-column:3;grid-row:1/3;align-self:stretch;margin:2px 0;position:relative;border:3px solid var(--ink);border-radius:10px;padding:6px 12px;display:flex;flex-direction:column;gap:5px;background:#fff;min-height:0}
+.sw .hd{display:flex;align-items:center;gap:8px} .sw .hd svg{width:42px;height:36px;flex:none}
+.sw .hd b{font-size:18px;line-height:1.1} .sw .hd small{display:block;font-size:15px;color:var(--muted);font-weight:400}
+.mini{display:flex;flex-direction:column;gap:3px}
+.mini .row{height:28px;padding:0 6px 0 4px;border-width:3px;gap:6px;grid-template-columns:26px 1fr}
+.mini .row svg.b{width:24px;height:24px} .mini .row .nm{font-size:16px} .mini .row .nm small{display:none}
+.mini .row.active{box-shadow:0 0 0 2px var(--ink);border-width:4px}
+.mini .row.active::after{display:none}
+.mini .cap2{font-size:15px;color:var(--muted);line-height:1.1}
+.mt{border:2px solid var(--ink);border-radius:6px;overflow:hidden}
+.mt h4{margin:0;padding:1px 8px;background:var(--ink);color:#fff;font-size:15px;display:flex;justify-content:space-between}
+.mt .r{display:grid;grid-template-columns:auto 46px auto;justify-content:space-between;gap:2px;align-items:center;padding:0 4px;height:26px;border-top:1px solid var(--line);font-size:15px}
+.mt .r.hh{height:22px;font-weight:700;border-top:0;background:#EEF0F3;color:var(--ink)}
+.mt .r .mac{font-size:15px} .mt .r .p{font-weight:700;font-size:15px}
+.mt .r.new{outline:4px solid var(--ink);outline-offset:-4px;background:var(--L2t)}
+.mt .r .nw{background:var(--ink);color:#fff;font-weight:700;font-size:15px;border-radius:4px;padding:0 4px;text-align:center;line-height:18px}
+.mt .r.look{border-top:2px dashed var(--line);color:var(--wait)}
+.mt .r.look .p{font-weight:600}
+.port{position:absolute;width:60px;height:46px;border:3px solid var(--ink);background:#fff;border-radius:8px;text-align:center;font-weight:700;font-size:16px;line-height:1.1;padding-top:1px;z-index:2;font-family:inherit;color:inherit}
+.port small{display:block;font-size:15px;font-weight:600;color:var(--muted)}
+.port.p1{left:-54px;top:calc(50% - 23px)} .port.p2{right:-54px;top:calc(25% - 23px)} .port.p3{right:-54px;top:calc(75% - 23px)}
+.port .tip{position:absolute;top:-15px;left:-6px;background:var(--ink);color:#fff;font-size:15px;font-weight:700;border-radius:4px;padding:0 5px;line-height:18px}
+.port.out{border-width:4px} .port.in{background:var(--L2t)}
+.port.sel{border-width:5px;box-shadow:0 0 0 3px var(--panel),0 0 0 5px var(--ink)}
+.port.ask{border-style:dashed;cursor:pointer}
+.port.nope{border-style:dotted;color:var(--wait)}
+.port.drop-out{}
+
+/* ---------- vytah ---------- */
+.lift{background:var(--panel);border:2px solid var(--line);border-radius:10px;display:grid;grid-template-columns:236px minmax(0,1fr) 236px;gap:14px;padding:12px 14px;min-height:0}
+.col,.env{display:flex;flex-direction:column;min-height:0}
+.lift h2{margin:0 0 6px;font-size:17px;display:flex;justify-content:space-between;align-items:baseline;gap:6px;white-space:nowrap}
+.lift h2 small{font-weight:400;color:var(--muted);font-size:15px}
+.stack{flex:1;min-height:0;display:grid;grid-template-rows:repeat(7,minmax(0,var(--rowh)));gap:5px;align-content:start}
+.row{display:grid;grid-template-columns:40px minmax(0,1fr);align-items:center;gap:6px;padding:0 8px 0 5px;border-radius:8px;border:3px solid var(--c);background:var(--t);position:relative}
+.row .nm{font-weight:700;font-size:17px;line-height:1.05;min-width:0} .row .nm small{display:block;font-weight:400;font-size:15px;color:var(--muted)}
+.row .l1{display:flex;justify-content:space-between;gap:4px} .row .pdu{font-size:15px;color:var(--c);text-align:right}
+.row.wait{background:#fff;border-style:dashed;color:var(--wait)} .row.wait .pdu{color:var(--wait);font-weight:600}
+svg.b{width:36px;height:36px;color:var(--c)}
+.nest{flex:1;min-height:0;display:flex;flex-direction:column;justify-content:flex-end}
+.box{border:4px solid var(--c);background:var(--t);border-radius:10px;padding:0 8px 8px;display:flex;flex-direction:column;gap:5px}
+.box>.lab{margin:0 -8px;background:var(--c);color:#fff;font-weight:700;font-size:17px;padding:2px 12px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;gap:8px}
+.box>.lab em{font-style:normal;font-weight:600;font-size:15px;align-self:center}
+.addr{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.addr .c{background:#fff;border:2px solid var(--c);border-radius:6px;padding:1px 6px;display:flex;flex-direction:column;position:relative;min-width:0}
+.addr .cap{font-size:15px;color:var(--wait);line-height:1.15} .addr .mac{font-size:16px}
+.addr .c.sel{outline:3px solid var(--ink);outline-offset:1px}
+.tg{position:absolute;right:-1px;top:-1px;width:20px;height:20px;background:var(--ink);color:#fff;font:700 15px/20px var(--font);text-align:center;border-radius:0 4px 0 6px;font-style:normal}
+.core{background:#fff;border:3px solid var(--ink);border-radius:8px;padding:4px 10px;font-size:20px;font-weight:700;text-align:center}
+.core small{display:block;font-weight:400;font-size:15px;color:var(--muted)}
+.trail{background:var(--L2);color:#fff;font-size:15px;font-weight:700;padding:1px 8px;border-radius:4px;align-self:flex-end;margin-top:-3px}
+.rdnote{font-size:15px;color:var(--wait);margin:2px 0 0}
+
+/* ---------- pravy panel ---------- */
+aside{display:grid;grid-template-rows:auto minmax(0,1fr);gap:12px;min-height:0}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:10px 14px;min-height:0}
+.explain{border:3px solid var(--ink)}
+.explain .step{font-size:15px;color:var(--muted);font-weight:700} .explain h3{margin:0 0 3px;font-size:19px}
+.explain p{margin:3px 0;font-size:18px} .explain .nx{font-size:16px;color:var(--wait)}
+.tipres{margin-top:5px;border-top:2px solid var(--line);padding-top:4px;font-size:16px}
+.xray{display:flex;flex-direction:column;gap:6px;overflow:hidden}
+.xray h3{margin:0;font-size:19px;display:flex;justify-content:space-between;align-items:baseline} .xray h3 small{font-weight:400;font-size:15px;color:var(--muted)}
+.tabs{display:flex;gap:6px}
+.tab{border:3px solid var(--c);border-radius:8px;padding:0 9px;font-weight:700;font-size:16px;height:32px;display:flex;align-items:center;gap:5px;background:#fff}
+.tab{--bt:#fff} .tab svg{width:22px;height:22px;color:var(--c)} .tab.on{background:var(--c);color:#fff} .tab.on svg{color:#fff;--bt:var(--c)}
+.ft{width:100%;border-collapse:collapse;font-size:16px}
+.ft th{text-align:left;font-size:15px;color:var(--muted);font-weight:700;padding:0 4px 2px}
+.ft td{padding:0 4px;height:34px;border-top:1px solid var(--line);vertical-align:middle}
+.ft td.n{width:30px;padding-left:0} .ft .nn{display:inline-block;width:24px;height:24px;background:var(--ink);color:#fff;font-weight:700;text-align:center;line-height:24px;border-radius:4px;font-size:15px}
+.ft td.f{font-weight:700} .ft td.sz{width:30px;color:var(--wait)}
+.ft .mac{font-size:15px}
+.ft tr.sel td{background:var(--L2t)} .ft tr.sel td.n .nn{outline:3px solid var(--L2);outline-offset:1px}
+.ft tr.sel{outline:3px solid var(--ink);outline-offset:-3px} .ft tr.rs td.n{border-left:6px solid var(--ink)}
+.badge{display:inline-block;font-size:15px;font-weight:700;border:2px solid var(--L2);color:var(--L2);border-radius:4px;padding:0 4px;margin-left:5px;vertical-align:1px;background:#fff}
+.hex{font:16px/1.45 var(--mono);background:#fff;border:2px solid var(--line);border-radius:8px;padding:4px 8px}
+.hex .ln{display:flex;gap:10px;white-space:nowrap} .hex .off{color:var(--muted);width:34px}
+.hex .by{display:flex;gap:0} .hex .by span{padding:0 3px;border-bottom:3px solid transparent;margin:0}
+.hex .h{background:var(--L2t);border-bottom-color:var(--L2)}
+.hex .hs{background:var(--L2);color:#fff;font-weight:800;border-bottom-color:var(--ink)}
+.hex .d3{background:var(--L3t);border-bottom-color:var(--L3)} .hex .pad{background:#EEF0F3;border-bottom:3px dotted var(--wait)}
+.hex .fc{background:var(--L2t);border-bottom:3px double var(--L2)}
+.hex .el{color:var(--muted);padding-left:44px}
+.hex .br{display:flex;font-size:15px;color:var(--ink);line-height:1.1;margin:-2px 0 2px 44px;font-weight:700}
+.expl{font-size:16px;margin:0;line-height:1.3} .expl b{font-weight:800}
+.legend{font-size:15px;color:var(--wait);margin:0}
+
+/* ---------- ovladani ---------- */
+footer{display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--panel);border-top:2px solid var(--line)}
+.btn{display:flex;align-items:center;gap:8px;height:52px;padding:0 20px;border:3px solid var(--ink);border-radius:10px;background:#fff;font:700 18px var(--font);color:var(--ink)}
+.btn kbd{font:600 14px var(--mono);border:2px solid var(--muted);border-radius:5px;padding:0 6px;color:var(--muted)}
+.btn.main{background:var(--ink);color:#fff;min-width:150px;justify-content:center} .btn.main kbd{color:#fff;border-color:#fff}
+.btn svg{width:20px;height:20px;fill:currentColor}
+.prog{flex:1;display:flex;flex-direction:column;gap:5px;margin:0 10px;min-width:0}
+.track{height:14px;border:2px solid var(--ink);border-radius:8px;background:#fff;position:relative;overflow:hidden} .track i{position:absolute;left:0;top:0;bottom:0;width:50%;background:var(--ink)}
+.prog span{font-size:15px;color:var(--muted);display:flex;justify-content:space-between;white-space:nowrap}
+.speed{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px} .speed b{border:3px solid var(--ink);border-radius:8px;padding:6px 12px;font-size:18px}
+
+/* ---------- terminal ---------- */
+.termwin{position:absolute;left:0;right:0;bottom:0;height:calc(100% - var(--topo) - 12px);z-index:5;display:none;flex-direction:column;border:4px solid var(--ink);border-radius:8px;overflow:hidden;background:#fff}
+.tb{display:flex;align-items:center;gap:12px;height:44px;padding:0 10px 0 14px;font-weight:700;font-size:17px;flex:none}
+.tb .kind{font-size:15px;font-weight:700;border:2px solid currentColor;border-radius:4px;padding:0 6px}
+.tb .x{margin-left:auto;border:3px solid currentColor;border-radius:6px;padding:0 10px;height:34px;display:flex;align-items:center;gap:6px;font-size:16px}
+.tb .x kbd{font:600 14px var(--mono)}
+.tt{flex:1;margin:0;padding:10px 16px;font:18px/1.35 var(--mono);white-space:pre;overflow:hidden}
+body[data-t="win"] .termwin.win{display:flex} body[data-t="cisco"] .termwin.cisco{display:flex}
+.win .tb{background:#E4E6E9;color:#14181C;border-bottom:3px solid #14181C}
+.win .tt{background:#0C0C0C;color:#CCCCCC} .win .tt .pr{color:#fff} .win .cur{display:inline-block;width:11px;border-bottom:3px solid #ccc;height:1em;vertical-align:text-bottom}
+.win .tt .hl{background:#CCCCCC;color:#0C0C0C}
+.cisco .tb{background:#0F3A5C;color:#fff;border-bottom:3px solid #E6F4EA}
+.cisco .tt{background:#081F33;color:#E6F4EA} .cisco .tt .pr{color:#FFE9A8} .cisco .cur{display:inline-block;width:11px;height:1.05em;background:#E6F4EA;vertical-align:text-bottom}
+.cisco .tt .hl{background:#E6F4EA;color:#081F33}
+
+/* ---------- stavy prototypu ---------- */
+body:not([data-s="pred"]) .s-pred, body[data-s="pred"] .s-flood, body[data-s="pred"] .s-drop, body[data-s="pred"] .s-fd,
+body:not([data-s="drop"]) .s-drop, body[data-s="drop"] .s-flood{display:none !important}
+
+/* ---------- male obrazovky ---------- */
+@media (max-width:1360px){ :root{--aside:380px;--card:272px} .topo{grid-template-columns:104px minmax(0,1fr) var(--card) minmax(0,1fr) 104px!important} .lift{grid-template-columns:204px minmax(0,1fr) 204px} .row .nm{font-size:16px} header .lvl{font-size:15px} .box>.lab{font-size:16px} }
+@media (max-height:820px){
+  :root{--topo:256px;--rowh:33px}
+  main{padding-top:10px} .left{gap:8px} .lift{padding:6px 12px}
+  .topo{padding-top:26px} .dev>svg{width:46px;height:40px} .dev{font-size:17px} .dev .m{display:none} .pill{margin-top:1px}
+  .sw{padding:4px 6px;gap:3px} .sw .hd svg{width:32px;height:28px} .mini .row{height:24px} .mini .row svg.b{width:20px;height:20px} .mini .row .nm{font-size:15px}
+  .mt .r{height:22px} .mt .r.hh{height:20px} .mt h4{padding:0 8px}
+  .row .nm small{display:none} .row{border-width:3px} svg.b{width:26px;height:26px} .row{grid-template-columns:30px minmax(0,1fr)}
+  .lift h2{margin-bottom:3px} .stack{gap:3px}
+  .addr .cap{display:none} .addr{gap:4px} .addr .c{padding:0 4px;flex-direction:row;align-items:center;justify-content:center}
+  .addr .c:nth-child(2)::before{content:"→";font-weight:800;font-size:18px;position:absolute;left:-17px;top:-2px}
+  .addr{gap:16px} .addr .mac{font-size:15px}
+  .box{padding:0 6px 5px;gap:3px} .box>.lab{margin:0 -6px;font-size:16px;padding:0 10px} .core{padding:1px 8px;font-size:18px} .core small{display:none}
+  .nest{justify-content:center} .tg{position:static;width:18px;height:18px;font-size:14px;line-height:18px;margin-right:5px;border-radius:4px;flex:none}
+  aside{gap:8px} .card{padding:6px 12px} .explain p{font-size:17px;margin:2px 0} .explain h3{font-size:18px} .explain .nx{display:none} .tipres{font-size:15px;margin-top:3px;padding-top:2px}
+  .ft td{height:26px} .hex .el{display:none} .hex{line-height:1.25} .ft{font-size:15px} .hex{font-size:15px;line-height:1.35} .xray{gap:4px} .tab{height:28px;font-size:15px} .expl{font-size:15px} .hex .by span{padding:0 2px}
+  .legend{display:none}
+  .tt{font-size:16px;line-height:1.3;padding:6px 12px} .tb{height:38px}
+}
+</style>
+</head>
+<body data-s="flood" data-t="">
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+<symbol id="B7" viewBox="0 0 40 40"><polygon fill="currentColor" points="10,3 30,3 38,20 30,37 10,37 2,20"/><text x="20" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L7</text></symbol><symbol id="B6" viewBox="0 0 40 40"><polygon fill="currentColor" points="20,2 38,15 31,37 9,37 2,15"/><text x="20" y="27" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L6</text></symbol><symbol id="B5" viewBox="0 0 40 40"><polygon fill="currentColor" points="20,1 39,20 20,39 1,20"/><text x="20" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L5</text></symbol><symbol id="B4" viewBox="0 0 40 40"><polygon fill="currentColor" points="20,2 39,37 1,37"/><text x="20" y="34" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L4</text></symbol><symbol id="B3" viewBox="0 0 40 40"><circle fill="currentColor" cx="20" cy="20" r="18"/><text x="20" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L3</text></symbol><symbol id="B2" viewBox="0 0 40 40"><rect fill="currentColor" x="3" y="3" width="34" height="34" rx="2"/><text x="20" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L2</text></symbol><symbol id="B1" viewBox="0 0 40 40"><rect fill="currentColor" x="1" y="9" width="38" height="22" rx="2"/><text x="20" y="25" text-anchor="middle" font-size="15" font-weight="700" fill="var(--bt,#fff)" font-family="system-ui,Segoe UI,Arial,sans-serif">L1</text></symbol>
+<symbol id="PC" viewBox="0 0 64 56"><rect x="6" y="4" width="52" height="34" rx="4" fill="#fff" stroke="#14181C" stroke-width="4"/><rect x="13" y="11" width="38" height="20" fill="#D6E2F0"/><path d="M24 38v8h16v-8M16 50h32" fill="none" stroke="#14181C" stroke-width="4" stroke-linecap="round"/></symbol>
+<symbol id="SW" viewBox="0 0 64 56"><rect x="6" y="6" width="52" height="44" rx="4" fill="#fff" stroke="#14181C" stroke-width="4"/><path d="M14 22h36M42 15l8 7-8 7M50 36H14M22 29l-8 7 8 7" fill="none" stroke="#14181C" stroke-width="3.5" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="OK" viewBox="0 0 16 16"><path d="M2 8.5l4 4 8-9" fill="none" stroke="#14181C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+<symbol id="NO" viewBox="0 0 16 16"><circle cx="8" cy="8" r="6.5" fill="#fff" stroke="#14181C" stroke-width="2.5"/><path d="M5 5l6 6M11 5l-6 6" stroke="#14181C" stroke-width="2.5" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+<header>
+  <h1>tcpipsim</h1>
+  <div class="lvl">Úroveň 2: Adresy &middot; Alice posílá zprávu Bobovi přes switch</div>
+  <div class="hbtn">Kontrolní otázky</div>
+  <div class="seg"><span class="on">ISO/OSI (7)</span><span>TCP/IP (4)</span></div>
+</header>
+
+<main>
+<section class="left">
+  <div class="topo" aria-label="Topologie">
+    <span class="tag">TOPOLOGIE</span><span class="key">dvojitý obrys = dvojice ve výtahu</span>
+
+    <div class="dev pc-a act"><svg><use href="#PC"/></svg>Alice<span class="m">192.168.1.10</span><span class="pill">odesílatel</span></div>
+    <div class="cable a-cable" style="--cx:38%"><span class="chip">rámec</span></div>
+
+    <div class="sw" aria-label="Switch SW1">
+      <div class="hd"><svg><use href="#SW"/></svg><div><b>SW1</b><small>switch, čte jen L1&ndash;L2</small></div></div>
+      <div class="mini">
+        <div class="row active" style="--c:var(--L2);--t:var(--L2t)"><svg class="b"><use href="#B2"/></svg><div class="nm"><span class="l1"><span>Linková</span><span class="pdu">rámec</span></span></div></div>
+        <div class="row done" style="--c:var(--L1);--t:var(--L1t)"><svg class="b"><use href="#B1"/></svg><div class="nm"><span class="l1"><span>Fyzická</span><span class="pdu">bity</span></span></div></div>
+      </div>
+      <div class="mt">
+        <h4><span>MAC tabulka SW1</span></h4>
+        <div class="r hh"><span>MAC adresa</span><span>Port</span><span></span></div>
+        <div class="r new"><span class="mac">02:00:00:00:00:<b>01</b></span><span class="p">Fa0/1</span><span class="nw">nový</span></div>
+        <div class="r look"><span class="mac">02:00:00:00:00:<b>02</b></span><span class="p">?</span><span></span></div>
+      </div>
+      <button class="port p1 in" aria-label="Port Fa0/1, rámec přišel"><span>Fa0/1</span><small>vstup</small></button>
+      <button class="port p2 out s-fd sel0" aria-label="Port Fa0/2"><span class="tip s-fd">tip</span><span>Fa0/2</span><small>ven</small></button>
+      <button class="port p3 out s-fd" aria-label="Port Fa0/3"><span>Fa0/3</span><small>ven</small></button>
+      <button class="port p2 ask sel s-pred" aria-label="Port Fa0/2, vybráno"><span class="tip">tip</span><span>Fa0/2</span><small>klik</small></button>
+      <button class="port p3 ask s-pred" aria-label="Port Fa0/3"><span>Fa0/3</span><small>klik</small></button>
+    </div>
+
+    <div class="cable b-cable" style="--cx:64%"><span class="chip cp s-fd">rámec</span></div>
+    <div class="cable c-cable" style="--cx:64%"><span class="chip cp s-fd">rámec</span></div>
+    <div class="dev pc-b"><svg><use href="#PC"/></svg>Bob<span class="m">192.168.1.20</span>
+      <span class="pill s-flood">rámec přichází</span>
+      <span class="pill s-drop"><svg><use href="#OK"/></svg>přijal</span></div>
+    <div class="dev pc-c"><svg><use href="#PC"/></svg>Cyril<span class="m">192.168.1.30</span>
+      <span class="pill s-flood">rámec přichází</span>
+      <span class="pill drop s-drop"><svg><use href="#NO"/></svg>zahodil</span></div>
+  </div>
+
+  <div class="lift">
+    <div class="col"><h2>Alice <small>odesílatel, shora dolů</small></h2><div class="stack"><div class="row done" style="--c:var(--L7);--t:var(--L7t)"><svg class="b"><use href="#B7"/></svg><div class="nm"><span class="l1"><span>Aplikační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row done" style="--c:var(--L6);--t:var(--L6t)"><svg class="b"><use href="#B6"/></svg><div class="nm"><span class="l1"><span>Prezentační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row done" style="--c:var(--L5);--t:var(--L5t)"><svg class="b"><use href="#B5"/></svg><div class="nm"><span class="l1"><span>Relační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row done" style="--c:var(--L4);--t:var(--L4t)"><svg class="b"><use href="#B4"/></svg><div class="nm"><span class="l1"><span>Transportní</span><span class="pdu">segment</span></span><small>operační systém</small></div></div><div class="row done" style="--c:var(--L3);--t:var(--L3t)"><svg class="b"><use href="#B3"/></svg><div class="nm"><span class="l1"><span>Síťová</span><span class="pdu">paket</span></span><small>operační systém</small></div></div><div class="row done" style="--c:var(--L2);--t:var(--L2t)"><svg class="b"><use href="#B2"/></svg><div class="nm"><span class="l1"><span>Linková</span><span class="pdu">rámec</span></span><small>síťová karta</small></div></div><div class="row done" style="--c:var(--L1);--t:var(--L1t)"><svg class="b"><use href="#B1"/></svg><div class="nm"><span class="l1"><span>Fyzická</span><span class="pdu">bity</span></span><small>síťová karta</small></div></div></div></div>
+    <div class="env">
+      <h2>Rámec Alice &rarr; Bob <small>SW1 čte pole 1 a 2</small></h2>
+      <div class="nest">
+       <div class="box" style="--c:var(--L2);--t:var(--L2t)">
+        <div class="lab"><span>L2 Linková</span><em>rámec</em></div>
+        <div class="addr"><div class="c "><i class="tg">1</i><span class="cap">zdroj MAC (Alice)</span><span class="mac ">02:00:00:00:00:<b>01</b></span></div><div class="c sel"><i class="tg">2</i><span class="cap">cíl MAC (Bob)</span><span class="mac ">02:00:00:00:00:<b>02</b></span></div></div>
+        <div class="box" style="--c:var(--L3);--t:var(--L3t)">
+         <div class="lab"><span>L3 Síťová</span><em>paket</em></div>
+         <div class="addr"><div class="c "><span class="cap">zdroj IP (Alice)</span><span class="mac">192.168.1.<b>10</b></span></div><div class="c "><span class="cap">cíl IP (Bob)</span><span class="mac">192.168.1.<b>20</b></span></div></div>
+         <div class="box" style="--c:var(--L4);--t:var(--L4t)">
+          <div class="lab"><span>L4 Transportní</span><em>segment (UDP)</em></div>
+          <div class="addr"><div class="c "><span class="cap">zdrojový port</span><span class="mac"><b>49152</b></span></div><div class="c "><span class="cap">cílový port</span><span class="mac"><b>5000</b></span></div></div>
+          <div class="core">Ahoj, Bobe!<small>L7 data (obsah zprávy)</small></div>
+         </div>
+        </div>
+        <div class="trail">konec rámce</div>
+       </div>
+      </div>
+    </div>
+    <div class="col recv"><h2>Bob <small>příjemce, zdola nahoru</small></h2><div class="stack"><div class="row wait" style="--c:var(--L7);--t:var(--L7t)"><svg class="b"><use href="#B7"/></svg><div class="nm"><span class="l1"><span>Aplikační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row wait" style="--c:var(--L6);--t:var(--L6t)"><svg class="b"><use href="#B6"/></svg><div class="nm"><span class="l1"><span>Prezentační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row wait" style="--c:var(--L5);--t:var(--L5t)"><svg class="b"><use href="#B5"/></svg><div class="nm"><span class="l1"><span>Relační</span><span class="pdu">data</span></span><small>aplikace</small></div></div><div class="row wait" style="--c:var(--L4);--t:var(--L4t)"><svg class="b"><use href="#B4"/></svg><div class="nm"><span class="l1"><span>Transportní</span><span class="pdu">segment</span></span><small>operační systém</small></div></div><div class="row wait" style="--c:var(--L3);--t:var(--L3t)"><svg class="b"><use href="#B3"/></svg><div class="nm"><span class="l1"><span>Síťová</span><span class="pdu">paket</span></span><small>operační systém</small></div></div><div class="row wait" style="--c:var(--L2);--t:var(--L2t)"><svg class="b"><use href="#B2"/></svg><div class="nm"><span class="l1"><span>Linková</span><span class="pdu">rámec</span></span><small>síťová karta</small></div></div><div class="row wait" style="--c:var(--L1);--t:var(--L1t)"><svg class="b"><use href="#B1"/></svg><div class="nm"><span class="l1"><span>Fyzická</span><span class="pdu">bity</span></span><small>síťová karta</small></div></div></div></div>
+  </div>
+
+  <!-- terminal: okno nad vytahem -->
+  <div class="termwin win" role="dialog" aria-label="Terminál Alice">
+    <div class="tb"><span>Příkazový řádek: Alice (PC A)</span><span class="kind">Windows</span><span class="x">Zavřít <kbd>Esc</kbd></span></div>
+<pre class="tt"><span class="pr">C:\Users\Alice&gt;</span>ipconfig /all
+   Physical Address. . . . . . . . . : <span class="hl">02-00-00-00-00-01</span>
+   IPv4 Address. . . . . . . . . . . : 192.168.1.10
+
+<span class="pr">C:\Users\Alice&gt;</span>arp -a
+Interface: 192.168.1.10 --- 0x4
+  Internet Address      Physical Address      Type
+  192.168.1.20          02-00-00-00-00-02     dynamic
+
+<span class="pr">C:\Users\Alice&gt;</span><span class="cur"></span></pre>
+  </div>
+  <div class="termwin cisco" role="dialog" aria-label="Terminál SW1">
+    <div class="tb"><span>Konzole: SW1 (switch)</span><span class="kind">Cisco IOS</span><span class="x">Zavřít <kbd>Esc</kbd></span></div>
+<pre class="tt"><span class="pr">SW1#</span>show mac address-table
+          Mac Address Table
+-------------------------------------------
+Vlan    Mac Address       Type        Ports
+----    -----------       --------    -----
+   1    <span class="hl">0200.0000.0001</span>    DYNAMIC     Fa0/1
+Total Mac Addresses for this criterion: 1
+
+<span class="pr">SW1#</span><span class="cur"></span></pre>
+  </div>
+</section>
+
+<aside>
+  <div class="card explain" aria-live="polite">
+    <div class="step">Krok 6 z 12</div>
+    <div class="s-flood">
+      <h3>Switch rozeslal rámec (flooding)</h3>
+      <p>SW1 si zapsal, že Alice je na Fa0/1. Bobovu MAC nezná, proto poslal rámec na všechny ostatní porty.</p>
+      <div class="nx">Dál: Bob rámec přijme, Cyril ho zahodí.</div>
+      <div class="tipres"><b>Tvůj tip:</b> Fa0/2. <b>Skutečnost:</b> Fa0/2 i Fa0/3.</div>
+    </div>
+    <div class="s-drop">
+      <h3>Bob přijal, Cyril zahodil</h3>
+      <p>Cílová MAC rámce je Bobova, Cyril ji nemá, a tak rámec zahodí. Switch rámec poslal i jemu.</p>
+      <div class="nx">Dál: Bob pošle odpověď, SW1 se naučí Bobův port.</div>
+    </div>
+    <div class="s-pred">
+      <h3>Předpověz: kam SW1 rámec pošle?</h3>
+      <p>Klikni na porty (jeden nebo víc), pak potvrď tip. SW1 zná jen Alici.</p>
+      <div class="tipres"><b>Tip:</b> Fa0/2 &middot; <b>Potvrdit</b> <kbd>Enter</kbd> &middot; <b>Přeskočit</b> <kbd>&rarr;</kbd></div>
+    </div>
+  </div>
+
+  <div class="card xray">
+    <h3><span>Rentgen: rámec L2 (Ethernet II)</span></h3>
+    <div class="tabs">
+      <span class="tab on" style="--c:var(--L2)"><svg><use href="#B2"/></svg>rámec</span>
+      <span class="tab" style="--c:var(--L3)"><svg><use href="#B3"/></svg>paket</span>
+      <span class="tab" style="--c:var(--L4)"><svg><use href="#B4"/></svg>segment</span>
+    </div>
+    <table class="ft">
+      <tr><th></th><th>Pole</th><th>B</th><th>Hodnota</th></tr>
+      <tr class="sel rs"><td class="n"><span class="nn">1</span></td><td class="f">Cílová MAC</td><td class="sz">6</td><td><span class="mac ">02:00:00:00:00:<b>02</b></span></td></tr>
+      <tr class="rs"><td class="n"><span class="nn">2</span></td><td class="f">Zdrojová MAC</td><td class="sz">6</td><td><span class="mac ">02:00:00:00:00:<b>01</b></span></td></tr>
+      <tr><td class="n"><span class="nn">3</span></td><td class="f">EtherType</td><td class="sz">2</td><td class="mac">0x0800 = IPv4</td></tr>
+      <tr><td class="n"><span class="nn">4</span></td><td class="f">Data</td><td class="sz">46</td><td class="mac">paket + výplň</td></tr>
+      <tr><td class="n"><span class="nn">5</span></td><td class="f">Konec rámce</td><td class="sz">4</td><td class="mac">nepočítá se</td></tr>
+    </table>
+    <div class="hex" aria-label="Hexdump rámce">
+      <div class="ln"><span class="off">0000</span><span class="by"><span class="hs">02</span><span class="hs">00</span><span class="hs">00</span><span class="hs">00</span><span class="hs">00</span><span class="hs">02</span><span class="h">02</span><span class="h">00</span></span></div>
+      <div class="ln"><span class="off">0008</span><span class="by"><span class="h">00</span><span class="h">00</span><span class="h">00</span><span class="h">01</span><span class="h">08</span><span class="h">00</span><span class="d3">45</span><span class="d3">00</span></span></div>
+      <div class="ln el">&hellip; data rámce = paket L3</div>
+      <div class="ln"><span class="off">0030</span><span class="by"><span class="d3">42</span><span class="d3">6F</span><span class="d3">62</span><span class="d3">65</span><span class="d3">21</span><span class="pad">00</span><span class="pad">00</span><span class="pad">00</span></span></div>
+      <div class="ln"><span class="off">0038</span><span class="by"><span class="pad">00</span><span class="pad">00</span><span class="pad">00</span><span class="pad">00</span><span class="fc">--</span><span class="fc">--</span><span class="fc">--</span><span class="fc">--</span></span></div>
+    </div>
+    <p class="expl"><b>1 Cílová MAC:</b> komu je rámec určen na tomto kabelu. Podle ní SW1 vybírá port; je v rámci první.</p>
+    <p class="legend">Silná čára vlevo = pole, které čte switch. Štítek obálky říká &bdquo;zdroj, cíl&ldquo;, v rámci je cíl první.</p>
+  </div>
+</aside>
+</main>
+
+<footer>
+  <button class="btn"><svg viewBox="0 0 20 20"><path d="M15 3v14l-10-7z"/></svg>Zpět <kbd>&larr;</kbd></button>
+  <button class="btn main"><svg viewBox="0 0 20 20"><path d="M5 3h4v14H5zM11 3h4v14h-4z"/></svg>Pauza <kbd>mezerník</kbd></button>
+  <button class="btn">Vpřed <kbd>&rarr;</kbd><svg viewBox="0 0 20 20"><path d="M5 3v14l10-7z"/></svg></button>
+  <div class="prog"><div class="track"><i></i></div><span><span>Krok 6 z 12: SW1 rozesílá rámec</span><span>dvojice: Alice &rarr; Bob</span></span></div>
+  <div class="speed">Rychlost <b>1&times;</b></div>
+</footer>
+<script>
+(function(){var m=location.hash.match(/s=(\w+)/),t=location.hash.match(/t=(\w+)/);
+if(m)document.body.dataset.s=m[1]; if(t)document.body.dataset.t=t[1];})();
+</script>
+</body>
+</html>

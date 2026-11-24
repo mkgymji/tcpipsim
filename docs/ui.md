@@ -1,6 +1,6 @@
 # UI: vizuální jazyk a rozvržení
 
-Stav: návrh v2 (iterace 1, sjednoceno podle `docs/rozhodnuti.md` 1–16), autor kreativec. Prototyp úrovně 1: `prototypes/uroven1.html`
+Stav: návrh v3 (přidána kap. 11 Úroveň 2: Adresy, prototyp `prototypes/uroven2.html`); návrh v2 (iterace 1, sjednoceno podle `docs/rozhodnuti.md` 1–16), autor kreativec. Prototyp úrovně 1: `prototypes/uroven1.html`
 (snímek `prototypes/uroven1.png`, 1400x900); prototyp ještě ukazuje obálky L5 a L6 a 16 kroků, platí tento dokument. Číselné hodnoty kontrastu jsou spočítané skriptem (vzorec WCAG 2.x).
 
 ## 0. Zásady
@@ -36,11 +36,11 @@ Cílový rozměr 1280x720 a víc (projektor), návrh ladíme na 1400x900. Pevná
 ```
 
 - **Horní lišta (56 px):** název, aktuální úroveň, přepínač ISO/OSI (7) / TCP/IP (4). Přepínač jde použít i uprostřed animace: stejný stav, jiné popisky (viz 2.3).
-- **Plocha topologie (nahoře vlevo):** v úrovni 1 dvě PC a kabel. Od úrovně 3 roste (scroll/zoom, editor topologie, viz 8). Aktivní zařízení má silný obrys.
+- **Plocha topologie (nahoře vlevo):** v úrovni 1 dvě PC a kabel; od úrovně 2 hvězda se switchem/hubem (kap. 11.1). Od úrovně 3 roste (scroll/zoom, editor topologie, viz 8). Aktivní zařízení má silný obrys.
 - **Výtah (pod topologií):** tři sloupce. Vlevo sloupec vrstev odesílatele (L7 nahoře, L1 dole), uprostřed právě putující zpráva jako blok „data“ s vnořenými obálkami L4, L3, L2 (jen tyto tři; L5 a L6 se uprostřed nekreslí), vpravo sloupec vrstev příjemce. Sloupec vrstev má vždy všech 7 (ISO/OSI) nebo 4 (TCP/IP) řádků; L5–L7 v něm jen svítí jako „zpráva je tady jako data“, bez vlastní obálky. Aktivní vrstva má dvojitý obrys a šipku. Neaktivní/budoucí vrstvy jsou čárkované s bílým pozadím, hotové mají plnou barvu.
 - **Vysvětlivka (pravý panel nahoře):** číslo kroku, název kroku, max. dvě věty, jednou větou co bude dál. Je `aria-live="polite"`. Pojmy ze slovníku `docs/slovnik.md`; zjednodušení značíme „Simulátor zjednodušuje: ...“.
-- **Rentgen (pravý panel uprostřed):** v úrovni 1 jen zašedlý zástupný text (patička „konec rámce“ je vidět, její obsah až v rentgenu). Od úrovně 2 po kliknutí na obálku ukáže pole hlavičky (tabulka pole, bity, hodnota, vysvětlení) a hexdump; zvýrazněné pole se spojí čarou s odpovídající částí obálky. Může se rozšířit na celou výšku pravého sloupce.
-- **Terminál (pravý panel dole):** v úrovni 1 jen úzký zástupný pruh. Po otevření (klik na PC nebo scénář) se roztáhne nad rentgen jako vysouvací panel (Esc zavře). Písmo monospace, min. 18 px.
+- **Rentgen (pravý panel uprostřed):** v úrovni 1 jen zašedlý zástupný text (patička „konec rámce“ je vidět, její obsah až v rentgenu). Na úrovni 1 se panel jmenuje „Detail“ (rozhodnutí 20). Od úrovně 2 je to rentgen (návrh v kap. 11.4): po kliknutí na obálku ukáže pole hlavičky (tabulka pole, bajty, hodnota, vysvětlení vybraného pole) a hexdump; zvýrazněné pole se spojí čarou s odpovídající částí obálky. Může se rozšířit na celou výšku pravého sloupce.
+- **Terminál (pravý panel dole):** v úrovni 1 jen úzký zástupný pruh. Po otevření (klik na PC nebo scénář) se na úrovni 1 roztáhne nad rentgen jako vysouvací panel (Esc zavře); od úrovně 2 je to okno nad výtahem (kap. 11.5). Písmo monospace, min. 18 px.
 - **Ovládání (spodní lišta, 84 px):** Zpět, Přehrát/Pauza (největší tlačítko, tmavé), Vpřed, posuvník kroků (klikací, tažný), rychlost.
 - Od úrovně 3: pod výtahem časová osa (sekvenční diagram) a výtah se přepíná mezi zařízeními na cestě (klik na zařízení v topologii).
 
@@ -109,11 +109,7 @@ Pro projektor ve třídě je výchozí světlé téma (projektory „vypírají�
 - **Vnořování:** zpráva je v jádru, bloku „data“ (bílý box s tmavým rámem, text zprávy, např. „Ahoj, Bobe!“, značka šestiúhelník `L7`, popisek „data“). Každá vrstva při zapouzdření přidá obálku **kolem** předchozí: L4 nejvnitřnější, L2 nejvnější. Pořadí zevnitř je pevné: data, segment (L4), paket (L3), rámec (L2).
 - **Průchod L7–L5 v režimu ISO/OSI:** zpráva ve sloupci vrstev projde L7, L6, L5 jako „data“ bez změny tvaru; řádky L5 a L6 se krátce zvýrazní s textem vysvětlivky „V TCP/IP tyhle úkoly řeší aplikace (např. šifrování TLS, kódování znaků), vrstva žádnou hlavičku nepřidává.“ Žádná obálka nevznikne.
 - **Štítek (úroveň 1):** pásek na horní hraně obálky: vlevo „L2 Linková“, vpravo název PDU („rámec“). Nic víc. L2 má navíc dole proužek „konec rámce“ (patička, v rentgenu FCS), aby student viděl, že rámec obálku i uzavírá (rozhodnutí 2). Jiné obálky patičku nemají.
-- **Štítek (úroveň 2):** pod pásek přibude řádek adres podle vrstvy, písmo monospace 16 px, zdroj vlevo a cíl vpravo:
-  - L2: `zdrojová MAC -> cílová MAC`,
-  - L3: `zdrojová IP -> cílová IP`,
-  - L4 (UDP provoz „zprávy“ z rozhodnutí 13): `zdrojový port -> cílový port`; příznaky TCP až od úrovně 4.
-  Nikdy „odesílatel -> příjemce“: za routerem je cílem rámce další skok, ne příjemce (rozhodnutí 15). Hodnoty jsou ze simulace, ne vymyšlené. Od úrovně 3: TTL u L3. Zkratky hlaviček (SA, DA) nejdřív rozepsat. V rentgenu jsou pole ve skutečném pořadí (cílová MAC první), štítek ukazuje pořadí „odkud -> kam“ kvůli čitelnosti; rozdíl vysvětlí poznámka v rentgenu.
+- **Štítek (úroveň 2):** pod pásek přibude řádek adres, dvě buňky vedle sebe, **zdroj vlevo, cíl vpravo**. Podrobně kap. 11.3 (popisky buněk, tučný poslední bajt, číslování polí). Pořadí „zdroj, cíl“ je vždy stejné; nikdy „odesílatel -> příjemce“ (rozhodnutí 15, za routerem je cílem rámce další skok). Hodnoty jsou ze simulace. Od úrovně 3 přibude TTL u L3.
 - **Úroveň 2 a ARP:** MAC adresa cíle je předvyplněná, vysvětlivka řekne „Simulátor zjednodušuje: MAC adresu Boba už PC A zná; jak ji zjistí, uvidíš v úrovni 3“ (rozhodnutí 14). Štítek L2 je proto vyplněný od začátku.
 - **Úroveň 3: zprávy bez některé obálky.** Pořadí vnoření zůstává, jen jedna úroveň chybí a chybějící místo je vidět:
   - **ARP:** kolem bloku „ARP zpráva“ je jen obálka L2 (rámec). Obálka L3 ani L4 není. Blok ARP je bílý s tmavým rámem jako „data“, s popiskem „ARP zpráva v rámci“ a v rentgenu EtherType `0x0806`. Ve sloupci vrstev je u L3 a L4 textová poznámka „bez hlavičky L3“; řádky nejsou zvýrazněné jako aktivní (čárkované, stav „čeká“ se nemění na „hotovo“). ARP zpráva se nenazývá paket.
@@ -162,7 +158,8 @@ Kroky jsou diskrétní (udělej-to-teď); animace jen vysvětluje přechod mezi 
 | `T` | přepnout ISO/OSI <-> TCP/IP |
 | `R` | rentgen vybrané obálky (úroveň 2+) |
 | `Tab` / `Shift+Tab` | procházení obálek a vrstev; `Enter` = rentgen |
-| `` ` `` nebo `F2` | terminál (později); `Esc` zavře panel |
+| `` ` `` nebo `F2` | terminál vybraného zařízení (úroveň 2+); `Esc` zavře okno |
+| `1`..`5` (úroveň 2) | vybere pole v rentgenu podle čísla; `Enter` na portu = zapnout/vypnout tip |
 | `?` | nápověda s přehledem zkratek |
 Zkratky se nespouští, když je kurzor v textovém poli (terminál). Mezerník na tlačítku nesmí dělat dvě věci (tlačítko Pauza a globální mezerník = totéž). Každé tlačítko má text i zkratku v `<kbd>`.
 
@@ -213,3 +210,80 @@ Krok 8 se v čítači počítá jako jeden krok (podkroky se krokují šipkami a
 - Vyřešeno rozhodnutími: počet kroků úrovně 1 (0–10, rozhodnutí 3), obálky L5 a L6 se nekreslí (rozhodnutí 1).
 - Zda podkroky 8a–8c počítat do čítače zvlášť (návrh: ne, viz 9); potvrdí vývojář a didaktik.
 - Skutečný test barev na školním projektoru: pilot v semináři.
+
+## 11. Úroveň 2: Adresy
+
+Prototyp `prototypes/uroven2.html` (stav: krok 6 z 12, SW1 floodoval první rámec, rentgen ukazuje Ethernet hlavičku). Snímky:
+`prototypes/uroven2.png` (1400x900), `prototypes/uroven2-720.png` (1280x720), varianty `uroven2-predikce.png`, `uroven2-terminal-windows.png`, `uroven2-terminal-cisco-720.png`.
+Stavy prototypu se přepínají v URL: `#s=flood|pred|drop` a `#t=win|cisco`. Čísla kroků v prototypu (6 z 12) jsou ilustrační, pořadí podle scénáře úrovně 2.
+Scénář: Alice (PC A, `192.168.1.10`, MAC `02:00:00:00:00:01`) posílá UDP zprávu „Ahoj, Bobe!“ Bobovi (`.20`, `...:02`); třetí je Cyril (`.30`, `...:03`); porty 49152 -> 5000. Konvence adres (rozhodnutí 13, 14, 15).
+
+### 11.1 Topologie se 3 PC a switchem; výtah jen pro dvojici
+- **Plocha topologie** je na úrovni 2 vyšší (300 px při 900 px výšky okna, 256 px při 720), výtah pod ní zůstává (428 px / 300 px). Zbytek rozvržení kap. 1 se nemění.
+- **Hvězda:** Alice vlevo, SW1 uprostřed, Bob a Cyril vpravo pod sebou. Kabely jsou vodorovné (porty switche jsou ve stejné výšce jako PC), takže se nekříží a po kabelu se dá kreslit rámec. Pod ikonou PC jméno, IP (mono) a stavová „pilulka“ s textem a symbolem (odesílatel, rámec přichází, přijal s fajfkou, zahodil s křížkem v kruhu); nikdy jen barva.
+- **Výtah je vždy jen pro jednu dvojici odesílatel -> příjemce.** Sloupce vrstev mají jen tato dvě PC (hlavička „Alice, odesílatel“ / „Bob, příjemce“), uprostřed rámec Alice -> Bob. Dvojice ve výtahu má v topologii dvojitý obrys (vysvětlí popisek „dvojitý obrys = dvojice ve výtahu“). Změna dvojice: klik na jiné PC jako odesílatele (Shift+klik jako příjemce) nebo výběr ve scénáři. Cyril, který není ve dvojici, nemá sloupec; co s rámcem udělá, ukazuje jeho pilulka a rentgen (po kliknutí na Cyrila se výtah přepne na dvojici Alice -> Cyril a ukáže jeho L2 jako „zahazuje“). Proč ne tři sloupce: 3 x 7 řádků se nevejdou ani při 900 px a odvádějí pozornost od zapouzdření.
+- **Co je ve výtahu při průchodu switchem:** jen rámec (obálky L2, L3, L4, data). Switch nemá sloupec 7 vrstev, protože čte jen L2.
+- **Switch (karta SW1 uprostřed topologie):** hlavička (ikona, název, „switch, čte jen L1-L2“), **mini sloupec vrstev jen se dvěma řádky L2 Linková a L1 Fyzická** (stejné barvy a značky jako ve výtahu; aktivní řádek má dvojitý obrys) a pod ním MAC tabulka (11.2). Řádek L3 a výš ve switchi není, proto je jasné, že IP adresu ani port nečte. Výtah v titulku prostředního sloupce říká „SW1 čte pole 1 a 2“ (čísla polí sedí na štítek obálky a rentgen, 11.3, 11.4).
+- **Porty** jsou čtvercové štítky na okraji karty (`Fa0/1`, `Fa0/2`, `Fa0/3`, 16 px tučně) s druhým řádkem stavu: `vstup` (světlá výplň L2, rámec přišel), `ven` (silnější obrys, rámec odešel), u předpovědi `klik`. Stav se pozná textem a obrysem, ne barvou.
+- **Rámec na kabelu:** malý štítek „rámec“ s šipkou ve směru jízdy (hnědá L2, protože po kabelu už jede rámec; při kroku „bity“ se mění na pruh bitů jako v kap. 3). Kabel ke switchi: jeden štítek; po rozeslání jeden štítek na každém výstupním kabelu.
+- **Flooding vs. cílené přeposlání** (rozlišení bez barvy):
+  - flooding: rámec vstoupí na Fa0/1, switch ho „rozdělí“ (animace 400 ms: kopie vyjedou současně) na všechny ostatní porty; vedle karty text „neznámá cíl. MAC -> flooding“, na kabelech výstupních portů štítky „rámec“; každý výstup má vlastní koncové PC se stavem;
+  - cílené přeposlání: štítek „rámec“ je jen na jednom výstupním kabelu, ostatní kabely jsou prázdné a jejich port má stav `-` (bez šipky) s textem „nic neposlal“;
+  - switch nikdy neposílá zpět na příchozí port: port `vstup` se při předpovědi nedá vybrat (tečkovaný obrys).
+  - Hub (úroveň 2 přepínač hub/switch): karta bez MAC tabulky a bez mini sloupce L2; mini sloupec má jen L1 Fyzická a text „opakuje bity na všechny porty“; flooding je u něj vždy.
+- **Cyril zahazuje rámec:** na jeho kabelu rámec dojede, v jeho pilulce „zahodil“ (křížek v kruhu), 700 ms po dojezdu štítek rámce vybledne a nad Cyrilem se na chvíli ukáže „cílová MAC není moje (…:02), zahazuji“. Ve výtahu dvojice Alice -> Cyril je totéž ve sloupci Cyril: řádek L2 s křížkem a textem místo předávání výš. Bob rámec „přijal“ (fajfka), pak vystoupí zbytek jeho výtahu.
+- Při výšce okna do 820 px se v řádcích výtahu skryje druhý řádek „kdo se stará“ (síťová karta, OS) a zobrazí se po najetí/kliknutí na řádek.
+
+### 11.2 MAC tabulka switche
+- Tabulka je **živá část karty SW1** (ne popup): záhlaví „MAC tabulka SW1“ (tmavý pruh), sloupce MAC adresa a Port, řádek na záznam, 15 px mono. Seřazeno podle času přidání. Kapacita: 4 řádky, víc se rolují.
+- **Nový záznam:** tučný 4 px černý obrys řádku, světlá výplň L2 a štítek **„nový“** (text, ne jen zvýraznění). Zvýraznění trvá do konce kroku a při krokování zpět zmizí spolu se záznamem. Aktualizace portu (host se přestěhoval) má štítek „změna“.
+- **Hledání cíle:** pod záznamy je řádek s čárkovanou horní čarou „…:02 ?“ (hledaná cílová MAC). Pokud ji tabulka zná, v řádku je port a štítek „nalezeno“, jinak „?“ a text vysvětlivky „v tabulce není -> flooding“. Pořadí kroků: 1. rámec přijde na Fa0/1, 2. učení (zdrojová MAC), 3. hledání cíle, 4. rozeslání/přeposlání. Každý má vlastní krok s tím, co se v tabulce zvýrazní.
+- Spojení s rentgenem: v kroku učení se zdrojová MAC (pole 2) v rentgenu i ve štítku obálky zvýrazní stejným obrysem jako řádek tabulky; v kroku hledání pole 1.
+- `Stárnutí` (300 s) se v úrovni 2 nekreslí (označit zjednodušení v dalším kroku scénáře); úroveň 3 přidá sloupec stáří.
+- Terminál `show mac address-table` (11.5) vypíše týž obsah ve formátu Cisco (`0200.0000.0001`), student ho má porovnat s tabulkou.
+
+### 11.3 Štítky obálek s adresami
+- Každá obálka (L2, L3, L4) má pod páskem „L? Vrstva / PDU“ **dvě bílé buňky vedle sebe**: zdroj, cíl. V každé buňce je nahoře popisek 15 px („zdroj MAC (Alice)“, „cíl MAC (Bob)“; L3 „zdroj IP“, „cíl IP“; L4 „zdrojový port“, „cílový port“) a pod ním hodnota mono 16 px. Obrys buňky má sytou barvu vrstvy, text je černý.
+- **Čitelnost MAC:** 17 znaků je dlouhých, proto je **poslední bajt tučně a černě, ostatní bajty tlumeně** (`02:00:00:00:00:`**`02`**). Studenti pak rozlišují hosty podle posledního bajtu a nemusí číst celé. Totéž u IP (poslední oktet tučně), porty celé tučně. GUI vždy píše MAC s dvojtečkami; terminály mají vlastní formát (Windows pomlčky, Cisco tečky po 4 znacích, viz 11.5) a rozdíl se vysvětlí u terminálu, ne ve štítku.
+- Při výšce okna do 820 px (1280x720) se popisky skryjí a mezi buňky se vloží šipka `->`: „02:..:01 -> 02:..:02“; v obou rozvrženích je zdroj vlevo.
+- **Číslo pole:** v pravém horním rohu buňky je černý čtvereček s číslem pole podle rentgenu (1 cílová MAC, 2 zdrojová MAC; v rentgenu 3 EtherType atd.). Štítek ukazuje pořadí „zdroj, cíl“ kvůli čtení zleva doprava, rentgen skutečné pořadí rámce (cíl první); rozdíl je napsán pod rentgenem a čísla polí propojují obě místa.
+- **Vybrané pole** (kliknuté v rentgenu nebo ve štítku) má 3 px černý obrys (`outline`), v rentgenu stejný obrys řádku.
+- Do štítku se nikdy nepíše „odesílatel / příjemce“. Ve štítku L2 jsou jména v závorce jen pro čtenáře („Alice“, „Bob“); jsou to jména zařízení, ne role.
+- Obálky mají v tomto rozvržení výšku podle obsahu; L5 a L6 se nekreslí (rozhodnutí 1). U úrovně 2 je blok „data“ označen „L7 data (obsah zprávy)“.
+
+### 11.4 Rentgen
+- Pravý sloupec: nahoře vysvětlivka (kap. 1), pod ní karta **„Rentgen: rámec L2 (Ethernet II)“**. Šířka sloupce 420 px (380 px pod 1360 px) kvůli hexdumpu. Karta nahrazuje „Detail“ z úrovně 1; v ní jsou:
+  1. **Záložky obálek** (rámec L2, paket L3, segment L4) se značkou vrstvy a barvou vrstvy; aktivní má plnou barvu a bílý text. Klik na obálku ve výtahu nebo klávesa `R` vybere záložku. Rentgen paketu a segmentu má stejnou stavbu (pole IPv4, UDP podle `docs/spec`).
+  2. **Tabulka polí v pořadí v rámci:** číslo (černý čtvereček), pole, velikost v bajtech (u příznaků a bitů se doplní sloupec bitů), hodnota (mono). Pole, která čte aktuálně aktivní zařízení (switch: pole 1 a 2), mají **tlustou svislou čáru vlevo** a v legendě je napsáno „Silná čára vlevo = pole, které čte switch“ (text, ne jen barva). Vybraný řádek: světlá výplň vrstvy, černý obrys 3 px.
+  3. **Hexdump:** 8 bajtů na řádek (ne 16, kvůli šířce), offset vlevo; zobrazí se začátek (hlavička), „… data rámce = paket L3“, konec (data, výplň, FCS) – ostatní se sbalí. Bajty vybraného pole: sytá barva vrstvy, bílý tučný text, 3 px spodní čára; ostatní bajty hlavičky L2: světlá výplň a hnědá spodní čára; obsah paketu (L3): světlá zelená a zelená čára; výplň: šedá s tečkovanou čárou; FCS: dvojitá čára a „--“ (nepočítá se, zjednodušení). Odlišení je i tvarem čáry (plná, tečkovaná, dvojitá), ne jen barvou. Bajty se nepřepisují na ASCII (zjednodušení).
+  4. **Vysvětlení vybraného pole** pod hexdumpem, 1-2 věty: „1 Cílová MAC: komu je rámec určen na tomto kabelu. Podle ní SW1 vybírá port; je v rámci první.“ Pod ním poznámka o pořadí (11.3).
+- **Propojení pole a bajtů:** najetí myší na řádek tabulky, na bajty v hexdumpu nebo na buňku štítku zvýrazní **totéž pole na všech třech místech** (řádek tabulky, bajty, buňka štítku). Kliknutí pole zafixuje; `1`..`5` vybere pole z klávesnice; `Esc` zruší výběr. Nepoužívá se spojovací čára přes celou obrazovku (zbytečně křižuje výtah); propojení nese číslo pole a shodný obrys.
+- **Zvýraznění důležitých polí:** pole, na kterých podle scénáře záleží (cílová MAC při hledání v tabulce switche, zdrojová MAC při učení; na L3 TTL a IP adresy; na L4 porty), se při příslušném kroku vyberou automaticky a vysvětlivka na ně odkáže číslem („pole 2“).
+- **Rozměry:** na výšce 720 px zmizí legenda i řádek „… data“ v hexdumpu, tabulka má řádek 26 px.
+
+### 11.5 Terminál
+- **Otevření:** klik na PC nebo switch v topologii (nebo `F2`) vybere zařízení; **tlačítko „Terminál“** se objeví v jeho kartě a otevře **okno nad výtahem** přes celou šířku levého sloupce. Topologie nad ním zůstává vidět, aby šlo hned sledovat účinek příkazů (živá MAC tabulka). Pravý panel zůstává. Zavření: tlačítko „Zavřít Esc“ v záhlaví a klávesa `Esc`; přehrávání se otevřením neruší (krokování ovládacími tlačítky funguje dál, klávesy ne, dokud je kurzor v okně).
+- **Společné:** monospace systémový font 18 px (16 px při výšce do 820 px), kurzor viditelný, 4 px černý rámeček okna, záhlaví 44 px se jménem zařízení, štítkem druhu terminálu (text) a tlačítkem Zavřít. Terminál si zachová historii příkazů zařízení po dobu scénáře; šipka nahoru jako v shellu.
+- **Windows (PC):** pozadí `#0C0C0C`, text `#CCCCCC` (kontrast 12,6), prompt `C:\Users\Alice>` bíle, kurzor podtržítko, záhlaví světle šedé `#E4E6E9` s tmavým textem a štítkem „Windows“. Příkazy úrovně 2: `ipconfig /all` (Physical Address s pomlčkami `02-00-00-00-00-01`), `arp -a`. Hlášky anglicky podle rozhodnutí 10 s českou poznámkou simulátoru pod výpisem.
+- **Cisco IOS (switch):** pozadí námořnická modř `#081F33`, text `#E6F4EA` (kontrast 15), prompt `SW1#` žlutě (`#FFE9A8`), kurzor plný blok, záhlaví `#0F3A5C` s bílým textem a štítkem „Cisco IOS“. Příkazy úrovně 2: `show mac address-table` (formát `0200.0000.0001`, Type DYNAMIC, Ports Fa0/1). Stejné okno je pro hub nedostupné (hub nemá konzoli).
+- **Odlišení bez kopírování grafiky:** liší se barva pozadí, prompt, tvar kurzoru, zápis MAC a textový štítek druhu; žádná loga ani prvky oken Windows nebo Cisco. Zvýrazněná hodnota (MAC adresa, na kterou se ptáme) má obrácené barvy.
+- **Projektor:** tmavé okno je v jinak světlém UI nejtmavší plocha; v nastavení volba „Světlý terminál“ (černý text na bílé, stejné zalamování).
+
+### 11.6 Předpověď studenta „na který port switch pošle rámec?“
+- Kdy: po kroku, kdy rámec dorazil na Fa0/1 a switch se naučil zdrojovou MAC, před krokem „hledání cíle“. Vysvětlivka změní titulek na „Předpověz: kam SW1 rámec pošle?“, ovládání Vpřed zůstává (předpověď lze přeskočit šipkou vpravo).
+- **Interakce:** porty `Fa0/2` a `Fa0/3` mají čárkovaný obrys a text `klik`; klik (nebo Enter na portu zaostřeném Tabem) zapne/vypne **tip**: port dostane silný obrys, černý štítek „tip“ nad okrajem a vnější kroužek. Víc portů je možné (flooding). Port `Fa0/1` (příchozí) není volitelný (tečkovaný obrys, text „vstup“). Potvrzení: `Enter` nebo tlačítko Vpřed s popiskem „Potvrdit tip“ (kontrola se spustí až po potvrzení).
+- **Vyhodnocení** po rozeslání: vysvětlivka ukáže jedním řádkem „Tvůj tip: Fa0/2. Skutečnost: Fa0/2 i Fa0/3.“ Porty s tipem si ponechají štítek „tip“ vedle stavu `ven`; port, který student neoznačil a switch ho použil, žádný štítek nemá (rozdíl je vidět i v textu řádku). Neúspěch nehodnotíme červeně ani bodem; je to otázka k přemýšlení. Pro učitele: počet správných tipů se vypisuje v pravém panelu „Kontrolní otázky“.
+- Totéž později: u cíleného přeposlání (Bob už v tabulce) se otázka opakuje a správný tip je jediný port.
+
+### 11.7 Co se mění ve stávajících částech
+- **Plocha topologie** (kap. 1): v úrovni 1 přibude jen kabel; od úrovně 2 hvězda a karta switche. Kreslení rámce je stejné (kap. 3, 4); přibyla jedna animace: rozdělení rámce ve switchi (400 ms, `transform`+`opacity`), při 0,25x až 4x se násobí stejně. Reduced motion: místo rozdělení se jen krátce zvýrazní porty `ven`.
+- **Barvy:** nic nové; MAC tabulka a terminály používají jen neutrální barvy a L2 (světlá), čísla polí jsou černá.
+- **Ikony** (kap. 7): switch je v topologii jako karta s ikonou 42x36 px. Značka nejvyšší vrstvy (L2) je mini řádek v kartě.
+- **Rozvržení při menší výšce** (do 820 px): topologie 256 px, výtah 300 px, řádky vrstev 33 px bez řádku „kdo se stará“, štítek obálky v jednom řádku se šipkou. Minimální písmo zůstává 15 px.
+
+### 11.8 Otevřené otázky úrovně 2
+- Počet kroků a jejich pořadí určí scénář didaktika (kap. 11 má jen ilustrativní krok 6 z 12).
+- Zda má Shift+klik pro volbu příjemce stačit, nebo přidat výběr dvojice rozbalovacím seznamem (pro dotykový projektor).
+- Jméno zařízení vs. role: ve scénáři zůstávají Alice, Bob, Cyril; kontrola s didaktikem (didaktika.md kap. úroveň 2).
+- Hub vs. switch: přepínač v topologii (jedna karta se jménem „SW1“ / „HUB1“) a vlastní návrh karty hubu (jen L1) se dopracuje spolu se scénářem.
+- Test čitelnosti MAC (tučný poslední bajt) na školním projektoru: pilot.
