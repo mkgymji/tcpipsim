@@ -51,3 +51,17 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     další skok). V rentgenu skutečné pořadí polí (cílová MAC první).
 16. **Hub se neoznačuje jako „opakovač“** (repeater je jiné zařízení). Rozbalení L2 odstraní hlavičku
     i patičku. Bity na drátě bez preambule = označené zjednodušení.
+
+## 2026-11-24 — po kontrole úrovně 1 (recenzent, projektant, didaktik, student-tester)
+
+17. **Krok 5 se přepisuje:** po drátě jede celý rámec, obálky i zpráva, jako bity; kabel je nerozlišuje.
+    Původní text vytvářel miskoncepci „obálky se neposílají“ (student-tester ji v odpovědích převzal).
+18. **„Kdo se stará“ u L1 a L2:** „síťová karta (hardware a firmware)“. Michalova prezentace říká
+    „firmware síťového rozhraní“, L1 je ale hardware; „síťová karta“ je termín z praxe. model.md sjednotit.
+19. **Odloženo:** zpětná animace kroku vzad a animované slučování řádků při přepnutí modelu
+    (krok vzad zatím okamžitý se zvýrazněním). Přepínač „Barvy | Barvy + písmena“ se nedělá,
+    písmena L1–L7 jsou vidět vždy.
+20. **Panel vpravo se na úrovni 1 jmenuje „Detail“**, rentgen až od úrovně 2; terminál se na úrovni 1 neukazuje.
+21. **Adresa stránky nese stav:** `#k=<číslo kroku jako v UI, např. 8b>&m=osi|tcpip`, aby šlo poslat
+    odkaz na konkrétní krok (učitel → studenti).
+22. **IPv4 Identification** = čítač na uzel od 1 (podle ipv4.md), ne náhoda.
