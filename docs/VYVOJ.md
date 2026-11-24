@@ -502,3 +502,8 @@ Odhad v pracovních dnech vývojáře (agent + kontrola), bez času ostatních r
 | 4 | úroveň 4 Transport a aplikace: udp, tcp (handshake, ACK, ztráta, retransmise, ukončení), dns, http, `netstat`/`nslookup`, editor topologie | 9 | 6 | 15 | vysoké (TCP, editor) |
 
 Editor topologie lze přesunout do iterace 3, pokud ho didaktik potřebuje dřív (nezávisí na TCP).
+
+## Ikona
+
+`img/favicon.svg` (vnořené obálky L2, L3, L4 v barvách palety) a `img/apple-touch-icon.png` 180x180
+(vyrenderováno z SVG headless Chromiem). Offline verze (`tools/bundle.mjs`) musí favicon vložit jako data URL.
