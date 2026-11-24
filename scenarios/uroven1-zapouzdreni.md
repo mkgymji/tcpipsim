@@ -81,9 +81,12 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
 
 - Vidí: obálky se v dolní vrstvě rozpadnou na řadu 0 a 1; kolem ní šedá stuha „bity“. Barevné
   proužky ještě chvíli prosvítají (aby šlo pochopit, že jde o stejnou věc, jen zakódovanou).
-- Text: „Fyzická vrstva přepsala celý rámec, obálky i zprávu, na bity (0 a 1). Po drátě jede
-  všechno, jen už nejde poznat, co je zpráva a co obálka.“ (rozhodnutí 17: původní „obálky se
-  neposílají“ vytvářelo miskoncepci)
+- Text (ISO/OSI): „Fyzická vrstva přepsala celý rámec, obálky i zprávu, na bity (0 a 1). Po drátě jede
+  všechno, kabel ale obálky od zprávy nerozlišuje.“ (TCP/IP: „Vrstva síťového rozhraní přepsala …“,
+  aby text seděl se sloupcem vrstev.) Rozhodnutí 17: původní „obálky se neposílají“ vytvářelo
+  miskoncepci. Dodatečná oprava didaktika: formulace „už nejde poznat, co je zpráva a co obálka“
+  mohla svádět k dojmu, že se informace ztratí; příjemce rámec správně složí a obálky rozliší,
+  nerozlišuje je jen kabel.
 
 ### Krok 6: Bity jedou po drátě
 
