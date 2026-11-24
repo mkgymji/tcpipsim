@@ -32,12 +32,12 @@ export function buildSteps(records, stepDefs) {
 
 const LAYERS = [1, 2, 3, 4, 5, 6, 7];
 
-function emptyNode(role) {
+export function emptyNode(role) {
   return { role, pos: role === 'sender' ? 8 : 0, layers: Object.fromEntries(LAYERS.map((n) => [n, 'wait'])) };
 }
 
 // Posun zprávy v uzlu na vrstvu `layer`: předchozí aktivní a mezilehlé vrstvy jsou hotové.
-function move(node, layer) {
+export function move(node, layer) {
   const lo = Math.min(node.pos, layer), hi = Math.max(node.pos, layer);
   for (const n of LAYERS) {
     if (n >= lo && n <= hi && n !== layer) node.layers[n] = 'done';
@@ -47,7 +47,7 @@ function move(node, layer) {
   node.pos = layer;
 }
 
-function finish(node) {
+export function finish(node) {
   for (const n of LAYERS) if (node.layers[n] === 'active') node.layers[n] = 'done';
 }
 
@@ -118,9 +118,12 @@ export function viewAt(records, upto) {
 }
 
 export class Timeline {
-  constructor(records, stepDefs) {
+  // viewFn(records, upto, from) = pohled po záznamu `upto`; `from` = první záznam kroku
+  // (úroveň 2 podle něj zvýrazní, co se v kroku změnilo).
+  constructor(records, stepDefs, viewFn = viewAt) {
     this.records = records;
     this.steps = buildSteps(records, stepDefs);
+    this.viewFn = viewFn;
     this.cursor = 0;
   }
 
@@ -130,7 +133,7 @@ export class Timeline {
   view(k = this.cursor) {
     const step = this.steps[k];
     if (!step) throw new RangeError(`Krok ${k} neexistuje`);
-    return { ...viewAt(this.records, step.last), step,
+    return { ...this.viewFn(this.records, step.last, step.first), step,
       changes: this.records.slice(step.first, step.last + 1) };
   }
 

@@ -1,10 +1,12 @@
 # Vývoj tcpipsim
 
-Stav: iterace 1, úroveň 1 „Barvičky“ funguje (výtah, kroky 0–10, ISO/OSI ↔ TCP/IP), opravené
-nálezy kontroly čtyř rolí (rozhodnuti.md body 17–22). Autor: vývojář.
-Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), přenos zprávy přes Ethernet/IPv4/UDP
-na jedné lince, kódování rámce do bajtů, UI úrovně 1. Rozhodnutí jsou psaná s důvodem, aby šla
-zpětně zvrátit.
+Stav: iterace 2. Úroveň 1 „Barvičky“ beze změny chování (adresy sjednocené podle rozhodnutí 25),
+úroveň 2 „Adresy“ funguje (kroky 0–17 podle `scenarios/uroven2-adresy.md`, hub a switch, MAC tabulka,
+rentgen, terminál Windows a Cisco IOS, předpověď). Autor: vývojář.
+Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), síťová simulace s více uzly
+(`core/netsim.js`: PC se zásobníkem Ethernet/IPv4/UDP, hub, switch), runner testovacích vektorů,
+kódování rámce do bajtů a pole pro rentgen, terminál nad pohledem (`cli/`), UI úrovní 1 a 2.
+Rozhodnutí jsou psaná s důvodem, aby šla zpětně zvrátit.
 
 ## 0. Rychlý start
 
@@ -39,7 +41,8 @@ Safari 16.4+). Nic se neinstaluje, `package.json` není potřeba.
 index.html              hlavní stránka (kostra UI úrovně 1, chyby zachytává do data-errors)
 css/app.css             styly (paleta kreativce, docs/ui.md), proměnné v :root
 js/
-  main.js               vstupní bod stránky: scénář -> jádro -> timeline -> UI, ovládání, klávesy
+  main.js               vstupní bod: výběr úrovně (#u=2), společné ovládání (krok, přehrávání, rychlost,
+                        model, klávesy, adresa); kreslení řeší adaptér úrovně ui/app1.js, ui/app2.js
   core/                 JÁDRO, bez DOM. Importuje jen z core/, proto/ a wire/
     index.js            veřejné API jádra (re-exporty), CORE_VERSION, FORMAT_VERSION
     scheduler.js        plánovač diskrétních událostí            [hotovo]
@@ -48,22 +51,27 @@ js/
     pdu.js              PDU s vnořením vrstev, id a rodokmen PDU  [hotovo]
     trace.js            záznam událostí                           [hotovo, delty od iterace 2]
     transfer.js         přenos jedné zprávy vrstvami mezi 2 uzly (úroveň 1)  [hotovo]
-    timeline.js         kroky ze scénáře (match), pohled po kroku k, vpřed/vzad  [hotovo]
-    world.js            svět: uzly, rozhraní, linky, stav, snapshot/restore
-    link.js             přenos po lince (zpoždění, později ztrátovost)
-    topology.js         načtení + validace topologie, migrace verzí formátu
-    addr.js             práce s MAC/IPv4/prefixy (parse, format, longest prefix match)
+    netsim.js           síť s více uzly: PC (Ethernet/IPv4/UDP, ARP tabulka jen čtená), hub, switch,
+                        akce udp_send / swap / mark, záznam + koncové tabulky  [hotovo, úroveň 2]
+    netview.js          pohled úrovně 2 po kroku: uzly, tabulky, štítky PC, porty, rámce na kabelech  [hotovo]
+    harness.js          runVector / compareVector (vektory.md kap. 5–7)  [hotovo]
+    addr.js             MAC (zápisy Windows/Cisco, skupinové), IPv4 (maska, síť, broadcast, multicast MAC)  [hotovo]
+    timeline.js         kroky ze scénáře (match), pohled po kroku k (viewFn podle úrovně), vpřed/vzad  [hotovo]
+    world.js, link.js, topology.js   (plán: snapshot světa, ztrátovost, validace a migrace formátu)
   proto/                moduly protokolů (bez DOM), jeden soubor = jeden protokol
     registry.js         statický registr protokolů, pořadí v zásobníku, demux()  [hotovo]
     ethernet.js ipv4.js udp.js   [úroveň 1: hlavička, přijetí, binds/demuxField]; arp.js icmp.js tcp.js dns.js http.js [dhcp.js nat.js]
-  devices/              chování typů uzlů (skládá protokoly): host.js hub.js switch.js router.js
-  wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071], pcap.js
-  cli/                  terminály nad jádrem (bez DOM): shell.js, wincmd/*.js, ios/*.js
-  scenario/             sestavení úrovně ze scénáře (level1.js), později sdílení odkazem (bez DOM kromě share.js)
+  devices/              chování typů uzlů: types.js (host/hub/switch), hub.js, switch.js (IEEE 802.1D); router.js (úroveň 3)
+  wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071],
+                        fields.js [pole pro rentgen: posun, délka, hodnota z bajtů, názvy CZ/Wireshark], pcap.js (plán)
+  cli/                  terminály nad pohledem (bez DOM): shell.js (dialekt podle typu uzlu), wincmd.js
+                        (ipconfig, ipconfig /all, arp -a), ios.js (show mac address-table, zkratky, chyby IOS)
+  scenario/             sestavení úrovně ze scénáře (level1.js, level2.js), později sdílení odkazem
   levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje: xray, terminal)
-  ui/                   UI: render.js (výtah, topologie, vysvětlivka, panel Detail; funkce vracejí
-                        HTML jako text, proto jdou testovat v Node), urlstate.js (#k=8b&m=tcpip),
-                        později rentgen, sekvenční diagram, terminal (okno nad cli/), editor/
+  ui/                   UI: render.js (úroveň 1 a společné: výtah, odznaky), render2.js (úroveň 2: hvězda
+                        s hubem/switchem, MAC tabulka, obálky s adresami, rentgen, vysvětlivka s předpovědí,
+                        řádky terminálu; funkce vracejí HTML jako text, testují se v Node), app1.js a app2.js
+                        (adaptéry úrovní: stav UI a události), urlstate.js (#u=2&k=8b&m=tcpip)
 scenarios/              scénáře: *.md (didaktik, text) a *.js (data pro simulátor, viz kap. 5.3)
 tests/
   run_all.sh            všechny testy (node + smoke v prohlížeči)
@@ -72,13 +80,13 @@ tests/
   browser/interact.html test ovládání v headless Chromiu (spouští run_all.sh, výsledek v data-result)
   proto/*.test.js       testy protokolů (kódování, checksumy)
   vectors/*.json        testovací vektory projektanta (docs/spec/vektory.md)
-  vectors.test.js       runner vektorů (od iterace 2, viz kap. 8)
+  core/vectors.test.js  runner vektorů (kap. 8)
 tools/
   bundle.mjs            jednosouborová offline verze (iterace 3–4)
 docs/                   dokumentace týmu
 ```
 
-**Pravidla závislostí** (hlídá `tests/core/deps.test.js`): `core/`, `proto/`, `devices/`, `wire/`,
+**Pravidla závislostí** (hlídá `tests/core/deps.test.js`, kontroluje všech šest složek): `core/`, `proto/`, `devices/`, `wire/`,
 `cli/`, `scenario/` nesmí importovat z `ui/` ani sahat na `document`/`window`/`localStorage`. `ui/` smí
 importovat z čehokoli. Žádné cyklické importy (kvůli bundleru R3).
 
@@ -174,6 +182,17 @@ aby z nich šla bez jádra vykreslit animace, sekvenční diagram, rentgen i pca
   (`registry.demux`). Vypnutý protokol = `drop` s důvodem „protokol není v této úrovni“.
   Hlavičky odesílatele berou hodnoty z `binds` modulu nad sebou (EtherType 0x0800, Protocol 17).
   IPv4 Identification je čítač na uzel od `node.ip_id_start ?? 1` (ipv4.md kap. 2).
+- **Úroveň 2 (hotovo):** `netsim.js` vyrobí záznamy `sim.start` (topologie a výchozí tabulky),
+  `app.send`, `udp_send`, `encap` ×3, `phy.tx`, `link.tx`, na hubu `phy.rx` + `repeat`, na switchi
+  `phy.rx` + `mac_learn` + `flood`/`forward`/`filter`, na PC `phy.rx` a buď `nic_drop` (karta), nebo
+  (v další události se stejným časem) `decap`, `ip_deliver`, `udp_deliver`, `app.recv`; akce scénáře
+  `mark` (krok bez provozu) a `swap` (výměna hubu za switch se stejnými kabely, `topo.swap`).
+  Karta filtruje hned, OS zpracuje přijatý rámec až v události `host.rx` se zpožděním 0: proto je
+  v záznamu nejdřív zahození u Cyrila a teprve potom rozbalování u Boba (pořadí kroků 7 a 8 ve
+  scénáři). `netViewAt(records, upto, from)` počítá pohled znovu z předpony (krok vzad je přesný
+  i s MAC tabulkou, test), záznamy od `from` jsou „tento krok“ (rámce na kabelech, porty vstup/ven,
+  nový řádek tabulky). Dvojice ve výtahu = poslední `app.send` (UI může příjemce přepnout klikem).
+  Zdrojový port klienta je první volný od 49152 (rozhodnutí 28; .md scénáře uvádí 50001).
 - Kurzor `timeline.goto(k)` vrátí **pohled** na stav po kroku k: tabulky uzlů, PDU na linkách,
   texty vysvětlivek. Dopředu se delty aplikují, dozadu se aplikují inverzně. Pro skok posuvníkem
   se ukládá pohled každých 32 kroků.
@@ -231,7 +250,7 @@ samostatně proti reálným rámcům (hexdump z Wiresharku jako vektor).
 | Úroveň | Výchozí protokoly |
 |---|---|
 | 1 Barvičky | ethernet, ipv4, udp (zpráva Alice → Bob; adresy skryté) |
-| 2 Adresy | ethernet, arp, ipv4, icmp, udp (+ hub, switch) |
+| 2 Adresy | ethernet, ipv4, udp (+ hub, switch; ARP tabulka jen předvyplněná, rozhodnutí 14; ARP a ICMP v úrovni 3) |
 | 3 Směrování | + router, icmp time-exceeded/unreachable, tracert |
 | 4 Transport a aplikace | + tcp, dns, http |
 | 5 Směrem k CCNA | + dhcp, nat, filtrace (acl) |
@@ -359,6 +378,11 @@ texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `
 
 ### 5.4 Sdílení odkazem
 
+- **Úroveň (hotovo):** `#u=2&k=12&m=osi`; bez `u` je úroveň 1 (staré odkazy platí). Výběr úrovně
+  v záhlaví a změna `u` v adrese stránku načtou znovu (jiné jádro i DOM). `<title>` podle úrovně.
+  Úroveň 2 navíc čte (pro odkazy a snímky): `x=ethernet|ipv4|udp` záložka rentgenu, `f=eth.dst` pole,
+  `t=PC1` otevřený terminál a `c=<příkaz>` (může být víckrát), `pick=Fa0/2,Fa0/3` tip předpovědi,
+  `pair=PC3` příjemce ve výtahu, `sel=SW1` vybraný uzel.
 - **Krok a model (hotovo, rozhodnutí 21):** `index.html#k=8b&m=tcpip`. `k` je označení kroku
   jako v UI (`8` = `8a`), `m` = `osi | tcpip`. Adresa se při krokování a přepnutí přepisuje
   (`history.replaceState`, historie se nezaplní) a změna adresy (`hashchange`) stránku přepne.
@@ -406,14 +430,17 @@ Měřit od iterace 2 na gaze (`performance.now()` v smoke testu).
 | Vrstva | Nástroj | Co |
 |---|---|---|
 | jádro, protokoly, cli | `node --test` (vestavěný, bez závislostí) | `tests/**/*.test.js` |
-| vektory projektanta | `tests/vectors.test.js` (iterace 2) | každý `tests/vectors/*.json` = jeden test |
+| vektory projektanta | `tests/core/vectors.test.js` | každý `tests/vectors/*.json` = jeden test; `ping-*` skip do úrovně 3 (ARP, ICMP) |
+| úroveň 2 | `tests/core/level2.test.js`, `devices.test.js`, `cli.test.js`, `tests/ui/render2.test.js` | testovací kritéria scénáře, switch/hub, terminál (vstup -> text), vykreslení všech kroků |
 | kódování | `tests/proto/*.test.js` | bajty proti hexdumpům reálných rámců, checksum = 0 po přepočtu |
 | logika UI | `node --test` (`tests/ui/`) | panel Detail pro všechna id × model, texty podle režimu, zakázané zkratky, adresa |
 | stránka | headless Chromium v `tests/run_all.sh` | načtení `index.html` bez chyb |
 | ovládání | headless Chromium, `tests/browser/interact.html` | klávesy, přepnutí modelu s otevřeným panelem, adresa, posuvník, pauza, dialog |
 | vzhled | `chromium --headless --screenshot=…` | ruční kontrola snímků (kreativec, recenzent) |
 
-**Runner vektorů** (`tests/vectors.test.js`, rozhraní pro iteraci 2):
+**Runner vektorů** (hotovo: `js/core/harness.js`, test `tests/core/vectors.test.js`). Navíc test, že
+runner pozná změněné očekávání (jiné pole, chybějící přenos, jiná tabulka, událost navíc), platné
+kontrolní součty IP a UDP a hexdump rámců 1 a 4 přesně podle `rentgen.md` kap. 6:
 
 ```js
 const run = runVector(vector);   // js/core/harness.js: topologie → svět, initial_state,
@@ -425,10 +452,11 @@ compareVector(vector.expected, run);  // pravidla vektory.md kap. 5–7: pořad�
                                       // velikost písmen, tabulky jako množiny, bez `age`
 ```
 
-`harness.js` převádí PDU jádra na tvar `pdu.eth/arp/ip/icmp` z vektorů a `frame_len` počítá
-přes `wire/encode.js`, takže vektor zároveň testuje kódování délek. Do té doby
-`tests/core/vectors-format.test.js` kontroluje aspoň tvar vektorů (verze, linky odkazují na
-existující rozhraní, každé rozhraní nejvýš v jedné lince).
+`harness.js` převádí PDU jádra na tvar `pdu.eth/ip/udp/data` z vektorů a `frame_len`, `total_length`
+a UDP `length` čte z bajtů z `wire/encode.js`, takže vektor zároveň testuje kódování délek. Odvozená
+směrovací tabulka se porovná s `initial_state.routing_table`. Vektory s akcí, kterou jádro ještě
+neumí (`ping`), runner přeskočí s důvodem (`vectorSkipReason`). `tests/core/vectors-format.test.js`
+dál kontroluje tvar všech vektorů.
 
 **Smoke test v prohlížeči** (ověřeno na gaze, Chromium 156):
 - `chromium --headless --dump-dom` nad **`http://127.0.0.1` na gaze zamrzne** (prohlížeč se
@@ -442,11 +470,16 @@ existující rozhraní, každé rozhraní nejvýš v jedné lince).
   `Uncaught|Error|CORS|Failed to load`. Jádro po úspěšném startu nastaví `data-core="ok"`.
 - Ověřeno, že test opravdu selže při výjimce v modulu i při chybějícím importu.
 - `--user-data-dir` do dočasné složky, aby test nekolidoval s otevřeným prohlížečem.
+- Smoke test načte `index.html` (úroveň 1) i `index.html#u=2&k=13&t=SW1&c=…` (úroveň 2 s terminálem).
 - **Test ovládání:** `tests/browser/interact.html` načte `index.html#k=8b&m=tcpip` v iframe
   (file:// + `--allow-file-access-from-files` = stejný původ), posílá události a kliká, výsledek
   zapíše do `<pre id="result" data-result="OK|FAIL">`; `run_all.sh` ho čte z `--dump-dom`
-  a vypíše řádky, které selhaly. Nový ovládací prvek = nová kontrola tam.
-- **Snímky:** `tmp/fix/shot.sh <název> 'k=5&m=tcpip' 1280 720` (stav se zadává adresou).
+  a vypíše řádky, které selhaly. Nový ovládací prvek = nová kontrola tam. Druhá část přepne
+  výběrem v záhlaví na úroveň 2 a projde tip na port + vyhodnocení, krok vzad s MAC tabulkou,
+  dvojici Alice -> Cyril, výběr pole (buňka štítku, klávesa 1, R), terminál switche, Esc,
+  „Spustit za mě“.
+- **Snímky:** `tmp/fix/shot.sh <název> 'k=5&m=tcpip' 1280 720` (stav se zadává adresou), úroveň 2
+  např. `'u=2&k=15&t=SW1&c=show%20mac%20address-table'`; snímky iterace 2 jsou v `tmp/u2/`.
 
 **Pravidla:** každý nový modul jádra má test; nová chyba = nejdřív test, který ji ukáže.
 Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
@@ -458,7 +491,8 @@ kap. 4.1, (3) kódování a pole pro rentgen ve `js/wire/encode.js`, (4) zápis 
 a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + vektor od projektanta.
 
 **Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
-kap. 5.3 (texty kroků doslova z .md), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
+kap. 5.3 (texty kroků doslova z .md; úroveň 2 navíc `initial_state`, akce `udp_send`/`mark`/`swap`
+a u kroku `predict`, `terminal`, `xray`, `socket`, `summary`, viz hlavička `uroven2-adresy.js`), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
 každý krok najde svůj záznam (`buildSteps` jinak vyhodí chybu), (5) smoke test.
 
 **UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok 4 (označení jako v UI, např. `8b`) v režimu TCP/IP,
@@ -475,6 +509,18 @@ změně rychlosti. Obálka má jediné tlačítko, svůj štítek (`button.lab`)
 tlačítku tlačítko aktivuje, jinde přehrává. Úroveň bez rentgenu (`levels.js` `xray: false`) má
 panel „Detail“ a bez terminálu (`terminal: false`) skrytý terminál.
 Odloženo (rozhodnuti.md bod 19): zpětná animace kroku vzad, animované slučování řádků.
+
+**UI úrovně 2 (jak ladit):** `index.html#u=2&k=13`. Adaptér `ui/app2.js` drží jen stav UI (dvojice
+ve výtahu, vybraný uzel, záložka a pole rentgenu, tipy předpovědi, historie terminálu), simulaci
+nemění. Klik na PC = příjemce ve výtahu + tlačítko Terminál (klik na odesílatele vrátí výchozí
+dvojici); klik na hlavičku switche = tlačítko Terminál. Klávesy navíc: `R` záložka rentgenu,
+`1`–`9` pole, `Esc` zruší výběr / zavře terminál, `F2` nebo `` ` `` terminál, `Enter` potvrdí tip.
+Pole se propojují atributem `data-field` (řádek rentgenu, bajty hexdumpu, buňka štítku: najetí =
+třída `hl` na všech místech, klik = výběr). Předpověď: krok s `predict` (porty nebo volby) se
+vyhodnotí podle portů `ven` v dalším kroku; Vpřed se pak jmenuje „Potvrdit tip“; nic se neukládá,
+počet trefených tipů je v dialogu Kontrolní otázky. Terminál vypisuje stav v aktuálním kroku
+(tabulky z pohledu), historie příkazů se drží po dobu stránky. Při výšce do 820 px se zkracují
+štítky (MAC `02:…:01`, bez popisků buněk) a řádky výtahu bez „kdo se stará“ (ui.md 11.3, 11.7).
 
 ## 10. Rizika
 

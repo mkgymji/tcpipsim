@@ -30,23 +30,26 @@ else
     trap 'rm -rf "$TMP"' EXIT
     # file:// + --allow-file-access-from-files: na gaze headless Chromium nenačte
     # http://127.0.0.1 (zamrzne), proto se stránka testuje ze souboru s povolenými moduly.
-    timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \
-      --user-data-dir="$TMP/profile" --allow-file-access-from-files \
-      --enable-logging=stderr --v=0 --virtual-time-budget=5000 \
-      --dump-dom "file://$ROOT/index.html" >"$TMP/dom.html" 2>"$TMP/stderr.txt"
-    RC=$?
-    PROBLEMS=""
-    [ $RC -ne 0 ] && PROBLEMS+="prohlížeč skončil s kódem $RC; "
-    grep -q 'data-core="ok"' "$TMP/dom.html" || PROBLEMS+="jádro nenastavilo data-core=ok; "
-    grep -q 'data-errors=' "$TMP/dom.html" && PROBLEMS+="stránka zachytila chybu: $(grep -o 'data-last-error="[^"]*"' "$TMP/dom.html"); "
-    if grep -E 'CONSOLE.*(Uncaught|Error|CORS|Failed to load)' "$TMP/stderr.txt" >"$TMP/console_err.txt"; then
-      PROBLEMS+="chyby v konzoli: $(head -3 "$TMP/console_err.txt"); "
-    fi
-    if [ -n "$PROBLEMS" ]; then
-      echo "SMOKE TEST SELHAL: $PROBLEMS"; FAIL=1
-    else
-      echo "Smoke test OK (stránka načtena, jádro běží, konzole bez chyb)"
-    fi
+    # Načte se úroveň 1 (bez adresy) a úroveň 2 (#u=2, krok s MAC tabulkou a rentgenem).
+    for HASH in "" "#u=2&k=13&t=SW1&c=show%20mac%20address-table"; do
+      timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \
+        --user-data-dir="$TMP/profile" --allow-file-access-from-files \
+        --enable-logging=stderr --v=0 --virtual-time-budget=5000 \
+        --dump-dom "file://$ROOT/index.html$HASH" >"$TMP/dom.html" 2>"$TMP/stderr.txt"
+      RC=$?
+      PROBLEMS=""
+      [ $RC -ne 0 ] && PROBLEMS+="prohlížeč skončil s kódem $RC; "
+      grep -q 'data-core="ok"' "$TMP/dom.html" || PROBLEMS+="jádro nenastavilo data-core=ok; "
+      grep -q 'data-errors=' "$TMP/dom.html" && PROBLEMS+="stránka zachytila chybu: $(grep -o 'data-last-error="[^"]*"' "$TMP/dom.html"); "
+      if grep -E 'CONSOLE.*(Uncaught|Error|CORS|Failed to load)' "$TMP/stderr.txt" >"$TMP/console_err.txt"; then
+        PROBLEMS+="chyby v konzoli: $(head -3 "$TMP/console_err.txt"); "
+      fi
+      if [ -n "$PROBLEMS" ]; then
+        echo "SMOKE TEST SELHAL (index.html$HASH): $PROBLEMS"; FAIL=1
+      else
+        echo "Smoke test OK: index.html$HASH (stránka načtena, jádro běží, konzole bez chyb)"
+      fi
+    done
 
     echo "== Test ovládání v prohlížeči (tests/browser/interact.html)"
     timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \

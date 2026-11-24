@@ -36,6 +36,7 @@ export function rowLabel(modelId, n) {
 
 function rowStatus(layers, members) {
   const st = members.map((n) => layers[n]);
+  if (st.includes('dropped')) return 'dropped';     // úroveň 2: karta rámec zahodila
   if (st.includes('active')) return 'active';
   if (st.includes('done')) return 'done';
   return 'wait';
@@ -55,11 +56,11 @@ export function renderStack(el, nodeView, modelId, pass = []) {
     const merged = r.members.length > 1;
     const stripe = merged
       ? `<span class="stripe" aria-hidden="true">${r.members.map((n) => `<i style="--s:var(--L${n})"></i>`).join('')}</span>` : '';
-    const stLabel = { wait: 'čeká', done: 'hotovo', active: 'právě tady' }[status];
+    const stLabel = { wait: 'čeká', done: 'hotovo', active: 'právě tady', dropped: 'zahodil' }[status];
     return `<button type="button" class="row ${status}${merged ? ' merged' : ''}" data-layer="${r.id}"
       style="${cssVars(r.color)};grid-row:${top} / span ${r.members.length}"
       aria-label="${esc(`${r.badge} ${r.name}, ${r.pdu}, ${stLabel}`)}">
-      ${passEl}${stripe}${badge(r.color, r.badge)}<span class="nm"><span class="l1"><span>${esc(r.name)}</span>
+      ${passEl}${stripe}${status === 'dropped' ? '<span class="xmark" aria-hidden="true">⊗ zahodil</span>' : ''}${badge(r.color, r.badge)}<span class="nm"><span class="l1"><span>${esc(r.name)}</span>
       <span class="pdu">${esc(r.pdu)}</span></span><small>${esc(r.whoShort)}</small></span></button>`;
   }).join('');
 }

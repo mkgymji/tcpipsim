@@ -6,7 +6,7 @@
   <title>tcpipsim: Úroveň 1 Barvičky</title>
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
-  <meta name="description" content="Výukový simulátor sítě TCP/IP: zapouzdření zprávy ve vrstvách ISO/OSI a TCP/IP.">
+  <meta name="description" content="Výukový simulátor sítě TCP/IP: zapouzdření zprávy ve vrstvách ISO/OSI a TCP/IP, adresy MAC, IP a porty, hub a switch.">
   <link rel="stylesheet" href="css/app.css">
   <script>
     // Zachytí chyby ještě před načtením modulů; smoke test čte data-errors z DOM.
@@ -30,11 +30,17 @@
 <body>
   <svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
     <symbol id="ico-pc" viewBox="0 0 64 56"><rect x="6" y="4" width="52" height="34" rx="4" fill="#fff" stroke="#14181C" stroke-width="4"/><rect x="13" y="11" width="38" height="20" fill="#D6E2F0"/><path d="M24 38v8h16v-8M16 50h32" fill="none" stroke="#14181C" stroke-width="4" stroke-linecap="round"/></symbol>
+    <symbol id="ico-switch" viewBox="0 0 42 36"><rect x="2" y="2" width="38" height="32" rx="4" fill="#fff" stroke="#14181C" stroke-width="3"/><path d="M10 13h20m-5-5 5 5-5 5M32 23H12m5-5-5 5 5 5" fill="none" stroke="#14181C" stroke-width="3" stroke-linecap="round" stroke-linejoin="round"/></symbol>
+    <symbol id="ico-hub" viewBox="0 0 42 36"><rect x="2" y="2" width="38" height="32" rx="4" fill="#fff" stroke="#14181C" stroke-width="3"/><circle cx="21" cy="18" r="4" fill="#14181C"/><path d="M21 18H8M21 18h13M21 18v-10" stroke="#14181C" stroke-width="3" stroke-linecap="round"/></symbol>
   </defs></svg>
 
   <header class="top">
     <h1>tcpipsim</h1>
-    <div class="lvl" id="level-title">Úroveň 1: Barvičky</div>
+    <div class="seg lvlseg" role="group" aria-label="Úroveň">
+      <button type="button" data-level="1" aria-pressed="true">1 Barvičky</button>
+      <button type="button" data-level="2" aria-pressed="false">2 Adresy</button>
+    </div>
+    <div class="lvl" id="level-title"></div>
     <button type="button" class="btn small" id="btn-questions">Kontrolní otázky</button>
     <button type="button" class="btn small" id="btn-motion" aria-pressed="false" title="Bez pohybu, jen krátké zvýraznění">Omezit animace</button>
     <div class="seg" role="group" aria-label="Model vrstev (klávesa T)">
@@ -64,18 +70,20 @@
 
       <div class="lift">
         <div class="col send">
-          <h2><span id="sender-name">Alice</span> <small>odesílatel, shora dolů</small></h2>
+          <h2><span id="sender-name">Alice</span> <small id="sender-role">odesílatel, shora dolů</small></h2>
           <div class="stack" id="stack-sender"></div>
         </div>
         <div class="env">
-          <h2 id="env-caption">Zpráva</h2>
+          <h2><span id="env-caption">Zpráva</span><small id="env-reads"></small></h2>
           <div class="nest" id="nest"></div>
+          <div class="apps-strip" id="apps"></div>
         </div>
         <div class="col recv">
-          <h2><span id="receiver-name">Bob</span> <small>příjemce, zdola nahoru</small></h2>
+          <h2><span id="receiver-name">Bob</span> <small id="receiver-role">příjemce, zdola nahoru</small></h2>
           <div class="stack" id="stack-receiver"></div>
         </div>
       </div>
+      <section class="termwin" id="termwin" hidden aria-label="Terminál"></section>
     </section>
 
     <aside>
@@ -105,6 +113,7 @@
   <dialog id="questions" aria-labelledby="q-title">
     <form method="dialog" class="q-head"><h2 id="q-title">Kontrolní otázky</h2><button class="btn small" value="close">Zavřít <kbd>Esc</kbd></button></form>
     <ol id="q-list"></ol>
+    <p id="q-tips" class="q-tips"></p>
   </dialog>
 
   <script type="module" src="js/main.js" onerror="window.__tcpipsimModuleFailed()"></script>

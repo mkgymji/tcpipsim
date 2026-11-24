@@ -13,6 +13,7 @@ const wait = (ms) => new Promise((r) => setTimeout(r, ms));
 const f = document.getElementById('f');
 
 f.onload = async () => {
+  f.onload = null;     // přepnutí úrovně iframe načte znovu, test běží jen jednou
   try {
     await wait(300);
     const d = f.contentDocument, w = f.contentWindow, root = d.documentElement;
@@ -77,6 +78,76 @@ f.onload = async () => {
     $('#btn-motion').click();
 
     check(!root.dataset.errors, `stránka bez chyb (${root.dataset.lastError ?? ''})`);
+    check(d.title === 'tcpipsim: Úroveň 1 Barvičky', `title úrovně 1 (${d.title})`);
+    check($('.lvlseg [data-level="1"]').getAttribute('aria-pressed') === 'true', 'výběr úrovně ukazuje 1');
+
+    // ---- úroveň 2: přepnutí výběrem v záhlaví (stránka se načte znovu) ----
+    const loaded = () => new Promise((r) => f.addEventListener('load', r, { once: true }));
+    let wait2 = loaded();
+    $('.lvlseg [data-level="2"]').click();
+    await wait2; await wait(300);
+    let d2 = f.contentDocument, w2 = f.contentWindow, r2 = d2.documentElement;
+    check(r2.dataset.level === '2' && r2.dataset.core === 'ok', `výběr úrovně 2 načte úroveň 2 (${w2.location.hash})`);
+    check(d2.title === 'tcpipsim: Úroveň 2 Adresy', `title úrovně 2 (${d2.title})`);
+    wait2 = loaded();
+    w2.location.hash = '#u=2&k=12&m=osi';
+    await Promise.race([wait2, wait(400)]); await wait(200);
+    d2 = f.contentDocument; w2 = f.contentWindow; r2 = d2.documentElement;
+    const q = (s) => d2.querySelector(s);
+    const lab2 = () => q('#prog-label').textContent;
+    const key2 = (k, t = d2.body) => t.dispatchEvent(new w2.KeyboardEvent('keydown', { key: k, bubbles: true }));
+    check(lab2().startsWith('Krok 12 z 17'), `adresa #u=2&k=12 (${lab2()})`);
+    check(q('.mact tbody').querySelectorAll('tr.new').length === 1, 'nový řádek MAC tabulky v kroku 12');
+    check(!q('#termwin') || q('#termwin').hidden, 'terminál je zavřený');
+    // předpověď: klik na port, Potvrdit tip, vyhodnocení
+    q('.port[data-pick="Fa0/2"]').click();
+    check(q('.port[data-pick="Fa0/2"]').getAttribute('aria-pressed') === 'true', 'klik na port = tip');
+    check(q('#fwd-label').textContent === 'Potvrdit tip', `Vpřed se jmenuje Potvrdit tip (${q('#fwd-label').textContent})`);
+    q('#btn-fwd').click();
+    await wait(50);
+    check(lab2().startsWith('Krok 13'), `potvrzení tipu = krok 13 (${lab2()})`);
+    check(q('.evalline')?.textContent.includes('Tvůj tip: Fa0/2. Skutečnost: Fa0/2 i Fa0/3.'), `vyhodnocení tipu (${q('.evalline')?.textContent})`);
+    check(w2.location.hash === '#u=2&k=13&m=osi', `adresa nese úroveň (${w2.location.hash})`);
+    // krok vzad vrátí tabulku
+    key2('ArrowLeft'); key2('ArrowLeft');
+    check(q('.mact tbody tr.empty') !== null, `krok 11: prázdná MAC tabulka (${lab2()})`);
+    key2('ArrowRight'); key2('ArrowRight');
+    const mt13 = q('.mact tbody').querySelectorAll('tr').length;
+    // dvojice ve výtahu: klik na Cyrila (krok 7, rámec u příjemců)
+    w2.location.hash = '#u=2&k=7&m=osi';
+    await wait(200);
+    q('.pcbtn[data-node="PC3"]').click();
+    check(q('#receiver-name').textContent === 'Cyril', 'klik na Cyrila přepne příjemce ve výtahu');
+    check(q('.pc.slot-rbot').classList.contains('pair'), 'Cyril má dvojitý obrys');
+    // rentgen: buňka štítku a klávesy čísel polí
+    q('#nest .acell[data-field="eth.src"]')?.click();
+    check(q('#info tr.selected')?.dataset.field === 'eth.src', 'klik na buňku štítku vybere pole v rentgenu');
+    check(q('#nest .acell.selected')?.dataset.field === 'eth.src', 'buňka štítku má obrys vybraného pole');
+    key2('1');
+    check(q('#info tr.selected')?.dataset.field === 'eth.dst', 'klávesa 1 = pole 1');
+    key2('r');
+    check(q('#info .xtab.on')?.dataset.xtab === 'ipv4', 'R přepne záložku rentgenu');
+    key2('Escape');
+    // terminál switche (krok 13, jeden naučený záznam)
+    w2.location.hash = '#u=2&k=13&m=osi';
+    await wait(200);
+    check(mt13 === 1, `krok 13: jeden řádek MAC tabulky (${mt13})`);
+    q('.devhead[data-node="SW1"]').click();
+    q('[data-term="SW1"]').click();
+    check(!q('#termwin').hidden && q('#termwin').classList.contains('ios'), 'terminál switche (Cisco IOS)');
+    const inp = q('#term-input');
+    inp.value = 'sh mac add';
+    inp.dispatchEvent(new w2.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    check(q('#term-body').textContent.includes('Total Mac Addresses for this criterion: 1'), 'show mac address-table v terminálu');
+    check(lab2().startsWith('Krok 13'), `psaní v terminálu nekrokuje (${lab2()})`);
+    q('#term-input').dispatchEvent(new w2.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    check(q('#termwin').hidden, 'Esc zavře terminál');
+    // Spustit za mě (krok 1, ipconfig /all na Alici)
+    w2.location.hash = '#u=2&k=1&m=osi';
+    await wait(200);
+    q('[data-run="PC1"]').click();
+    check(q('#term-body').textContent.includes('02-00-00-00-00-01'), 'Spustit za mě: ipconfig /all');
+    check(!r2.dataset.errors, `úroveň 2 bez chyb (${r2.dataset.lastError ?? ''})`);
   } catch (e) {
     check(false, `výjimka: ${e}`);
   }

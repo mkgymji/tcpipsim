@@ -5,7 +5,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { join } from 'node:path';
 
 const ROOT = new URL('../../', import.meta.url).pathname;
-const DIRS = ['js/core', 'js/proto', 'js/wire', 'js/scenario'];
+const DIRS = ['js/core', 'js/proto', 'js/wire', 'js/scenario', 'js/devices', 'js/cli'];
 
 test('moduly bez DOM nesahají na document/window/localStorage ani do ui/', () => {
   for (const dir of DIRS) {

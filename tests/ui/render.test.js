@@ -135,7 +135,11 @@ test('adresa stránky: #k=8b&m=tcpip tam i zpět pro všechny kroky a modely', (
   assert.equal(formatHash(timeline.steps[9], 'tcpip'), '#k=8b&m=tcpip');
   assert.equal(parseHash('#k=8', timeline.steps).k, 8);            // 8 = 8a
   assert.equal(parseHash('#k=10&m=osi', timeline.steps).k, 12);
-  assert.deepEqual(parseHash('#k=99&m=xyz', timeline.steps), { k: null, model: null, anim: false, questions: false });
-  assert.deepEqual(parseHash('', timeline.steps), { k: null, model: null, anim: false, questions: false });
+  const core = ({ level, k, model, anim, questions }) => ({ level, k, model, anim, questions });
+  assert.deepEqual(core(parseHash('#k=99&m=xyz', timeline.steps)), { level: 1, k: null, model: null, anim: false, questions: false });
+  assert.deepEqual(core(parseHash('', timeline.steps)), { level: 1, k: null, model: null, anim: false, questions: false });
+  assert.equal(parseHash('#u=2&k=3', timeline.steps).level, 2);
+  assert.equal(parseHash('#u=7', timeline.steps).level, 1);                 // neznámá úroveň -> 1
+  assert.equal(formatHash(timeline.steps[9], 'osi', 2), '#u=2&k=8b&m=osi');
   assert.equal(parseHash('#k=4&anim&q=1', timeline.steps).questions, true);
 });

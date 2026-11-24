@@ -20,7 +20,7 @@ test('scénář je čistá data (JSON beze ztráty)', () => {
 test('zpráva dorazí k Bobovi beze změny', () => {
   assert.equal(run.delivered, 'Ahoj, Bobe!');
   const recv = run.records.find((r) => r.kind === 'app.recv');
-  assert.equal(recv.node, 'PCB');
+  assert.equal(recv.node, 'PC2');
   assert.equal(messageOf(recv.pdu), scenario.actions[0].args.text);
 });
 
@@ -41,7 +41,7 @@ test('rámec má právě 3 obálky (L4, L3, L2) kolem dat, žádné L5/L6', () =
 test('bity na drátě odpovídají skutečnému rámci (Ethernet II + IPv4 + UDP)', () => {
   const bytes = run.records.find((r) => r.kind === 'phy.tx').bytes;
   assert.equal(bytes.length, 60);                          // výplň na minimum, bez FCS
-  assert.deepEqual([...bytes.slice(0, 6)], [0x02, 0xb0, 0xb0, 0, 0, 2]);   // cílová MAC = Bob
+  assert.deepEqual([...bytes.slice(0, 6)], [0x02, 0, 0, 0, 0, 2]);   // cílová MAC = Bob (rozhodnutí 25)
   assert.deepEqual([...bytes.slice(12, 14)], [0x08, 0x00]);                // EtherType IPv4
   const ip = bytes.slice(14, 34);
   assert.equal(ip[0], 0x45);
@@ -74,15 +74,15 @@ test('kroky 0-10 podle scénáře, krok 8 má podkroky 8a-8c', () => {
 test('stav vrstev a podoba zprávy v klíčových krocích', () => {
   const v = (k) => timeline.view(k);
   assert.equal(v(0).packet.form, 'message');
-  assert.equal(v(1).nodes.PCA.layers[7], 'active');
-  assert.equal(v(2).nodes.PCA.layers[4], 'active');
-  assert.equal(v(2).nodes.PCA.layers[6], 'done');           // L6, L5 jen průchod
+  assert.equal(v(1).nodes.PC1.layers[7], 'active');
+  assert.equal(v(2).nodes.PC1.layers[4], 'active');
+  assert.equal(v(2).nodes.PC1.layers[6], 'done');           // L6, L5 jen průchod
   assert.equal(v(4).packet.pdu.proto, 'ethernet');
   assert.equal(v(5).packet.form, 'bits');
   assert.equal(v(6).packet.form, 'wire');
-  assert.ok(Object.values(v(6).nodes.PCA.layers).every((s) => s === 'done'));
-  assert.equal(v(7).nodes.PCB.layers[1], 'done');
-  assert.equal(v(7).nodes.PCB.layers[2], 'active');
+  assert.ok(Object.values(v(6).nodes.PC1.layers).every((s) => s === 'done'));
+  assert.equal(v(7).nodes.PC2.layers[1], 'done');
+  assert.equal(v(7).nodes.PC2.layers[2], 'active');
   assert.equal(v(8).packet.pdu.proto, 'ipv4');
   assert.deepEqual(v(8).removed, { proto: 'ethernet', layer: 2 });
   assert.equal(v(10).packet.pdu.proto, 'data');
@@ -163,7 +163,7 @@ test('příjemce neposlouchá na cílovém portu: zpráva se zahodí na L4 a ned
     action: { ...a, args: { ...a.args, listen: 6000 } }, seed: 1 });
   assert.equal(bad.delivered, null);
   const v = viewAt(bad.records, bad.records.length - 1);
-  assert.deepEqual(v.dropped, { node: 'PCB', layer: 4, proto: 'udp', reason: 'není pro tento uzel' });
+  assert.deepEqual(v.dropped, { node: 'PC2', layer: 4, proto: 'udp', reason: 'není pro tento uzel' });
 });
 
 test('scénář s krokem, který nic nenajde, je chyba', () => {

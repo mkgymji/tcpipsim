@@ -1,13 +1,14 @@
-// Vstupní bod stránky: úroveň 1 „Barvičky“. Jádro vyrobí záznam (trace), timeline z něj
-// poskládá kroky scénáře a UI se po krocích jen pohybuje (VYVOJ.md R6, kap. 6).
+// Vstupní bod stránky: výběr úrovně (#u=2) a společné ovládání (krokování, přehrávání,
+// rychlost, model vrstev, klávesy, adresa). Co a jak se kreslí, řeší adaptér úrovně
+// (ui/app1.js, ui/app2.js). Jádro vyrobí záznam (trace), timeline z něj poskládá kroky
+// scénáře a UI se po krocích jen pohybuje (VYVOJ.md R6, kap. 6).
 // Jediný zdroj pravdy o aktuálním kroku je timeline.cursor.
-import scenario from '../scenarios/uroven1-zapouzdreni.js';
-import { buildLevel1 } from './scenario/level1.js';
 import { stepLabel } from './core/timeline.js';
-import { convertRowId } from './core/layers.js';
-import { renderStack, renderNest, renderTopology, renderExplain, infoHtml, stepTitle, esc }
-  from './ui/render.js';
-import { parseHash, formatHash } from './ui/urlstate.js';
+import { LEVELS } from './levels.js';
+import { esc, stepTitle } from './ui/render.js';
+import { parseHash, parseLevel, formatHash } from './ui/urlstate.js';
+import { createLevel1 } from './ui/app1.js';
+import { createLevel2 } from './ui/app2.js';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const DWELL_MS = 4200;        // doba jednoho kroku při přehrávání (1x): animace + čtení
@@ -20,9 +21,7 @@ function savePref(key, value) {
   try { localStorage.setItem(key, value); } catch { /* soukromé okno: nevadí */ }
 }
 
-const { timeline, level } = buildLevel1(scenario);
-const total = Math.max(...timeline.steps.map((s) => s.num));
-const last = timeline.length - 1;
+const levelId = parseLevel(location.hash);
 const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 const state = {
@@ -30,40 +29,27 @@ const state = {
   speedIdx: 2,
   playing: false,
   timer: null,
-  info: null,           // co ukazuje panel Detail: null | {layer} | {env} | 'wire'
-  mapOpen: true,        // rozbalená tabulka TCP/IP a ISO/OSI v kroku 10
   reduceMotion: loadPref('tcpipsim.reduceMotion', '0') === '1',
   shown: null,          // naposledy vykreslený krok a model ('k|model')
 };
 
 const els = {
-  sender: $('dev-sender'), receiver: $('dev-receiver'), wire: $('wire'), wireBits: $('wire-bits'),
-  stackS: $('stack-sender'), stackR: $('stack-receiver'), nest: $('nest'), cap: $('env-caption'),
-  explain: $('explain'), info: $('info'), slider: $('slider'), progLabel: $('prog-label'),
+  slider: $('slider'), progLabel: $('prog-label'), progDir: $('prog-dir'),
   back: $('btn-back'), play: $('btn-play'), fwd: $('btn-fwd'), fwdLabel: $('fwd-label'),
   speed: $('speed-val'), motion: $('btn-motion'),
 };
 
+// Adaptér úrovně: { scenario, timeline, level, render(view, opts), renderPanels(view),
+// onStepChange(prevK, nextK), onModelChange(from, to), onClick(e), onKey(e), forwardLabel(k),
+// beforeForward(k), applyParams(params), dir(view) }
+const host = { state, rerender: () => render(), go: (k, o) => go(k, o), cur: () => timeline.cursor,
+  setPlaying: (on) => setPlaying(on), openQuestions: () => openQuestions() };
+const app = levelId === 2 ? createLevel2(host) : createLevel1(host);
+const { timeline, scenario } = app;
+const total = Math.max(...timeline.steps.map((s) => s.num));
+const last = timeline.length - 1;
 const cur = () => timeline.cursor;
 function speed() { return SPEEDS[state.speedIdx]; }
-
-function renderInfo(view) {
-  const { html, empty } = infoHtml(state.model, state.info, view, { mapOpen: state.mapOpen });
-  els.info.classList.toggle('placeholder', empty);
-  els.info.innerHTML = empty
-    ? `<h3>${level.xray ? 'Rentgen' : 'Detail'}</h3><div class="ph">Klikni na vrstvu, obálku nebo kabel a tady uvidíš, k čemu jsou.</div>`
-    : html;
-}
-
-// Vrstvy, kterými zpráva v tomto kroku jen prošla (např. L7 -> L4 projde L6 a L5).
-function passedLayers(prev, view) {
-  const a = prev?.focus, b = view.focus;
-  if (!a?.layer || !b?.layer || a.node !== b.node) return [];
-  const out = [];
-  const dir = b.layer < a.layer ? -1 : 1;
-  for (let n = a.layer + dir; n !== b.layer; n += dir) out.push(n);
-  return out;
-}
 
 // Ovládání (tlačítka, posuvník, rychlost): levné, smí se volat kdykoli.
 function renderControls() {
@@ -73,36 +59,31 @@ function renderControls() {
   els.slider.setAttribute('aria-valuetext', label);
   els.progLabel.textContent = label;
   els.progLabel.title = label;
+  if (app.dir) els.progDir.textContent = app.dir(timeline.view(cur()));
   els.back.setAttribute('aria-disabled', String(cur() === 0));
   els.fwd.setAttribute('aria-disabled', String(cur() === last));
-  els.fwdLabel.textContent = cur() === 0 ? 'Začít' : 'Vpřed';
+  els.fwdLabel.textContent = app.forwardLabel?.(cur()) ?? (cur() === 0 ? 'Začít' : 'Vpřed');
   els.play.innerHTML = state.playing
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h4v14H5zM11 3h4v14h-4z"/></svg>Pauza <kbd>mezerník</kbd>'
     : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3v14l11-7z"/></svg>Přehrát <kbd>mezerník</kbd>';
   els.speed.textContent = `${String(speed()).replace('.', ',')}×`;
   document.documentElement.style.setProperty('--k', String(1 / speed()));
-  document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.model === state.model)));
+  document.querySelectorAll('.seg button[data-model]').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.model === state.model)));
   els.motion.setAttribute('aria-pressed', String(state.reduceMotion));
 }
 
-// Pohled kroku. Vysvětlivka (aria-live) a panel Detail se přepíší jen při změně kroku nebo
+// Pohled kroku. Vysvětlivka (aria-live) a pravý panel se přepíší jen při změně kroku nebo
 // modelu, ne při změně rychlosti nebo pauze (recenzent bod 8).
 function render({ animate = false, prev = null } = {}) {
   const k = cur();
   const view = timeline.view(k);
-  renderTopology(els, view, scenario, animate);
-  const pass = (node) => (animate && view.focus?.node === node ? passedLayers(prev, view) : []);
-  renderStack(els.stackS, view.nodes[view.sender], state.model, pass(view.sender));
-  renderStack(els.stackR, view.nodes[view.receiver], state.model, pass(view.receiver));
-  renderNest(els.nest, els.cap, view, state.model, scenario, animate);
-  if (!animate) els.nest.firstElementChild?.classList.add('anim-flash');   // skok: jen zvýraznění
+  app.render(view, { animate, prev, model: state.model });
   const key = `${k}|${state.model}`;
   if (state.shown !== key) {
-    renderExplain(els.explain, view, state.model, total);
-    renderInfo(view);
+    app.renderPanels(view, state.model, total);
     state.shown = key;
-    const hash = formatHash(view.step, state.model);
-    if (location.hash !== hash) history.replaceState(null, '', hash);
+    const hash = formatHash(view.step, state.model, levelId);
+    if (!location.hash.startsWith(hash)) history.replaceState(null, '', hash);
   }
   renderControls();
   document.documentElement.dataset.step = String(k);
@@ -115,7 +96,8 @@ function go(k, { animate = false } = {}) {
   const next = Math.max(0, Math.min(last, k));
   const prevK = cur();
   const forwardOne = next === prevK + 1;
-  if (next !== prevK) state.info = null;
+  if (forwardOne) app.beforeForward?.(prevK);
+  if (next !== prevK) app.onStepChange?.(prevK, next);
   const prev = timeline.view(prevK);
   timeline.goto(next);
   setFrozen(false);
@@ -154,10 +136,7 @@ function setPlaying(on) {
 
 function setModel(m) {
   if (m === state.model || !['osi', 'tcpip'].includes(m)) return;
-  if (state.info?.layer) {
-    const id = convertRowId(state.model, m, state.info.layer);
-    state.info = id ? { layer: id } : null;
-  }
+  app.onModelChange?.(state.model, m);
   state.model = m;
   savePref('tcpipsim.model', m);
   render();   // stejný krok, jiné popisky
@@ -175,20 +154,32 @@ function syncMotion() {
 
 function openQuestions() {
   setPlaying(false);    // při otevřeném dialogu se nepřehrává
+  app.beforeQuestions?.();
   const d = $('questions');
   if (!d.open) d.showModal();
+}
+
+// výběr úrovně: jiná úroveň = jiné jádro i DOM, proto se stránka načte znovu
+function setLevel(u) {
+  if (u === levelId) return;
+  location.hash = u === 1 ? `#m=${state.model}` : `#u=${u}&m=${state.model}`;
+  location.reload();
 }
 
 // --- ovládání ---
 els.back.addEventListener('click', () => go(cur() - 1));
 els.fwd.addEventListener('click', () => go(cur() + 1, { animate: true }));
 els.play.addEventListener('click', () => setPlaying(!state.playing));
-$('btn-reset').addEventListener('click', () => { setPlaying(false); go(0); });
+$('btn-reset').addEventListener('click', () => { setPlaying(false); app.onReset?.(); go(0); });
 $('btn-slower').addEventListener('click', () => setSpeed(-1));
 $('btn-faster').addEventListener('click', () => setSpeed(+1));
 els.slider.max = String(last);
 els.slider.addEventListener('input', () => go(Number(els.slider.value)));
-document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model)));
+document.querySelectorAll('.seg button[data-model]').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model)));
+document.querySelectorAll('.seg button[data-level]').forEach((b) => {
+  b.setAttribute('aria-pressed', String(Number(b.dataset.level) === levelId));
+  b.addEventListener('click', () => setLevel(Number(b.dataset.level)));
+});
 $('btn-questions').addEventListener('click', openQuestions);
 els.motion.addEventListener('click', () => {
   state.reduceMotion = !state.reduceMotion;
@@ -196,26 +187,17 @@ els.motion.addEventListener('click', () => {
   syncMotion();
   renderControls();
 });
-
-// klik na vrstvu, obálku nebo kabel -> panel Detail
 document.addEventListener('click', (e) => {
-  const t = e.target.closest?.('[data-layer], [data-env], #wire, [data-open-questions]');
-  if (!t) return;
-  if (t.matches('[data-open-questions]')) { openQuestions(); return; }
-  if (t.id === 'wire') state.info = 'wire';
-  else if (t.dataset.layer) state.info = { layer: t.dataset.layer };
-  else state.info = { env: t.dataset.env };
-  renderInfo(timeline.view(cur()));
+  if (e.target.closest?.('[data-open-questions]')) { openQuestions(); return; }
+  app.onClick?.(e);
 });
-document.addEventListener('toggle', (e) => {
-  if (e.target.matches?.('details[data-map]')) state.mapOpen = e.target.open;
-}, true);
 
 // klávesy (ui.md kap. 6); v otevřeném dialogu a v textových polích ne
 const NATIVE_SPACE = 'button, summary, a[href], input[type=checkbox]';
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if ($('questions').open) return;
+  if (app.onKey?.(e)) return;
   if (e.target.matches?.('input[type=text], textarea')) return;
   const isRange = e.target === els.slider;
   switch (e.key) {
@@ -241,24 +223,27 @@ $('q-list').innerHTML = scenario.questions.map((q) => `<li>${esc(q.text)}
 reduceMQ.addEventListener?.('change', syncMotion);
 syncMotion();
 
-// úroveň 1: panel „Detail“, bez terminálu (rozhodnuti.md bod 20)
-document.querySelector('aside').classList.toggle('no-term', !level.terminal);
-$('term').hidden = !level.terminal;
-
-// stav z adresy: #k=8b&m=tcpip (rozhodnuti.md bod 21), adresa se při krokování aktualizuje
+// stav z adresy: #u=2&k=8b&m=tcpip (rozhodnuti.md bod 21), adresa se při krokování aktualizuje
 function applyHash({ animate = false } = {}) {
   const h = parseHash(location.hash, timeline.steps);
+  if (h.level !== levelId) { location.reload(); return h; }
   if (h.model && h.model !== state.model) setModel(h.model);
   if (h.k !== null && h.k !== cur()) go(h.k, { animate });
   return h;
 }
 window.addEventListener('hashchange', () => applyHash());
 
-$('level-title').textContent = `Úroveň 1: ${level.title} · ${scenario.title}`;
+const level = LEVELS[levelId];
+document.title = `tcpipsim: Úroveň ${levelId} ${level.title}`;
+document.body.classList.add(`lvl${levelId}`);
+$('level-title').textContent = scenario.title;
 const start = parseHash(location.hash, timeline.steps);
 if (start.model) state.model = start.model;
 if (start.k !== null) timeline.goto(start.k);
+app.applyParams?.(start.params);
 render({ animate: start.anim, prev: start.k ? timeline.view(start.k - 1) : null });
+app.afterStart?.(start.params);
 if (start.questions) openQuestions();
 document.body.classList.add('ready');
 document.documentElement.dataset.core = 'ok';
+document.documentElement.dataset.level = String(levelId);

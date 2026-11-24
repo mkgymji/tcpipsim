@@ -8,20 +8,21 @@ export default {
   title: 'Alice posílá zprávu Bobovi',
   level: 1,
   seed: 1,
+  // adresy jednotné ve všech úrovních (rozhodnuti.md bod 25): PC1 Alice, PC2 Bob, MAC 02:00:00:00:00:0N
   topology: {
     format: 'tcpipsim-topology/1',
     id: 'alice-bob',
     title: 'Dva počítače a kabel',
     nodes: [
-      { id: 'PCA', type: 'pc', label: 'Alice', short: 'PC A', ttl_default: 128,
-        interfaces: [{ name: 'eth0', mac: '02:a1:1c:e0:00:01', ip: '192.168.1.10', prefix: 24 }] },
-      { id: 'PCB', type: 'pc', label: 'Bob', short: 'PC B', ttl_default: 128,
-        interfaces: [{ name: 'eth0', mac: '02:b0:b0:00:00:02', ip: '192.168.1.20', prefix: 24 }] },
+      { id: 'PC1', type: 'pc', label: 'Alice', short: 'PC A', ttl_default: 128,
+        interfaces: [{ name: 'eth0', mac: '02:00:00:00:00:01', ip: '192.168.1.10', prefix: 24 }] },
+      { id: 'PC2', type: 'pc', label: 'Bob', short: 'PC B', ttl_default: 128,
+        interfaces: [{ name: 'eth0', mac: '02:00:00:00:00:02', ip: '192.168.1.20', prefix: 24 }] },
     ],
-    links: [{ id: 'L1', a: { node: 'PCA', if: 'eth0' }, b: { node: 'PCB', if: 'eth0' } }],
+    links: [{ id: 'L1', a: { node: 'PC1', if: 'eth0' }, b: { node: 'PC2', if: 'eth0' } }],
   },
   actions: [
-    { time: 0, node: 'PCA', command: 'send', args: { to: 'PCB', text: 'Ahoj, Bobe!', port: 5000 } },
+    { time: 0, node: 'PC1', command: 'send', args: { to: 'PC2', text: 'Ahoj, Bobe!', port: 5000 } },
   ],
   // num = číslo kroku ve scénáři (0-10), part = dílčí krok (krok 8 má tři).
   // title, text a note mohou být řetězec (platí v obou režimech), nebo { osi, tcpip }:
