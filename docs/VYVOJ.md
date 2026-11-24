@@ -1,8 +1,9 @@
 # Vývoj tcpipsim
 
-Stav: návrh architektury, iterace 1 (fáze specifikace). Autor: vývojář. Kód je zatím jen kostra
-(plánovač událostí, generátor náhodných čísel, prázdná stránka, testy). Rozhodnutí jsou psaná
-s důvodem, aby šla zpětně zvrátit.
+Stav: iterace 1, úroveň 1 „Barvičky“ funguje (výtah, kroky 0–10, ISO/OSI ↔ TCP/IP). Autor: vývojář.
+Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), přenos zprávy přes Ethernet/IPv4/UDP
+na jedné lince, kódování rámce do bajtů, UI úrovně 1. Rozhodnutí jsou psaná s důvodem, aby šla
+zpětně zvrátit.
 
 ## 0. Rychlý start
 
@@ -34,32 +35,34 @@ Safari 16.4+). Nic se neinstaluje, `package.json` není potřeba.
 ## 2. Struktura adresářů
 
 ```
-index.html              hlavní stránka (jen kostra, chyby zachytává do data-errors)
-css/                    styly (kreativec), proměnné v :root
+index.html              hlavní stránka (kostra UI úrovně 1, chyby zachytává do data-errors)
+css/app.css             styly (paleta kreativce, docs/ui.md), proměnné v :root
 js/
-  main.js               vstupní bod stránky: načte scénář, sestaví jádro, připojí UI
-  core/                 JÁDRO, bez DOM. Importuje jen z core/ a proto/
+  main.js               vstupní bod stránky: scénář -> jádro -> timeline -> UI, ovládání, klávesy
+  core/                 JÁDRO, bez DOM. Importuje jen z core/, proto/ a wire/
     index.js            veřejné API jádra (re-exporty), CORE_VERSION, FORMAT_VERSION
     scheduler.js        plánovač diskrétních událostí            [hotovo]
     rng.js              seedovaný generátor (mulberry32)         [hotovo]
+    layers.js           modely ISO/OSI (7) a TCP/IP (4), názvy, PDU, „kdo se stará“  [hotovo]
+    pdu.js              PDU s vnořením vrstev, id a rodokmen PDU  [hotovo]
+    trace.js            záznam událostí                           [hotovo, delty od iterace 2]
+    transfer.js         přenos jedné zprávy vrstvami mezi 2 uzly (úroveň 1)  [hotovo]
+    timeline.js         kroky ze scénáře (match), pohled po kroku k, vpřed/vzad  [hotovo]
     world.js            svět: uzly, rozhraní, linky, stav, snapshot/restore
-    pdu.js              PDU s vnořením vrstev, id a rodokmen PDU
     link.js             přenos po lince (zpoždění, později ztrátovost)
-    trace.js            záznam událostí s vratnými deltami
-    timeline.js         kurzor nad záznamem: kroky, krok vpřed/vzad, skok
-    registry.js         registr protokolů, demux (EtherType, Protocol, port)
     topology.js         načtení + validace topologie, migrace verzí formátu
     addr.js             práce s MAC/IPv4/prefixy (parse, format, longest prefix match)
   proto/                moduly protokolů (bez DOM), jeden soubor = jeden protokol
-    ethernet.js arp.js ipv4.js icmp.js udp.js tcp.js dns.js http.js [dhcp.js nat.js]
+    registry.js         statický registr protokolů, pořadí v zásobníku  [hotovo]
+    ethernet.js ipv4.js udp.js   [úroveň 1: hlavička + přijetí]; arp.js icmp.js tcp.js dns.js http.js [dhcp.js nat.js]
   devices/              chování typů uzlů (skládá protokoly): host.js hub.js switch.js router.js
-  wire/                 převod PDU na bajty (bez DOM): encode.js checksum.js pcap.js
+  wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071], pcap.js
   cli/                  terminály nad jádrem (bez DOM): shell.js, wincmd/*.js, ios/*.js
-  scenario/             načítání scénářů, sdílení odkazem (bez DOM kromě share.js)
+  scenario/             sestavení úrovně ze scénáře (level1.js), později sdílení odkazem (bez DOM kromě share.js)
   levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje)
-  ui/                   VŠE s DOM: views (výtah, topologie, sekvenční diagram, rentgen),
-                        controls (krokování), terminal (okno nad cli/), editor/
-scenarios/              scénáře: *.md (didaktik, text) a *.json (data pro simulátor)
+  ui/                   VŠE s DOM: render.js (výtah, topologie, vysvětlivka; úroveň 1),
+                        později rentgen, sekvenční diagram, terminal (okno nad cli/), editor/
+scenarios/              scénáře: *.md (didaktik, text) a *.js (data pro simulátor, viz kap. 5.3)
 tests/
   run_all.sh            všechny testy (node + smoke v prohlížeči)
   core/*.test.js        jednotkové testy jádra
@@ -71,8 +74,8 @@ tools/
 docs/                   dokumentace týmu
 ```
 
-**Pravidla závislostí** (hlídá je test, až bude co hlídat): `core/`, `proto/`, `devices/`, `wire/`,
-`cli/` nesmí importovat z `ui/` ani sahat na `document`/`window`/`localStorage`. `ui/` smí
+**Pravidla závislostí** (hlídá `tests/core/deps.test.js`): `core/`, `proto/`, `devices/`, `wire/`,
+`cli/`, `scenario/` nesmí importovat z `ui/` ani sahat na `document`/`window`/`localStorage`. `ui/` smí
 importovat z čehokoli. Žádné cyklické importy (kvůli bundleru R3).
 
 **Konvence kódu kvůli bundleru:** jen statické `import … from './relativni/cesta.js'` s příponou
@@ -153,6 +156,12 @@ aby z nich šla bez jádra vykreslit animace, sekvenční diagram, rentgen i pca
   (výtah, `docs/ui.md`); úroveň 2–3 = jeden krok na jeden logický krok vektoru (všechny přenosy
   se stejným časem příchodu, flooding na víc portů je jeden krok); úroveň 4 = podobně, s
   možností „přeskoč handshake“.
+- **Úroveň 1 (hotovo):** `transfer.js` vyrobí záznamy `sim.start, app.send, encap ×3, phy.tx,
+  link.tx, phy.rx, decap ×3, app.recv, sim.end`; `timeline.js` je přiřadí krokům scénáře podle
+  `match` a pohled po kroku k počítá **znovu z předpony záznamu** (`viewAt`), bez delt. Pro desítky
+  záznamů je to zanedbatelné a krok vzad je přesný z definice (test). Delty a snapshoty níže
+  přijdou s tabulkami v iteraci 2. Model vrstev (ISO/OSI / TCP/IP) jádro nezná, je jen parametr
+  vykreslení, takže přepnutí nemění krok ani stav.
 - Kurzor `timeline.goto(k)` vrátí **pohled** na stav po kroku k: tabulky uzlů, PDU na linkách,
   texty vysvětlivek. Dopředu se delty aplikují, dozadu se aplikují inverzně. Pro skok posuvníkem
   se ukládá pohled každých 32 kroků.
@@ -324,6 +333,13 @@ texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `
 }
 ```
 
+- **Soubor scénáře je ES modul s čistými daty** (`scenarios/<id>.js`: `export default { …JSON… }`),
+  ne `.json`. Důvod: `fetch` z `file://` nefunguje a JSON moduly (`import … with {type:'json'}`)
+  neumí Firefox 115; statický import modulu funguje v prohlížeči, v Node i v bundleru (R3).
+  Test hlídá, že data jdou beze ztráty převést na JSON (pro sdílení odkazem a soubor).
+- Krok scénáře: `{ num, part?, match, title, text, note?: {osi, tcpip}, hint?, simplifies?, showMapping? }`.
+  `num` je číslo kroku ve scénáři (čítač „Krok n z N“), `part: [i, n]` dílčí krok (úroveň 1: 8a–8c),
+  `note` doplňující věta jen v daném režimu přepínače, `simplifies` text za „Simulátor zjednodušuje:“.
 - `actions` a `initial_state` mají stejný tvar jako ve vektorech (`time` v sekundách, převádí
   se na µs). `steps[].match` váže text vysvětlivky na záznam trace (ne na číslo kroku), takže
   text sedí i po změně časování.
@@ -417,8 +433,16 @@ Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
 kap. 4.1, (3) kódování a pole pro rentgen ve `js/wire/encode.js`, (4) zápis do `registry.js`
 a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + vektor od projektanta.
 
-**Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.json` podle
-kap. 5.3, (3) zápis do `scenarios/index.json` (katalog), (4) smoke: `#s=<id>` se načte bez chyb.
+**Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
+kap. 5.3 (texty kroků doslova z .md), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
+každý krok najde svůj záznam (`buildSteps` jinak vyhodí chybu), (5) smoke test.
+
+**UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok s indexem 4 v režimu TCP/IP,
+`&anim` přehraje animaci příchodu do kroku, `&q=1` otevře kontrolní otázky. Snímek:
+`chromium --headless --allow-file-access-from-files --screenshot=tmp/k4.png --window-size=1400,900
+"file://$PWD/index.html#k=4"` (kontrolovat i 1280x720; složka `tmp/` je v .gitignore).
+Klávesy: šipky, mezerník, Home/End, +/−, T (ui.md kap. 6). Animace jen `transform`/`opacity`,
+délky násobí CSS proměnná `--k` = 1/rychlost; `prefers-reduced-motion` je nahradí 200ms zvýrazněním.
 
 ## 10. Rizika
 
