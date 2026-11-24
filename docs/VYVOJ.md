@@ -1,6 +1,7 @@
 # Vývoj tcpipsim
 
-Stav: iterace 1, úroveň 1 „Barvičky“ funguje (výtah, kroky 0–10, ISO/OSI ↔ TCP/IP). Autor: vývojář.
+Stav: iterace 1, úroveň 1 „Barvičky“ funguje (výtah, kroky 0–10, ISO/OSI ↔ TCP/IP), opravené
+nálezy kontroly čtyř rolí (rozhodnuti.md body 17–22). Autor: vývojář.
 Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), přenos zprávy přes Ethernet/IPv4/UDP
 na jedné lince, kódování rámce do bajtů, UI úrovně 1. Rozhodnutí jsou psaná s důvodem, aby šla
 zpětně zvrátit.
@@ -53,19 +54,22 @@ js/
     topology.js         načtení + validace topologie, migrace verzí formátu
     addr.js             práce s MAC/IPv4/prefixy (parse, format, longest prefix match)
   proto/                moduly protokolů (bez DOM), jeden soubor = jeden protokol
-    registry.js         statický registr protokolů, pořadí v zásobníku  [hotovo]
-    ethernet.js ipv4.js udp.js   [úroveň 1: hlavička + přijetí]; arp.js icmp.js tcp.js dns.js http.js [dhcp.js nat.js]
+    registry.js         statický registr protokolů, pořadí v zásobníku, demux()  [hotovo]
+    ethernet.js ipv4.js udp.js   [úroveň 1: hlavička, přijetí, binds/demuxField]; arp.js icmp.js tcp.js dns.js http.js [dhcp.js nat.js]
   devices/              chování typů uzlů (skládá protokoly): host.js hub.js switch.js router.js
   wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071], pcap.js
   cli/                  terminály nad jádrem (bez DOM): shell.js, wincmd/*.js, ios/*.js
   scenario/             sestavení úrovně ze scénáře (level1.js), později sdílení odkazem (bez DOM kromě share.js)
-  levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje)
-  ui/                   VŠE s DOM: render.js (výtah, topologie, vysvětlivka; úroveň 1),
+  levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje: xray, terminal)
+  ui/                   UI: render.js (výtah, topologie, vysvětlivka, panel Detail; funkce vracejí
+                        HTML jako text, proto jdou testovat v Node), urlstate.js (#k=8b&m=tcpip),
                         později rentgen, sekvenční diagram, terminal (okno nad cli/), editor/
 scenarios/              scénáře: *.md (didaktik, text) a *.js (data pro simulátor, viz kap. 5.3)
 tests/
   run_all.sh            všechny testy (node + smoke v prohlížeči)
   core/*.test.js        jednotkové testy jádra
+  ui/*.test.js          logika UI bez prohlížeče (texty podle režimu, panel Detail, adresa)
+  browser/interact.html test ovládání v headless Chromiu (spouští run_all.sh, výsledek v data-result)
   proto/*.test.js       testy protokolů (kódování, checksumy)
   vectors/*.json        testovací vektory projektanta (docs/spec/vektory.md)
   vectors.test.js       runner vektorů (od iterace 2, viz kap. 8)
@@ -161,7 +165,15 @@ aby z nich šla bez jádra vykreslit animace, sekvenční diagram, rentgen i pca
   `match` a pohled po kroku k počítá **znovu z předpony záznamu** (`viewAt`), bez delt. Pro desítky
   záznamů je to zanedbatelné a krok vzad je přesný z definice (test). Delty a snapshoty níže
   přijdou s tabulkami v iteraci 2. Model vrstev (ISO/OSI / TCP/IP) jádro nezná, je jen parametr
-  vykreslení, takže přepnutí nemění krok ani stav.
+  vykreslení, takže přepnutí nemění krok ani stav. Jediný zdroj pravdy o aktuálním kroku v UI je
+  `timeline.cursor` (main.js si krok zvlášť nepamatuje). Texty kroku (`title`, `text`, `note`,
+  `hint`, `simplifies`) jsou řetězec, nebo `{ osi, tcpip }` podle režimu (`textFor()`); id řádku
+  vrstvy se při přepnutí modelu převádí `convertRowId()` (jinak by panel Detail spadl).
+- Příjem je skutečný **demultiplex zdola**: rámec zpracuje nejnižší modul, další modul vybere
+  pole hlavičky (`demuxField`: EtherType -> Protocol -> port) proti `binds` zapnutých modulů
+  (`registry.demux`). Vypnutý protokol = `drop` s důvodem „protokol není v této úrovni“.
+  Hlavičky odesílatele berou hodnoty z `binds` modulu nad sebou (EtherType 0x0800, Protocol 17).
+  IPv4 Identification je čítač na uzel od `node.ip_id_start ?? 1` (ipv4.md kap. 2).
 - Kurzor `timeline.goto(k)` vrátí **pohled** na stav po kroku k: tabulky uzlů, PDU na linkách,
   texty vysvětlivek. Dopředu se delty aplikují, dozadu se aplikují inverzně. Pro skok posuvníkem
   se ukládá pohled každých 32 kroků.
@@ -347,6 +359,11 @@ texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `
 
 ### 5.4 Sdílení odkazem
 
+- **Krok a model (hotovo, rozhodnutí 21):** `index.html#k=8b&m=tcpip`. `k` je označení kroku
+  jako v UI (`8` = `8a`), `m` = `osi | tcpip`. Adresa se při krokování a přepnutí přepisuje
+  (`history.replaceState`, historie se nezaplní) a změna adresy (`hashchange`) stránku přepne.
+  Pro snímky navíc `&anim` (vykreslit s animací) a `&q=1` (otevřít kontrolní otázky).
+  Parsování je v `js/ui/urlstate.js` (test v `tests/ui/render.test.js`).
 - Vestavěný scénář: `index.html#s=uroven2-ping-switch`.
 - Vlastní topologie/scénář od učitele: `#d=<base64url(deflate-raw(JSON))>` přes nativní
   `CompressionStream` (bez knihovny). Topologie s 10 uzly ≈ 3 kB JSON ≈ 1 kB v odkazu; to
@@ -391,7 +408,9 @@ Měřit od iterace 2 na gaze (`performance.now()` v smoke testu).
 | jádro, protokoly, cli | `node --test` (vestavěný, bez závislostí) | `tests/**/*.test.js` |
 | vektory projektanta | `tests/vectors.test.js` (iterace 2) | každý `tests/vectors/*.json` = jeden test |
 | kódování | `tests/proto/*.test.js` | bajty proti hexdumpům reálných rámců, checksum = 0 po přepočtu |
+| logika UI | `node --test` (`tests/ui/`) | panel Detail pro všechna id × model, texty podle režimu, zakázané zkratky, adresa |
 | stránka | headless Chromium v `tests/run_all.sh` | načtení `index.html` bez chyb |
+| ovládání | headless Chromium, `tests/browser/interact.html` | klávesy, přepnutí modelu s otevřeným panelem, adresa, posuvník, pauza, dialog |
 | vzhled | `chromium --headless --screenshot=…` | ruční kontrola snímků (kreativec, recenzent) |
 
 **Runner vektorů** (`tests/vectors.test.js`, rozhraní pro iteraci 2):
@@ -423,6 +442,11 @@ existující rozhraní, každé rozhraní nejvýš v jedné lince).
   `Uncaught|Error|CORS|Failed to load`. Jádro po úspěšném startu nastaví `data-core="ok"`.
 - Ověřeno, že test opravdu selže při výjimce v modulu i při chybějícím importu.
 - `--user-data-dir` do dočasné složky, aby test nekolidoval s otevřeným prohlížečem.
+- **Test ovládání:** `tests/browser/interact.html` načte `index.html#k=8b&m=tcpip` v iframe
+  (file:// + `--allow-file-access-from-files` = stejný původ), posílá události a kliká, výsledek
+  zapíše do `<pre id="result" data-result="OK|FAIL">`; `run_all.sh` ho čte z `--dump-dom`
+  a vypíše řádky, které selhaly. Nový ovládací prvek = nová kontrola tam.
+- **Snímky:** `tmp/fix/shot.sh <název> 'k=5&m=tcpip' 1280 720` (stav se zadává adresou).
 
 **Pravidla:** každý nový modul jádra má test; nová chyba = nejdřív test, který ji ukáže.
 Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
@@ -437,12 +461,20 @@ a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + ve
 kap. 5.3 (texty kroků doslova z .md), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
 každý krok najde svůj záznam (`buildSteps` jinak vyhodí chybu), (5) smoke test.
 
-**UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok s indexem 4 v režimu TCP/IP,
+**UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok 4 (označení jako v UI, např. `8b`) v režimu TCP/IP,
 `&anim` přehraje animaci příchodu do kroku, `&q=1` otevře kontrolní otázky. Snímek:
 `chromium --headless --allow-file-access-from-files --screenshot=tmp/k4.png --window-size=1400,900
 "file://$PWD/index.html#k=4"` (kontrolovat i 1280x720; složka `tmp/` je v .gitignore).
 Klávesy: šipky, mezerník, Home/End, +/−, T (ui.md kap. 6). Animace jen `transform`/`opacity`,
-délky násobí CSS proměnná `--k` = 1/rychlost; `prefers-reduced-motion` je nahradí 200ms zvýrazněním.
+délky násobí CSS proměnná `--k` = 1/rychlost; `prefers-reduced-motion` i tlačítko „Omezit animace“
+(třída `body.reduce-motion`, uloží se do localStorage) je nahradí 200ms zvýrazněním. Pauza dá
+`body.frozen` (`animation-play-state: paused`), krok nebo Přehrát animaci rozmrazí. Průchod
+vrstvou bez obálky (L7 -> L6 -> L5) = `.pass.anim-pass` v řádku, jen v ISO/OSI. Vysvětlivka
+(`aria-live`) a panel Detail se překreslí jen při změně kroku nebo modelu (`state.shown`), ne při
+změně rychlosti. Obálka má jediné tlačítko, svůj štítek (`button.lab`); mezerník na zaměřeném
+tlačítku tlačítko aktivuje, jinde přehrává. Úroveň bez rentgenu (`levels.js` `xray: false`) má
+panel „Detail“ a bez terminálu (`terminal: false`) skrytý terminál.
+Odloženo (rozhodnuti.md bod 19): zpětná animace kroku vzad, animované slučování řádků.
 
 ## 10. Rizika
 

@@ -7,8 +7,8 @@ export const FORMAT_VERSION = 1;
 
 export { Scheduler } from './scheduler.js';
 export { Rng } from './rng.js';
-export { MODELS, OSI_LAYERS, TCPIP_LAYERS, rowOf, pduName } from './layers.js';
+export { MODELS, OSI_LAYERS, TCPIP_LAYERS, rowOf, convertRowId } from './layers.js';
 export { dataPdu, encapsulate, decapsulate, layersOf, messageOf } from './pdu.js';
 export { Trace } from './trace.js';
 export { runTransfer } from './transfer.js';
-export { Timeline, buildSteps, viewAt, stepLabel } from './timeline.js';
+export { Timeline, buildSteps, viewAt, stepLabel, stepIndex, textFor } from './timeline.js';

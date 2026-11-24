@@ -34,6 +34,7 @@
     <h1>tcpipsim</h1>
     <div class="lvl" id="level-title">Úroveň 1: Barvičky</div>
     <button type="button" class="btn small" id="btn-questions">Kontrolní otázky</button>
+    <button type="button" class="btn small" id="btn-motion" aria-pressed="false" title="Bez pohybu, jen krátké zvýraznění">Omezit animace</button>
     <div class="seg" role="group" aria-label="Model vrstev (klávesa T)">
       <button type="button" data-model="osi" aria-pressed="true">ISO/OSI (7)</button>
       <button type="button" data-model="tcpip" aria-pressed="false">TCP/IP (4)</button>
@@ -78,7 +79,7 @@
     <aside>
       <div class="card explain" aria-live="polite" id="explain"></div>
       <div class="card info" id="info"></div>
-      <div class="term" aria-hidden="true">&gt; terminál (později)</div>
+      <div class="term" id="term" aria-hidden="true">&gt; terminál (později)</div>
     </aside>
   </main>
 
@@ -87,7 +88,7 @@
     <button type="button" class="btn main" id="btn-play"></button>
     <button type="button" class="btn" id="btn-fwd"><span id="fwd-label">Vpřed</span> <kbd>&rarr;</kbd><svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3v14l10-7z"/></svg></button>
     <div class="prog">
-      <input type="range" id="slider" min="0" max="10" step="1" value="0" aria-label="Krok">
+      <input type="range" id="slider" min="0" max="12" step="1" value="0" aria-label="Krok">
       <div class="prog-text"><span id="prog-label">Krok 0 z 10</span><span id="prog-dir">Alice &rarr; Bob</span></div>
     </div>
     <div class="speed" role="group" aria-label="Rychlost">

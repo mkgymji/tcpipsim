@@ -84,10 +84,11 @@ export function viewAt(records, upto) {
         v.focus = { link: r.link, from: r.from, to: r.to };
         break;
       case 'phy.rx':
+        // fyzická vrstva přijala bity, linková z nich hned složí rámec (zobrazí se na L2)
         move(node, 1);
-        move(node, r.layer);
+        move(node, 2);
         v.packet = { form: 'pdu', pdu: r.pdu };
-        v.focus = { node: r.node, layer: r.layer };
+        v.focus = { node: r.node, layer: 2 };
         break;
       case 'decap':
         move(node, r.layer);
@@ -102,7 +103,7 @@ export function viewAt(records, upto) {
         v.focus = { node: r.node, layer: 7 };
         break;
       case 'drop':
-        v.dropped = { node: r.node, layer: r.layer, proto: r.proto };
+        v.dropped = { node: r.node, layer: r.layer, proto: r.proto, reason: r.reason };
         break;
       case 'sim.end':
         for (const n of Object.values(v.nodes)) finish(n);
@@ -145,4 +146,19 @@ export class Timeline {
 // Označení kroku pro UI: '4', u dílčích kroků '8a', '8b', '8c'.
 export function stepLabel(step) {
   return step.part ? `${step.num}${'abcdefgh'[step.part[0] - 1]}` : String(step.num);
+}
+
+// Index kroku podle označení z UI ('8b'); samotné číslo dílčího kroku ('8') = jeho první část.
+// Neznámé označení -> -1.
+export function stepIndex(steps, label) {
+  const s = String(label ?? '').trim().toLowerCase();
+  const exact = steps.findIndex((st) => stepLabel(st) === s);
+  if (exact >= 0) return exact;
+  return /^\d+$/.test(s) ? steps.findIndex((st) => String(st.num) === s) : -1;
+}
+
+// Text kroku podle modelu: hodnota je řetězec, nebo { osi, tcpip } (texty závislé na režimu).
+export function textFor(value, modelId) {
+  if (value == null || typeof value === 'string') return value ?? '';
+  return value[modelId] ?? '';
 }

@@ -16,8 +16,8 @@ Simulátor používá terminologii z Michalových prezentací (viz `CLAUDE.md`).
 | Relační | L5 | Aplikační | data | | aplikace |
 | Transportní | L4 | Transportní | segment (TCP), datagram (UDP) | port | operační systém |
 | Síťová | L3 | Síťová | paket (IP datagram) | IP adresa | operační systém |
-| Linková | L2 | Vrstva síťového rozhraní | rámec | MAC adresa | firmware síťového rozhraní (+ ovladač v OS) |
-| Fyzická | L1 | Vrstva síťového rozhraní | bity | | hardware síťového rozhraní |
+| Linková | L2 | Vrstva síťového rozhraní | rámec | MAC adresa | síťová karta (hardware a firmware); hlavičku sestaví ovladač v OS |
+| Fyzická | L1 | Vrstva síťového rozhraní | bity | | síťová karta (hardware a firmware) |
 
 Poznámky k přesnosti (nic, co by se student musel odnaučit, jen zpřesnění):
 
@@ -26,7 +26,8 @@ Poznámky k přesnosti (nic, co by se student musel odnaučit, jen zpřesnění)
   v simulátoru na L3 primárně „paket“, v rentgenu podtitul „IP datagram“.
 - **Kdo sestavuje ethernetovou hlavičku:** v reálném PC ji sestaví ovladač síťové karty v OS,
   karta (firmware/hardware) přidá preambuli a FCS, odvysílá bity a u příchozích rámců
-  filtruje podle cílové MAC. Tabulka „kdo se stará“ z prezentace (L2 = firmware) je tedy
+  filtruje podle cílové MAC. Simulátor u L1 i L2 píše „síťová karta (hardware a firmware)“
+  (rozhodnuti.md bod 18; prezentace říká „firmware síťového rozhraní“). Je to
   zjednodušení, které platí v tom podstatném: o rámce se aplikace ani IP vrstva nestarají.
 - **ARP** stojí mezi L2 a L3 (ptá se na MAC podle IP). Implementuje ho operační systém (ARP
   cache je v jádře OS, `arp -a`), nikoli firmware karty. Rámec s ARP nenese IP paket:

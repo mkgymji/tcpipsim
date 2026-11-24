@@ -1,6 +1,8 @@
 # Scénář úrovně 1: Barvičky (zapouzdření)
 
-Text pro implementaci. Stav: návrh učitele (iterace 1). Barvy a vzhled upřesní kreativec;
+Text pro implementaci. Stav: návrh učitele (iterace 1), texty kroků upravené po kontrole
+úrovně 1 (rozhodnuti.md body 17–22). Platné znění je v `uroven1-zapouzdreni.js`; texty závislé
+na režimu přepínače mají tvar `{ osi, tcpip }`. Barvy a vzhled upřesní kreativec;
 zde jsou pracovní. Texty v uvozovkách jsou texty simulátoru (oslovení „ty“).
 
 ## Cíl a nová myšlenka
@@ -62,9 +64,9 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
 
 ### Krok 3: Obálka síťové vrstvy
 
-- Vidí: segment sjede dolů, přidá se modrá obálka S. Popisek „paket“. Zelená obálka je uvnitř modré.
-- Text: „Síťová vrstva obalila segment další obálkou. Výsledek je paket. Zelená obálka je uvnitř,
-  síťová vrstva do ní nekouká.“
+- Vidí: segment sjede dolů, přidá se modrá obálka S. Popisek „paket“. Obálka transportní vrstvy je uvnitř obálky síťové.
+- Text: „Síťová vrstva obalila segment další obálkou, výsledek je paket. Do obálky transportní
+  vrstvy uvnitř nekouká, bere ji jako data.“
 
 ### Krok 4: Obálka vrstvy síťového rozhraní
 
@@ -79,19 +81,22 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
 
 - Vidí: obálky se v dolní vrstvě rozpadnou na řadu 0 a 1; kolem ní šedá stuha „bity“. Barevné
   proužky ještě chvíli prosvítají (aby šlo pochopit, že jde o stejnou věc, jen zakódovanou).
-- Text: „Po drátě se obálky neposílají. Posílají se bity, tedy střídání signálu. Na fyzické vrstvě už
-  neexistuje ani zpráva, ani obálka, jen 0 a 1.“
+- Text: „Fyzická vrstva přepsala celý rámec, obálky i zprávu, na bity (0 a 1). Po drátě jede
+  všechno, jen už nejde poznat, co je zpráva a co obálka.“ (rozhodnutí 17: původní „obálky se
+  neposílají“ vytvářelo miskoncepci)
 
 ### Krok 6: Bity jedou po drátě
 
 - Vidí: bity putují po drátě od Alice k Bobovi (animace tečkami); rychlost lze zpomalit.
-- Dělá: tlačítkem Pauza zastaví a může kliknout na drát: „Na drátě vidíš jen bity.“
+- Dělá: tlačítkem Pauza zastaví a může kliknout na drát: „Po kabelu jede celý rámec jako bity.
+  Kabel nerozlišuje obálky ani zprávu.“
 - Text: „Teď jsou bity na drátě. Kabel nic neví o zprávě ani o vrstvách.“
 
 ### Krok 7: Bob přijímá bity
 
 - Vidí: bity dorazí do dolní vrstvy Boba a poskládají se zpět do fialového rámce.
-- Text: „Bob na fyzické vrstvě přijal bity a vrstva síťového rozhraní z nich složila rámec.“
+- Text (ISO/OSI): „Bob na fyzické vrstvě přijal bity a linková vrstva z nich složila rámec.“
+  (TCP/IP): „Bob přijal bity a vrstva síťového rozhraní z nich složila rámec.“
 
 ### Krok 8: Sundávání obálek
 
@@ -99,7 +104,8 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
   zelená odlétne (segment -> data). Každá se vrací do správné vrstvy a ta se krátce zvýrazní.
 - Dělá: student může u každé obálky kliknout na „Sundat“ (režim „sundávej sám“), jinak se sundávají samy.
 - Text (po jednom): „Vrstva síťového rozhraní sundala svou obálku.“ / „Síťová vrstva sundala svou
-  obálku.“ / „Transportní vrstva sundala svou obálku.“ Každá obálku čte jen vrstva, která ji přidala.
+  obálku.“ / „Transportní vrstva sundala poslední obálku. Zbyla data pro aplikaci.“ Jen v 8a navíc:
+  „Obálku čte jen stejná vrstva, jaká ji u odesílatele přidala.“ (ISO/OSI: „Linková vrstva…“)
 
 ### Krok 9: Zpráva dorazí
 
@@ -118,7 +124,7 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
 ## „Aha“ chvíle
 
 1. Kolem zprávy přibývají obálky, ale zpráva uvnitř se nemění (krok 3–4).
-2. Na drátě nejsou obálky ani zpráva, jen bity (krok 5–6). Student si často představoval, že „po drátě
+2. Po drátě jede celý rámec, obálky i zpráva, ale jako bity; kabel je nerozlišuje (krok 5–6). Student si často představoval, že „po drátě
    jede balíček“.
 3. Obálku vrstvy N čte u příjemce jen vrstva N (krok 8). Proto má smysl mít více vrstev.
 4. Přepínačem ISO/OSI ↔ TCP/IP se nic nezmění na tom, co se děje, jen jak to nazýváme.
@@ -135,8 +141,8 @@ neukládat; je to jen procvičení.
 1. V jakém pořadí se přidávají obálky u odesílatele a v jakém se sundávají u příjemce?
    Očekávaná odpověď: přidávají se shora dolů (aplikační -> transportní -> síťová -> síťového rozhraní),
    sundávají se zdola nahoru, opačně. Obálka přidaná poslední se sundává první.
-2. Jak se jmenuje PDU na transportní, síťové a linkové vrstvě? Co jede po drátě?
-   Očekávaná odpověď: segment, paket, rámec; po drátě jdou bity.
+2. Jak se jmenují data s obálkou na transportní, síťové a linkové vrstvě? Co jede po drátě?
+   Očekávaná odpověď: segment, paket, rámec. Po drátě jedou bity: celý rámec i s obálkami a zprávou.
 3. Kolik vrstev má ISO/OSI a kolik TCP/IP? Kam patří aplikační vrstva TCP/IP v ISO/OSI?
    Očekávaná odpověď: 7 a 4; aplikační vrstva TCP/IP odpovídá vrstvám 7, 6 a 5 (aplikační, prezentační, relační).
 4. Změnila se zpráva „Ahoj, Bobe!“ cestou? Co se změnilo?

@@ -1,10 +1,13 @@
 // Vstupní bod stránky: úroveň 1 „Barvičky“. Jádro vyrobí záznam (trace), timeline z něj
 // poskládá kroky scénáře a UI se po krocích jen pohybuje (VYVOJ.md R6, kap. 6).
+// Jediný zdroj pravdy o aktuálním kroku je timeline.cursor.
 import scenario from '../scenarios/uroven1-zapouzdreni.js';
 import { buildLevel1 } from './scenario/level1.js';
 import { stepLabel } from './core/timeline.js';
-import { renderStack, renderNest, renderTopology, renderExplain, mappingTable, layerInfo, envInfo, esc }
+import { convertRowId } from './core/layers.js';
+import { renderStack, renderNest, renderTopology, renderExplain, infoHtml, stepTitle, esc }
   from './ui/render.js';
+import { parseHash, formatHash } from './ui/urlstate.js';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const DWELL_MS = 4200;        // doba jednoho kroku při přehrávání (1x): animace + čtení
@@ -17,17 +20,20 @@ function savePref(key, value) {
   try { localStorage.setItem(key, value); } catch { /* soukromé okno: nevadí */ }
 }
 
-const { timeline } = buildLevel1(scenario);
+const { timeline, level } = buildLevel1(scenario);
 const total = Math.max(...timeline.steps.map((s) => s.num));
+const last = timeline.length - 1;
 const reduceMQ = window.matchMedia('(prefers-reduced-motion: reduce)');
 
 const state = {
-  k: 0,
   model: loadPref('tcpipsim.model', 'osi') === 'tcpip' ? 'tcpip' : 'osi',
   speedIdx: 2,
   playing: false,
   timer: null,
-  info: null,           // co ukazuje informační panel: null | {layer} | {env} | 'wire'
+  info: null,           // co ukazuje panel Detail: null | {layer} | {env} | 'wire'
+  mapOpen: true,        // rozbalená tabulka TCP/IP a ISO/OSI v kroku 10
+  reduceMotion: loadPref('tcpipsim.reduceMotion', '0') === '1',
+  shown: null,          // naposledy vykreslený krok a model ('k|model')
 };
 
 const els = {
@@ -35,180 +41,224 @@ const els = {
   stackS: $('stack-sender'), stackR: $('stack-receiver'), nest: $('nest'), cap: $('env-caption'),
   explain: $('explain'), info: $('info'), slider: $('slider'), progLabel: $('prog-label'),
   back: $('btn-back'), play: $('btn-play'), fwd: $('btn-fwd'), fwdLabel: $('fwd-label'),
-  speed: $('speed-val'),
+  speed: $('speed-val'), motion: $('btn-motion'),
 };
 
+const cur = () => timeline.cursor;
 function speed() { return SPEEDS[state.speedIdx]; }
 
 function renderInfo(view) {
-  const el = els.info;
-  let html = '';
-  if (state.info?.layer) html = layerInfo(state.model, state.info.layer);
-  else if (state.info?.env) html = envInfo(state.model, state.info.env);
-  else if (state.info === 'wire') {
-    html = view.packet?.form === 'wire'
-      ? '<h3>Kabel</h3><p>Na drátě vidíš jen bity.</p>'
-      : '<h3>Kabel</h3><p>Teď po kabelu nic nejede. Bity uvidíš v kroku 6.</p>';
-  }
-  if (view.step.showMapping) {
-    html += `<details${state.info ? '' : ' open'}><summary>Tabulka: TCP/IP a ISO/OSI</summary>${mappingTable()}</details>
-      <button type="button" class="btn small" data-open-questions>Kontrolní otázky</button>`;
-  }
-  if (!html) {
-    el.classList.add('placeholder');
-    el.innerHTML = '<h3>Rentgen</h3><div class="ph">Klikni na vrstvu nebo obálku a uvidíš, k čemu je.<br>(Obsah hlaviček ukáže rentgen od úrovně 2.)</div>';
-  } else {
-    el.classList.remove('placeholder');
-    el.innerHTML = html;
-  }
+  const { html, empty } = infoHtml(state.model, state.info, view, { mapOpen: state.mapOpen });
+  els.info.classList.toggle('placeholder', empty);
+  els.info.innerHTML = empty
+    ? `<h3>${level.xray ? 'Rentgen' : 'Detail'}</h3><div class="ph">Klikni na vrstvu, obálku nebo kabel a tady uvidíš, k čemu jsou.</div>`
+    : html;
 }
 
-function render(animate) {
-  const view = timeline.view(state.k);
-  const anim = animate;
-  renderTopology(els, view, scenario, anim);
-  renderStack(els.stackS, view.nodes[view.sender], state.model);
-  renderStack(els.stackR, view.nodes[view.receiver], state.model);
-  renderNest(els.nest, els.cap, view, state.model, scenario, anim);
-  renderExplain(els.explain, view, state.model, total);
-  renderInfo(view);
-  if (!animate) {
-    // krok vzad / skok: bez pohybu, jen krátké zvýraznění (ui.md kap. 4)
-    els.nest.firstElementChild?.classList.add('anim-flash');
-  }
+// Vrstvy, kterými zpráva v tomto kroku jen prošla (např. L7 -> L4 projde L6 a L5).
+function passedLayers(prev, view) {
+  const a = prev?.focus, b = view.focus;
+  if (!a?.layer || !b?.layer || a.node !== b.node) return [];
+  const out = [];
+  const dir = b.layer < a.layer ? -1 : 1;
+  for (let n = a.layer + dir; n !== b.layer; n += dir) out.push(n);
+  return out;
+}
 
-  const s = view.step;
-  els.slider.value = String(s.num);
-  els.slider.setAttribute('aria-valuetext', `Krok ${stepLabel(s)} z ${total}: ${s.title}`);
-  els.progLabel.textContent = `Krok ${stepLabel(s)} z ${total}: ${s.title}`;
-  const atStart = state.k === 0, atEnd = state.k === timeline.length - 1;
-  els.back.setAttribute('aria-disabled', String(atStart));
-  els.fwd.setAttribute('aria-disabled', String(atEnd));
-  els.fwdLabel.textContent = atStart ? 'Začít' : 'Vpřed';
+// Ovládání (tlačítka, posuvník, rychlost): levné, smí se volat kdykoli.
+function renderControls() {
+  const s = timeline.steps[cur()];
+  const label = `Krok ${stepLabel(s)} z ${total}: ${stepTitle(s, state.model)}`;
+  els.slider.value = String(cur());
+  els.slider.setAttribute('aria-valuetext', label);
+  els.progLabel.textContent = label;
+  els.progLabel.title = label;
+  els.back.setAttribute('aria-disabled', String(cur() === 0));
+  els.fwd.setAttribute('aria-disabled', String(cur() === last));
+  els.fwdLabel.textContent = cur() === 0 ? 'Začít' : 'Vpřed';
   els.play.innerHTML = state.playing
     ? '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3h4v14H5zM11 3h4v14h-4z"/></svg>Pauza <kbd>mezerník</kbd>'
     : '<svg viewBox="0 0 20 20" aria-hidden="true"><path d="M5 3v14l11-7z"/></svg>Přehrát <kbd>mezerník</kbd>';
   els.speed.textContent = `${String(speed()).replace('.', ',')}×`;
   document.documentElement.style.setProperty('--k', String(1 / speed()));
   document.querySelectorAll('.seg button').forEach((b) => b.setAttribute('aria-pressed', String(b.dataset.model === state.model)));
-  document.documentElement.dataset.step = String(state.k);
+  els.motion.setAttribute('aria-pressed', String(state.reduceMotion));
+}
+
+// Pohled kroku. Vysvětlivka (aria-live) a panel Detail se přepíší jen při změně kroku nebo
+// modelu, ne při změně rychlosti nebo pauze (recenzent bod 8).
+function render({ animate = false, prev = null } = {}) {
+  const k = cur();
+  const view = timeline.view(k);
+  renderTopology(els, view, scenario, animate);
+  const pass = (node) => (animate && view.focus?.node === node ? passedLayers(prev, view) : []);
+  renderStack(els.stackS, view.nodes[view.sender], state.model, pass(view.sender));
+  renderStack(els.stackR, view.nodes[view.receiver], state.model, pass(view.receiver));
+  renderNest(els.nest, els.cap, view, state.model, scenario, animate);
+  if (!animate) els.nest.firstElementChild?.classList.add('anim-flash');   // skok: jen zvýraznění
+  const key = `${k}|${state.model}`;
+  if (state.shown !== key) {
+    renderExplain(els.explain, view, state.model, total);
+    renderInfo(view);
+    state.shown = key;
+    const hash = formatHash(view.step, state.model);
+    if (location.hash !== hash) history.replaceState(null, '', hash);
+  }
+  renderControls();
+  document.documentElement.dataset.step = String(k);
   document.documentElement.dataset.model = state.model;
 }
 
+function setFrozen(on) { document.body.classList.toggle('frozen', on); }
+
 function go(k, { animate = false } = {}) {
-  const next = Math.max(0, Math.min(timeline.length - 1, k));
-  const forwardOne = next === state.k + 1;
-  if (next !== state.k) state.info = null;
-  state.k = next;
+  const next = Math.max(0, Math.min(last, k));
+  const prevK = cur();
+  const forwardOne = next === prevK + 1;
+  if (next !== prevK) state.info = null;
+  const prev = timeline.view(prevK);
   timeline.goto(next);
-  render(animate && forwardOne);
+  setFrozen(false);
+  render({ animate: animate && forwardOne, prev });
   if (state.playing) schedule();
 }
 
 function schedule() {
   clearTimeout(state.timer);
   if (!state.playing) return;
-  if (state.k >= timeline.length - 1) { setPlaying(false); return; }
-  state.timer = setTimeout(() => go(state.k + 1, { animate: true }), DWELL_MS / speed());
+  if (cur() >= last) { setPlaying(false); return; }
+  state.timer = setTimeout(() => go(cur() + 1, { animate: true }), DWELL_MS / speed());
 }
 
+// Pauza zmrazí rozběhnutou animaci (ui.md kap. 4); Přehrát ji rozmrazí a pokračuje.
 function setPlaying(on) {
+  if (on === state.playing) return;
   state.playing = on;
   clearTimeout(state.timer);
-  if (on) {
-    if (state.k >= timeline.length - 1) state.k = -1;    // od začátku
-    go(state.k + 1, { animate: true });
+  if (!on) {
+    setFrozen(true);
+    renderControls();
+    return;
+  }
+  if (cur() >= last) {             // na konci: přehrát znovu od začátku
+    timeline.goto(0);
+    go(1, { animate: true });
+  } else if (document.body.classList.contains('frozen')) {
+    setFrozen(false);
+    renderControls();
+    schedule();
   } else {
-    render(false);
+    go(cur() + 1, { animate: true });
   }
 }
 
 function setModel(m) {
-  if (m === state.model) return;
+  if (m === state.model || !['osi', 'tcpip'].includes(m)) return;
+  if (state.info?.layer) {
+    const id = convertRowId(state.model, m, state.info.layer);
+    state.info = id ? { layer: id } : null;
+  }
   state.model = m;
   savePref('tcpipsim.model', m);
-  render(false);   // stejný krok, jiné popisky
+  render();   // stejný krok, jiné popisky
 }
 
 function setSpeed(delta) {
   state.speedIdx = Math.max(0, Math.min(SPEEDS.length - 1, state.speedIdx + delta));
-  render(false);
+  renderControls();
   if (state.playing) schedule();
 }
 
+function syncMotion() {
+  document.body.classList.toggle('reduce-motion', state.reduceMotion || reduceMQ.matches);
+}
+
 function openQuestions() {
+  setPlaying(false);    // při otevřeném dialogu se nepřehrává
   const d = $('questions');
   if (!d.open) d.showModal();
 }
 
 // --- ovládání ---
-els.back.addEventListener('click', () => go(state.k - 1));
-els.fwd.addEventListener('click', () => go(state.k + 1, { animate: true }));
+els.back.addEventListener('click', () => go(cur() - 1));
+els.fwd.addEventListener('click', () => go(cur() + 1, { animate: true }));
 els.play.addEventListener('click', () => setPlaying(!state.playing));
-$('btn-reset').addEventListener('click', () => { state.playing = false; clearTimeout(state.timer); go(0); });
+$('btn-reset').addEventListener('click', () => { setPlaying(false); go(0); });
 $('btn-slower').addEventListener('click', () => setSpeed(-1));
 $('btn-faster').addEventListener('click', () => setSpeed(+1));
-els.slider.addEventListener('input', () => {
-  const num = Number(els.slider.value);
-  const idx = timeline.steps.findIndex((s) => s.num === num);
-  if (idx >= 0) go(idx);
-});
+els.slider.max = String(last);
+els.slider.addEventListener('input', () => go(Number(els.slider.value)));
 document.querySelectorAll('.seg button').forEach((b) => b.addEventListener('click', () => setModel(b.dataset.model)));
 $('btn-questions').addEventListener('click', openQuestions);
+els.motion.addEventListener('click', () => {
+  state.reduceMotion = !state.reduceMotion;
+  savePref('tcpipsim.reduceMotion', state.reduceMotion ? '1' : '0');
+  syncMotion();
+  renderControls();
+});
 
-// klik na vrstvu, obálku nebo kabel -> informační panel
+// klik na vrstvu, obálku nebo kabel -> panel Detail
 document.addEventListener('click', (e) => {
-  const t = e.target.closest('[data-layer], [data-env], #wire, [data-open-questions]');
+  const t = e.target.closest?.('[data-layer], [data-env], #wire, [data-open-questions]');
   if (!t) return;
   if (t.matches('[data-open-questions]')) { openQuestions(); return; }
-  e.stopPropagation();
   if (t.id === 'wire') state.info = 'wire';
   else if (t.dataset.layer) state.info = { layer: t.dataset.layer };
   else state.info = { env: t.dataset.env };
-  renderInfo(timeline.view(state.k));
+  renderInfo(timeline.view(cur()));
 });
-document.addEventListener('keydown', (e) => {
-  if (e.key === 'Enter' && e.target.matches?.('[data-env][role=button]')) { e.target.click(); e.preventDefault(); }
-});
+document.addEventListener('toggle', (e) => {
+  if (e.target.matches?.('details[data-map]')) state.mapOpen = e.target.open;
+}, true);
 
 // klávesy (ui.md kap. 6); v otevřeném dialogu a v textových polích ne
+const NATIVE_SPACE = 'button, summary, a[href], input[type=checkbox]';
 document.addEventListener('keydown', (e) => {
   if (e.ctrlKey || e.metaKey || e.altKey) return;
   if ($('questions').open) return;
   if (e.target.matches?.('input[type=text], textarea')) return;
   const isRange = e.target === els.slider;
   switch (e.key) {
-    case 'ArrowRight': if (!isRange) { go(state.k + 1, { animate: true }); e.preventDefault(); } break;
-    case 'ArrowLeft': if (!isRange) { go(state.k - 1); e.preventDefault(); } break;
-    case ' ': setPlaying(!state.playing); e.preventDefault(); break;
-    case 'Home': go(0); e.preventDefault(); break;
-    case 'End': go(timeline.length - 1); e.preventDefault(); break;
+    case 'ArrowRight': if (!isRange) { go(cur() + 1, { animate: true }); e.preventDefault(); } break;
+    case 'ArrowLeft': if (!isRange) { go(cur() - 1); e.preventDefault(); } break;
+    case ' ':
+      // na zaměřeném tlačítku mezerník tlačítko aktivuje (nativně), nepřehrává
+      if (e.target.matches?.(NATIVE_SPACE)) break;
+      setPlaying(!state.playing); e.preventDefault(); break;
+    case 'Home': if (!isRange) { go(0); e.preventDefault(); } break;
+    case 'End': if (!isRange) { go(last); e.preventDefault(); } break;
     case '+': case '=': setSpeed(+1); break;
     case '-': setSpeed(-1); break;
     case 't': case 'T': setModel(state.model === 'osi' ? 'tcpip' : 'osi'); break;
     default:
   }
 });
-// mezerník na tlačítku by jinak tlačítko ještě „klikl“ (dvě akce)
-document.addEventListener('keyup', (e) => { if (e.key === ' ' && e.target.matches?.('button')) e.preventDefault(); });
 
 // kontrolní otázky (rozbalovací odpovědi)
 $('q-list').innerHTML = scenario.questions.map((q) => `<li>${esc(q.text)}
   <details><summary>Ukázat odpověď</summary><p>${esc(q.answer)}</p></details></li>`).join('');
 
-// omezení pohybu: CSS řeší @media; třída pro případný ruční přepínač
-const syncMotion = () => document.body.classList.toggle('reduce-motion', reduceMQ.matches);
 reduceMQ.addEventListener?.('change', syncMotion);
 syncMotion();
 
-// stav z URL: #k=4&m=tcpip (pro odkazy a snímky)
-const params = new URLSearchParams(location.hash.slice(1));
-if (params.get('m') === 'tcpip' || params.get('m') === 'osi') state.model = params.get('m');
-const startK = Number(params.get('k'));
-if (Number.isInteger(startK) && startK > 0) state.k = Math.min(startK, timeline.length - 1);
+// úroveň 1: panel „Detail“, bez terminálu (rozhodnuti.md bod 20)
+document.querySelector('aside').classList.toggle('no-term', !level.terminal);
+$('term').hidden = !level.terminal;
 
-$('level-title').textContent = `Úroveň 1: Barvičky · ${scenario.title}`;
-render(params.has('anim'));
-if (params.get('q') === '1') openQuestions();
+// stav z adresy: #k=8b&m=tcpip (rozhodnuti.md bod 21), adresa se při krokování aktualizuje
+function applyHash({ animate = false } = {}) {
+  const h = parseHash(location.hash, timeline.steps);
+  if (h.model && h.model !== state.model) setModel(h.model);
+  if (h.k !== null && h.k !== cur()) go(h.k, { animate });
+  return h;
+}
+window.addEventListener('hashchange', () => applyHash());
+
+$('level-title').textContent = `Úroveň 1: ${level.title} · ${scenario.title}`;
+const start = parseHash(location.hash, timeline.steps);
+if (start.model) state.model = start.model;
+if (start.k !== null) timeline.goto(start.k);
+render({ animate: start.anim, prev: start.k ? timeline.view(start.k - 1) : null });
+if (start.questions) openQuestions();
 document.body.classList.add('ready');
 document.documentElement.dataset.core = 'ok';

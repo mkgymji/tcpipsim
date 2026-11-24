@@ -6,7 +6,8 @@ import { buildLevel1 } from '../../js/scenario/level1.js';
 import { runTransfer } from '../../js/core/transfer.js';
 import { viewAt, stepLabel, buildSteps } from '../../js/core/timeline.js';
 import { layersOf, messageOf } from '../../js/core/pdu.js';
-import { MODELS, rowOf } from '../../js/core/layers.js';
+import { MODELS, rowOf, convertRowId } from '../../js/core/layers.js';
+import { demux, stackOf } from '../../js/proto/registry.js';
 import { checksum } from '../../js/wire/encode.js';
 
 const { run, timeline } = buildLevel1(scenario);
@@ -26,7 +27,7 @@ test('zpráva dorazí k Bobovi beze změny', () => {
 test('pořadí záznamů: obálky shora dolů, sundávání zdola nahoru', () => {
   const seq = run.records.map((r) => (r.layer ? `${r.kind}:${r.layer}` : r.kind));
   assert.deepEqual(seq, ['sim.start', 'app.send:7', 'encap:4', 'encap:3', 'encap:2', 'phy.tx:1', 'link.tx',
-    'phy.rx:2', 'decap:2', 'decap:3', 'decap:4', 'app.recv:7', 'sim.end']);
+    'phy.rx:1', 'decap:2', 'decap:3', 'decap:4', 'app.recv:7', 'sim.end']);
 });
 
 test('rámec má právě 3 obálky (L4, L3, L2) kolem dat, žádné L5/L6', () => {
@@ -110,10 +111,50 @@ test('modely ISO/OSI a TCP/IP pokrývají každou vrstvu právě jednou', () => 
   assert.equal(rowOf('tcpip', 1).badge, 'L1-2');
 });
 
-test('pohled nezávisí na modelu (přepnutí nezmění krok ani stav)', () => {
-  // timeline model vůbec nezná; model je jen parametr vykreslení
-  const before = timeline.goto(6);
-  assert.deepEqual(timeline.view(6), before);
+test('převod id řádku mezi modely: každé id má protějšek a cesta tam a zpět sedí', () => {
+  for (const from of ['osi', 'tcpip']) {
+    for (const to of ['osi', 'tcpip']) {
+      for (const r of MODELS[from].rows) {
+        const id = convertRowId(from, to, r.id);
+        const target = MODELS[to].rows.find((x) => x.id === id);
+        assert.ok(target, `${from}:${r.id} -> ${to}`);
+        assert.ok(target.members.some((n) => r.members.includes(n)), `${r.id} a ${id} se překrývají`);
+      }
+    }
+  }
+  assert.equal(convertRowId('osi', 'tcpip', 'L6'), 'app');
+  assert.equal(convertRowId('tcpip', 'osi', 'netif'), 'L2');
+  assert.equal(convertRowId('osi', 'tcpip', 'transport'), null);   // id z jiného modelu
+});
+
+test('IPv4 Identification je čítač na uzel od 1 (ipv4.md kap. 2, rozhodnutí 22)', () => {
+  const bytes = run.records.find((r) => r.kind === 'phy.tx').bytes;
+  assert.deepEqual([...bytes.slice(18, 20)], [0, 1]);
+  const enc = run.records.find((r) => r.kind === 'encap' && r.proto === 'ipv4');
+  assert.equal(enc.pdu.h.id, 1);
+});
+
+test('demultiplex podle hlaviček: EtherType -> Protocol -> port', () => {
+  const stack = stackOf(['ethernet', 'ipv4', 'udp']);
+  const [udp, ipv4, eth] = stack;
+  assert.equal(demux(stack, eth, { ethertype: 0x0800 }), ipv4);
+  assert.equal(demux(stack, ipv4, { protocol: 17 }), udp);
+  assert.equal(demux(stack, udp, { dport: 5000 }), 'app');
+  assert.equal(demux(stack, eth, { ethertype: 0x86dd }), null);   // IPv6 v úrovni 1 není
+  assert.equal(demux(stack, ipv4, { protocol: 1 }), null);        // ICMP v úrovni 1 není
+  // hlavičky odesílatele nesou hodnoty modulu nad sebou
+  const encs = run.records.filter((r) => r.kind === 'encap');
+  assert.equal(encs.find((r) => r.proto === 'ethernet').pdu.h.ethertype, 0x0800);
+  assert.equal(encs.find((r) => r.proto === 'ipv4').pdu.h.protocol, 17);
+});
+
+test('bez zapnutého UDP se paket zahodí na L3 (protokol není v této úrovni)', () => {
+  const r = runTransfer({ topology: scenario.topology, protocols: ['ethernet', 'ipv4'],
+    action: scenario.actions[0], seed: 1 });
+  assert.equal(r.delivered, null);
+  const drop = r.records.find((x) => x.kind === 'drop');
+  assert.equal(drop.layer, 3);
+  assert.equal(drop.reason, 'protokol není v této úrovni');
 });
 
 test('příjemce neposlouchá na cílovém portu: zpráva se zahodí na L4 a nedoručí', () => {
@@ -122,7 +163,7 @@ test('příjemce neposlouchá na cílovém portu: zpráva se zahodí na L4 a ned
     action: { ...a, args: { ...a.args, listen: 6000 } }, seed: 1 });
   assert.equal(bad.delivered, null);
   const v = viewAt(bad.records, bad.records.length - 1);
-  assert.deepEqual(v.dropped, { node: 'PCB', layer: 4, proto: 'udp' });
+  assert.deepEqual(v.dropped, { node: 'PCB', layer: 4, proto: 'udp', reason: 'není pro tento uzel' });
 });
 
 test('scénář s krokem, který nic nenajde, je chyba', () => {

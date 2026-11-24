@@ -1,0 +1,87 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>tcpipsim: test ovládání v prohlížeči</title>
+<!-- Spouští tests/run_all.sh (headless Chromium, --dump-dom). Načte simulátor v iframe,
+     projde ovládání a výsledek zapíše do #result (data-result="OK" | "FAIL"). -->
+<pre id="result" data-result="RUNNING">běží</pre>
+<iframe id="f" src="../../index.html#k=8b&m=tcpip" width="1280" height="720"></iframe>
+<script>
+const log = [];
+let failed = 0;
+const check = (ok, what) => { log.push(`${ok ? 'ok  ' : 'FAIL'} ${what}`); if (!ok) failed++; };
+const wait = (ms) => new Promise((r) => setTimeout(r, ms));
+const f = document.getElementById('f');
+
+f.onload = async () => {
+  try {
+    await wait(300);
+    const d = f.contentDocument, w = f.contentWindow, root = d.documentElement;
+    const $ = (s) => d.querySelector(s);
+    const key = (k, target = d.body) => target.dispatchEvent(new w.KeyboardEvent('keydown', { key: k, bubbles: true }));
+    const label = () => $('#prog-label').textContent;
+    const playText = () => $('#btn-play').textContent;
+    const infoTitle = () => $('#info h3')?.textContent ?? '';
+
+    check(root.dataset.step === '9' && root.dataset.model === 'tcpip', `adresa #k=8b&m=tcpip otevře krok 8b v TCP/IP (${label()})`);
+    check(label().startsWith('Krok 8b z 10'), 'popisek kroku 8b');
+    check($('#term').hidden, 'terminál je na úrovni 1 skrytý');
+    check(infoTitle() === 'Detail', `prázdný panel se jmenuje Detail (${infoTitle()})`);
+
+    // kritický nález: vrstva v panelu + přepnutí modelu
+    $('#stack-sender [data-layer="transport"]').click();
+    check(infoTitle().startsWith('Co dělá L4'), `klik na vrstvu (${infoTitle()})`);
+    key('t');
+    check(root.dataset.model === 'osi' && infoTitle().startsWith('Co dělá L4'), `T přepne model a panel zůstane (${infoTitle()})`);
+    $('#stack-sender [data-layer="L6"]').click();
+    key('t');
+    check(infoTitle().startsWith('Co dělá L5-7'), `L6 -> aplikační vrstva TCP/IP (${infoTitle()})`);
+    check(!root.dataset.errors, 'bez chyby po přepnutí modelu');
+
+    // obálka: tlačítko je štítek
+    check(!d.querySelector('#nest [role="button"]'), 'žádné role=button v obálkách');
+    $('#nest button.lab[data-env="udp"]').click();
+    check(infoTitle().startsWith('Obálka'), `klik na štítek obálky (${infoTitle()})`);
+
+    // adresa se aktualizuje při krokování
+    key('ArrowRight');
+    await wait(50);
+    check(w.location.hash === '#k=8c&m=tcpip', `krok vpřed přepíše adresu (${w.location.hash})`);
+    w.location.hash = '#k=4&m=osi';
+    await wait(200);
+    check(root.dataset.step === '4' && root.dataset.model === 'osi', `změna adresy (hashchange) přepne krok i model (${label()})`);
+    check(label().includes('Obálka linkové vrstvy'), `titul kroku 4 v ISO/OSI (${label()})`);
+
+    // posuvník: šipky projdou i 8a-8c (hodnota = pořadí kroku)
+    const sl = $('#slider');
+    check(sl.max === '12', `posuvník má 13 poloh (max ${sl.max})`);
+    sl.value = '10'; sl.dispatchEvent(new w.Event('input', { bubbles: true }));
+    check(label().startsWith('Krok 8c'), `posuvník na 8c (${label()})`);
+
+    // mezerník na zaměřeném tlačítku nepřehrává
+    const row = $('#stack-sender .row');
+    row.focus();
+    key(' ', row);
+    check(playText().includes('Přehrát'), 'mezerník na tlačítku vrstvy nespustí přehrávání');
+    key(' ');
+    check(playText().includes('Pauza'), 'mezerník mimo tlačítko spustí přehrávání');
+    key(' ');
+    check(playText().includes('Přehrát') && d.body.classList.contains('frozen'), 'pauza zmrazí animaci');
+    key(' ');
+    $('#btn-questions').click();
+    check($('#questions').open && playText().includes('Přehrát'), 'otevření otázek přehrávání zastaví');
+    $('#questions').close();
+
+    // omezit animace
+    $('#btn-motion').click();
+    check(d.body.classList.contains('reduce-motion') && $('#btn-motion').getAttribute('aria-pressed') === 'true', 'přepínač Omezit animace');
+    $('#btn-motion').click();
+
+    check(!root.dataset.errors, `stránka bez chyb (${root.dataset.lastError ?? ''})`);
+  } catch (e) {
+    check(false, `výjimka: ${e}`);
+  }
+  const out = document.getElementById('result');
+  out.textContent = log.join('\n');
+  out.dataset.result = failed ? 'FAIL' : 'OK';
+};
+</script>

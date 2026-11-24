@@ -6,7 +6,7 @@ import { Scheduler } from './scheduler.js';
 import { Rng } from './rng.js';
 import { Trace } from './trace.js';
 import { dataPdu, encapsulate, decapsulate, messageOf } from './pdu.js';
-import { stackOf } from '../proto/registry.js';
+import { stackOf, demux } from '../proto/registry.js';
 import { encode } from '../wire/encode.js';
 
 const DEFAULT_DELAY = 1000; // µs, jednotkové zpoždění linky (model.md kap. 7)
@@ -41,6 +41,12 @@ export function runTransfer({ topology, protocols, action, seed = 1 }) {
   const stack = stackOf(protocols);       // shora dolů
   let pduSeq = 0;
   let delivered = null;
+  const ipIds = new Map();                // IPv4 Identification: čítač na uzel (ipv4.md kap. 2)
+  const nextIpId = (node) => {
+    const id = ipIds.get(node.id) ?? node.ip_id_start ?? 1;
+    ipIds.set(node.id, (id + 1) & 0xffff);
+    return id;
+  };
 
   const sender = findNode(topology, action.node);
   const ends = endpoints(topology, sender.id);
@@ -48,7 +54,7 @@ export function runTransfer({ topology, protocols, action, seed = 1 }) {
   const receiver = findNode(topology, ends.peerId);
   const listenPort = action.args.listen ?? action.args.port;   // port, na kterém příjemce poslouchá
 
-  sched.on('app.send', (ev) => {
+  sched.on('app.send', () => {
     const t = sched.now;
     let pdu = dataPdu(++pduSeq, action.args.text);
     trace.emit(t, 'app.send', { node: sender.id, layer: 7, pdu });
@@ -56,12 +62,13 @@ export function runTransfer({ topology, protocols, action, seed = 1 }) {
       node: sender, local: ends.local, remote: ends.remote,
       sport: rng.int(49152, 65535),   // efemérní port (Windows 49152-65535)
       dport: action.args.port,
-      ipId: rng.int(0, 65535),
+      ipId: nextIpId(sender),
     };
-    for (const proto of stack) {
+    stack.forEach((proto, i) => {
+      ctx.upper = stack[i - 1] ?? null;     // modul nad tímto (pro EtherType / Protocol)
       pdu = encapsulate(++pduSeq, proto.id, proto.layer, proto.header(ctx), pdu);
       trace.emit(t, 'encap', { node: sender.id, layer: proto.layer, proto: proto.id, pdu });
-    }
+    });
     const bytes = encode(pdu);
     trace.emit(t, 'phy.tx', { node: sender.id, layer: 1, pdu, bytes });
     const link = ends.link;
@@ -74,17 +81,24 @@ export function runTransfer({ topology, protocols, action, seed = 1 }) {
     const t = sched.now;
     const { pdu: frame, bytes } = ev.payload;
     const rx = endpoints(topology, receiver.id);
-    trace.emit(t, 'phy.rx', { node: receiver.id, layer: 2, pdu: frame, bytes });
+    trace.emit(t, 'phy.rx', { node: receiver.id, layer: 1, pdu: frame, bytes });
     const ctx = { node: receiver, local: rx.local, remote: rx.remote, listenPort };
+    const drop = (proto, reason) =>
+      trace.emit(t, 'drop', { node: receiver.id, layer: proto.layer, proto: proto.id, reason, pdu });
+    // Demultiplex zdola: rámec zpracuje nejnižší modul, další modul určí pole hlavičky
+    // (EtherType -> Protocol -> port), ne to, co je v PDU uvnitř.
     let pdu = frame;
-    for (const proto of [...stack].reverse()) {
-      if (pdu.proto !== proto.id || !proto.accept(pdu.h, ctx)) {
-        trace.emit(t, 'drop', { node: receiver.id, layer: proto.layer, proto: proto.id, pdu });
-        return;
-      }
+    let proto = stack.at(-1);
+    for (;;) {
+      if (pdu.proto !== proto.id) { drop(proto, 'obsah neodpovídá hlavičce'); return; }
+      if (!proto.accept(pdu.h, ctx)) { drop(proto, 'není pro tento uzel'); return; }
+      const next = demux(stack, proto, pdu.h);
+      if (!next) { drop(proto, 'protokol není v této úrovni'); return; }
       const inner = decapsulate(pdu);
       trace.emit(t, 'decap', { node: receiver.id, layer: proto.layer, proto: proto.id, removed: pdu, pdu: inner });
       pdu = inner;
+      if (next === 'app') break;
+      proto = next;
     }
     delivered = messageOf(pdu);
     trace.emit(t, 'app.recv', { node: receiver.id, layer: 7, pdu, text: delivered });

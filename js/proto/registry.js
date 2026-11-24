@@ -13,3 +13,13 @@ export function stackOf(ids) {
     return p;
   }).sort((a, b) => b.layer - a.layer);
 }
+
+// Demultiplex: který zapnutý modul zpracuje obsah PDU s hlavičkou `h` modulu `mod`
+// (EtherType -> Protocol -> port). Vrací modul, 'app' (nad ním je aplikace), nebo null
+// (protokol v této úrovni není zapnutý).
+export function demux(stack, mod, h) {
+  if (!mod.demuxField) return 'app';
+  const field = mod.demuxField, value = h[field];
+  if (value === undefined) return null;
+  return stack.find((p) => p.binds && Object.hasOwn(p.binds, field) && p.binds[field] === value) ?? null;
+}
