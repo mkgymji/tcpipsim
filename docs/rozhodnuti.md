@@ -87,3 +87,23 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     6000 poznámky) — vyvrací „port = díra“.
 30. **Formát `show mac address-table` a místa „ověřit“ v `cmd.md`** se ověří snímkem z Packet Traceru
     a školního PC při pilotu (požádat Michala až s pilotem, neblokuje vývoj).
+
+## 2026-11-24 — po kontrole úrovně 2
+
+31. **Tip (předpověď) je samostatný krok se stavem PŘED událostí.** Obrazovka tipu ukazuje rámec,
+    který právě dorazil k rozhodujícímu zařízení (např. leží na vstupním portu switche), ale ještě
+    nic dalšího: žádné rámce na výstupech, žádné „přijal/zahodil“, žádné vysvětlení výsledku v textu
+    ani ve štítcích (štítek „Hub nečte adresy…“ se při tipu schová). Volby se odvozují z topologie,
+    ne ze stavu portů starého rámce (příchozí port zamčený). Následující krok ukáže výsledek
+    a vyhodnotí tip jednou větou; při nesouladu řekne proč. Přehrávání se na tipu zastaví.
+    Nadpis karty: „Tip: …“ (ne „Předpověz“). Tip v kroku 15 má záměrně oporu v MAC tabulce:
+    „Podívej se do MAC tabulky a tipni.“ Číslování kroků se tím změní; .md scénáře se upraví.
+32. **UDP je „UDP datagram“**, ne segment (slovník). Obecné „segment“ jen na úrovni 1 bez konkrétního protokolu.
+    Na úrovni 2 se sloupec vrstvy L4 jmenuje „segment / datagram“ s poznámkou v detailu.
+33. **Rentgen ukazuje délku polí v bitech.** Hexdump před vznikem rámce ukazuje jen existující bajty.
+34. **Porty switche Fa0/1…**: při prvním výskytu jedna věta „Fa0/1 = Cisco název portu (FastEthernet 0/1)“.
+    Hub má porty značené stejně jako switch (Fa0/1…), aby výměna hub → switch nic nezměnila.
+35. **Cyrilova MAC je vidět** u uzlů v topologii (poslední bajt tučně) a při zahození: „cílová …:02 ≠ moje …:03“.
+36. **Kroky 9–10 (odpověď přes hub)** se zkrátí na jeden krok — opakovaný jev nenese novou myšlenku.
+37. **Slovo „výtah“ ani „prostředník“ se studentovi neukazuje** (interní pojmy). Legenda: „dvojitý obrys =
+    odesílatel a příjemce vybrané zprávy“.
