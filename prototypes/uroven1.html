@@ -1,0 +1,200 @@
+<!doctype html>
+<html lang="cs">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>tcpipsim - Úroveň 1 Barvičky (prototyp)</title>
+<style>
+:root{
+  --bg:#F7F8FA; --panel:#FFFFFF; --ink:#14181C; --muted:#4B5563; --line:#9AA5B1; --focus:#0B57D0;
+  --L1:#4A5A66; --L1t:#DEE1E3;
+  --L2:#8A5200; --L2t:#EAE0D1;
+  --L3:#00695C; --L3t:#D1E4E2;
+  --L4:#1B5FAA; --L4t:#D6E2F0;
+  --L5:#6A3FA0; --L5t:#E4DCEE;
+  --L6:#A02C72; --L6t:#EED9E6;
+  --L7:#B3301A; --L7t:#F1DAD6;
+  --font:system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;
+  --mono:ui-monospace,Consolas,"Cascadia Mono","DejaVu Sans Mono",monospace;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:var(--bg);color:var(--ink);font:18px/1.35 var(--font);display:grid;
+  grid-template-rows:56px 1fr 84px;width:1400px;height:900px;overflow:hidden}
+header{display:flex;align-items:center;gap:20px;padding:0 20px;background:var(--panel);border-bottom:2px solid var(--line)}
+header h1{font-size:22px;margin:0;font-weight:700}
+header .lvl{font-size:16px;color:var(--muted)}
+.seg{margin-left:auto;display:flex;border:2px solid var(--ink);border-radius:8px;overflow:hidden}
+.seg span{padding:6px 16px;font-weight:600;font-size:16px}
+.seg .on{background:var(--ink);color:#fff}
+main{display:grid;grid-template-columns:1fr 330px;gap:16px;padding:14px 20px 8px;min-height:0}
+.left{display:grid;grid-template-rows:150px 1fr;gap:12px;min-height:0}
+/* topologie */
+.topo{background:var(--panel);border:2px solid var(--line);border-radius:10px;position:relative;display:flex;align-items:center;justify-content:space-between;padding:14px 130px 0}
+.dev{display:flex;flex-direction:column;align-items:center;gap:2px;font-weight:700;font-size:18px}
+.dev small{font-weight:400;color:var(--muted);font-size:15px;font-family:var(--mono)}
+.dev.act svg{filter:none}
+.wire{flex:1;margin:0 24px;position:relative;height:60px}
+.wire .cable{position:absolute;left:0;right:0;top:20px;height:6px;background:var(--ink);border-radius:3px}
+.wire .bits{position:absolute;left:0;right:0;top:34px;text-align:center;font:600 14px var(--mono);color:var(--muted);letter-spacing:2px}
+.wire .cap{position:absolute;left:0;right:0;top:-2px;text-align:center;font-size:15px;color:var(--muted)}
+.topo .tag{position:absolute;top:8px;left:14px;font-size:14px;color:var(--muted);font-weight:600;letter-spacing:.04em}
+/* vytah */
+.lift{background:var(--panel);border:2px solid var(--line);border-radius:10px;display:grid;grid-template-columns:262px 1fr 262px;gap:14px;padding:12px 14px;min-height:0}
+.col h2{margin:0 0 6px;font-size:17px;display:flex;justify-content:space-between;align-items:baseline}
+.col h2 span{font-weight:400;color:var(--muted);font-size:15px}
+.stack{display:flex;flex-direction:column;gap:5px}
+.row{display:grid;grid-template-columns:44px 1fr auto;align-items:center;gap:8px;height:55px;padding:0 10px 0 6px;border-radius:8px;border:3px solid var(--c);background:var(--t);position:relative}
+.row .nm{font-weight:700;font-size:18px;line-height:1.1}
+.row .nm small{display:block;font-weight:400;font-size:14px;color:var(--muted)}
+.row .pdu{font-size:15px;font-weight:700;color:var(--c);font-family:var(--font)}
+.row.done{opacity:1}
+.row.wait{background:var(--panel);border-style:dashed;color:#3A4450}
+.row.wait .pdu{color:#3A4450;font-weight:600}
+.row.active{border-width:6px;box-shadow:0 0 0 3px var(--ink);padding-left:3px}
+.row.active::after{content:"";position:absolute;right:-26px;top:50%;margin-top:-10px;border:10px solid transparent;border-left:14px solid var(--ink)}
+.recv .row.active::after{display:none}
+svg.b{width:40px;height:40px;display:block}
+svg.b .s{fill:var(--c)}
+svg.b text{fill:#fff;font:700 15px var(--font);text-anchor:middle}
+/* obalka */
+.env{display:flex;flex-direction:column;min-height:0}
+.env h2{margin:0 0 6px;font-size:17px}
+.nest{flex:1;position:relative;min-height:0}
+.box{border:4px solid var(--c);background:var(--t);border-radius:10px;padding:0 10px 10px;display:flex;flex-direction:column;gap:6px}
+.box>.lab{margin:0 -10px;background:var(--c);color:#fff;font-weight:700;font-size:17px;padding:3px 12px;border-radius:4px 4px 0 0;display:flex;justify-content:space-between;align-items:center;gap:8px;height:28px}
+.box>.lab em{font-style:normal;font-weight:600;font-size:15px}
+.box.o{flex:1}
+.core{background:#fff;border:3px solid var(--ink);border-radius:8px;padding:12px 14px;font-size:22px;font-weight:700;text-align:center;flex:1;display:flex;flex-direction:column;justify-content:center}
+.core small{display:block;font-weight:400;font-size:15px;color:var(--muted)}
+.trail{background:var(--L2);color:#fff;font-size:14px;font-weight:600;padding:2px 8px;border-radius:4px;align-self:flex-end}
+.l2wrap{display:flex;flex-direction:column;gap:5px;flex:1}
+/* panel */
+aside{display:grid;grid-template-rows:auto 1fr 54px;gap:12px;min-height:0}
+.card{background:var(--panel);border:2px solid var(--line);border-radius:10px;padding:12px 14px}
+.card h3{margin:0 0 6px;font-size:17px}
+.explain{border-color:var(--ink);border-width:3px}
+.explain p{margin:6px 0;font-size:19px}
+.explain .step{font-size:15px;color:var(--muted);font-weight:600}
+.xray{display:flex;flex-direction:column;gap:6px;color:#3A4450;border-style:dashed}
+.xray .ph{border:2px dashed var(--line);border-radius:8px;flex:1;display:flex;align-items:center;justify-content:center;text-align:center;padding:10px;font-size:16px}
+.term{border:2px dashed var(--line);border-radius:10px;display:flex;align-items:center;padding:0 14px;color:#3A4450;font-family:var(--mono);font-size:16px;background:var(--panel)}
+/* ovladani */
+footer{display:flex;align-items:center;gap:14px;padding:0 20px;background:var(--panel);border-top:2px solid var(--line)}
+.btn{display:flex;align-items:center;gap:8px;height:52px;padding:0 20px;border:3px solid var(--ink);border-radius:10px;background:#fff;font:700 18px var(--font);color:var(--ink)}
+.btn kbd{font:600 14px var(--mono);border:2px solid var(--muted);border-radius:5px;padding:0 6px;color:var(--muted)}
+.btn.main{background:var(--ink);color:#fff;min-width:150px;justify-content:center}
+.btn.main kbd{color:#fff;border-color:#fff}
+.btn svg{width:20px;height:20px;fill:currentColor}
+.prog{flex:1;display:flex;flex-direction:column;gap:5px;margin:0 10px}
+.track{height:14px;border:2px solid var(--ink);border-radius:8px;background:#fff;position:relative;overflow:hidden}
+.track i{position:absolute;left:0;top:0;bottom:0;width:31%;background:var(--ink)}
+.prog span{font-size:15px;color:var(--muted);display:flex;justify-content:space-between}
+.speed{display:flex;align-items:center;gap:8px;font-weight:600;font-size:16px}
+.speed b{border:3px solid var(--ink);border-radius:8px;padding:6px 12px;font-size:18px}
+</style>
+</head>
+<body>
+<svg width="0" height="0" style="position:absolute" aria-hidden="true"><defs>
+ <symbol id="PC" viewBox="0 0 64 56"><rect x="6" y="4" width="52" height="34" rx="4" fill="#fff" stroke="#14181C" stroke-width="4"/><rect x="13" y="11" width="38" height="20" fill="#D6E2F0"/><path d="M24 38v8h16v-8M16 50h32" fill="none" stroke="#14181C" stroke-width="4" stroke-linecap="round"/></symbol>
+</defs></svg>
+
+<header>
+  <h1>tcpipsim</h1>
+  <div class="lvl">Úroveň 1: Barvičky &middot; PC A posílá zprávu PC B</div>
+  <div class="seg" role="group" aria-label="Model vrstev"><span class="on">ISO/OSI (7)</span><span>TCP/IP (4)</span></div>
+</header>
+
+<main>
+ <section class="left">
+  <div class="topo" aria-label="Topologie">
+    <span class="tag">TOPOLOGIE</span>
+    <div class="dev act"><svg width="84" height="74"><use href="#PC"/></svg>PC A<small>odesílatel</small></div>
+    <div class="wire"><div class="cap">kabel</div><div class="cable"></div><div class="bits">&nbsp;</div></div>
+    <div class="dev"><svg width="84" height="74"><use href="#PC"/></svg>PC B<small>příjemce</small></div>
+  </div>
+
+  <div class="lift">
+    <!-- odesilatel -->
+    <div class="col">
+      <h2>PC A <span>odesílatel, shora dolů</span></h2>
+      <div class="stack">
+        <div class="row done" style="--c:var(--L7);--t:var(--L7t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="10,3 30,3 38,20 30,37 10,37 2,20"/><text x="20" y="25">L7</text></svg><div class="nm">Aplikační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row done" style="--c:var(--L6);--t:var(--L6t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,2 38,15 31,37 9,37 2,15"/><text x="20" y="27">L6</text></svg><div class="nm">Prezentační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row done" style="--c:var(--L5);--t:var(--L5t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,1 39,20 20,39 1,20"/><text x="20" y="25">L5</text></svg><div class="nm">Relační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row done" style="--c:var(--L4);--t:var(--L4t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,2 39,37 1,37"/><text x="20" y="34">L4</text></svg><div class="nm">Transportní<small>operační systém</small></div><div class="pdu">segment</div></div>
+        <div class="row done" style="--c:var(--L3);--t:var(--L3t)"><svg class="b" viewBox="0 0 40 40"><circle class="s" cx="20" cy="20" r="18"/><text x="20" y="25">L3</text></svg><div class="nm">Síťová<small>operační systém</small></div><div class="pdu">paket</div></div>
+        <div class="row active" style="--c:var(--L2);--t:var(--L2t)"><svg class="b" viewBox="0 0 40 40"><rect class="s" x="3" y="3" width="34" height="34" rx="2"/><text x="20" y="25">L2</text></svg><div class="nm">Linková<small>firmware rozhraní</small></div><div class="pdu">rámec</div></div>
+        <div class="row wait" style="--c:var(--L1);--t:var(--L1t)"><svg class="b" viewBox="0 0 40 40"><rect class="s" x="1" y="9" width="38" height="22" rx="2"/><text x="20" y="25">L1</text></svg><div class="nm">Fyzická<small>firmware rozhraní</small></div><div class="pdu">bity</div></div>
+      </div>
+    </div>
+
+    <!-- obalka -->
+    <div class="env">
+      <h2>Zpráva v obálkách: nyní rámec (L2)</h2>
+      <div class="nest">
+       <div class="l2wrap" style="height:100%">
+        <div class="box o" style="--c:var(--L2);--t:var(--L2t)">
+         <div class="lab"><span>L2 Linková</span><em>rámec</em></div>
+         <div class="box o" style="--c:var(--L3);--t:var(--L3t)">
+          <div class="lab"><span>L3 Síťová</span><em>paket</em></div>
+          <div class="box o" style="--c:var(--L4);--t:var(--L4t)">
+           <div class="lab"><span>L4 Transportní</span><em>segment</em></div>
+           <div class="box o" style="--c:var(--L5);--t:var(--L5t)">
+            <div class="lab"><span>L5 Relační</span><em>data</em></div>
+            <div class="box o" style="--c:var(--L6);--t:var(--L6t)">
+             <div class="lab"><span>L6 Prezentační</span><em>data</em></div>
+             <div class="box o" style="--c:var(--L7);--t:var(--L7t)">
+              <div class="lab"><span>L7 Aplikační</span><em>data</em></div>
+              <div class="core">Ahoj, Bobe!<small>obsah zprávy</small></div>
+             </div>
+            </div>
+           </div>
+          </div>
+         </div>
+         <div class="trail">konec rámce</div>
+        </div>
+       </div>
+      </div>
+    </div>
+
+    <!-- prijemce -->
+    <div class="col recv">
+      <h2>PC B <span>příjemce, zdola nahoru</span></h2>
+      <div class="stack">
+        <div class="row wait" style="--c:var(--L7);--t:var(--L7t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="10,3 30,3 38,20 30,37 10,37 2,20"/><text x="20" y="25">L7</text></svg><div class="nm">Aplikační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row wait" style="--c:var(--L6);--t:var(--L6t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,2 38,15 31,37 9,37 2,15"/><text x="20" y="27">L6</text></svg><div class="nm">Prezentační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row wait" style="--c:var(--L5);--t:var(--L5t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,1 39,20 20,39 1,20"/><text x="20" y="25">L5</text></svg><div class="nm">Relační<small>aplikace</small></div><div class="pdu">data</div></div>
+        <div class="row wait" style="--c:var(--L4);--t:var(--L4t)"><svg class="b" viewBox="0 0 40 40"><polygon class="s" points="20,2 39,37 1,37"/><text x="20" y="34">L4</text></svg><div class="nm">Transportní<small>operační systém</small></div><div class="pdu">segment</div></div>
+        <div class="row wait" style="--c:var(--L3);--t:var(--L3t)"><svg class="b" viewBox="0 0 40 40"><circle class="s" cx="20" cy="20" r="18"/><text x="20" y="25">L3</text></svg><div class="nm">Síťová<small>operační systém</small></div><div class="pdu">paket</div></div>
+        <div class="row wait" style="--c:var(--L2);--t:var(--L2t)"><svg class="b" viewBox="0 0 40 40"><rect class="s" x="3" y="3" width="34" height="34" rx="2"/><text x="20" y="25">L2</text></svg><div class="nm">Linková<small>firmware rozhraní</small></div><div class="pdu">rámec</div></div>
+        <div class="row wait" style="--c:var(--L1);--t:var(--L1t)"><svg class="b" viewBox="0 0 40 40"><rect class="s" x="1" y="9" width="38" height="22" rx="2"/><text x="20" y="25">L1</text></svg><div class="nm">Fyzická<small>firmware rozhraní</small></div><div class="pdu">bity</div></div>
+      </div>
+    </div>
+  </div>
+ </section>
+
+ <aside>
+  <div class="card explain" aria-live="polite">
+    <div class="step">Krok 5 z 16</div>
+    <h3>Zapouzdření na L2</h3>
+    <p>Linková vrstva přidala další obálku: <b>rámec</b>. Je to poslední obálka před drátem.</p>
+    <p>Další krok: fyzická vrstva rámec přepíše na <b>bity</b> a pošle je kabelem.</p>
+  </div>
+  <div class="card xray">
+    <h3>Rentgen</h3>
+    <div class="ph">Klikni na obálku a uvidíš její hlavičku.<br>(od úrovně 2)</div>
+  </div>
+  <div class="term">&gt; terminál (později)</div>
+ </aside>
+</main>
+
+<footer>
+  <button class="btn"><svg viewBox="0 0 20 20"><path d="M15 3v14l-10-7z"/></svg>Zpět <kbd>&larr;</kbd></button>
+  <button class="btn main"><svg viewBox="0 0 20 20"><path d="M5 3h4v14H5zM11 3h4v14h-4z"/></svg>Pauza <kbd>mezerník</kbd></button>
+  <button class="btn">Vpřed <kbd>&rarr;</kbd><svg viewBox="0 0 20 20"><path d="M5 3v14l10-7z"/></svg></button>
+  <div class="prog"><div class="track"><i></i></div><span><span>Krok 5 z 16: zapouzdření na L2</span><span>zpráva putuje: PC A &rarr; PC B</span></span></div>
+  <div class="speed">Rychlost <b>1&times;</b><kbd style="font:600 14px var(--mono);color:var(--muted)">+ / &minus;</kbd></div>
+</footer>
+</body>
+</html>

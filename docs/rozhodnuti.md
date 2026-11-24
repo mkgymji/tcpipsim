@@ -1,0 +1,38 @@
+# Rozhodnutí orchestrátora
+
+Sjednocení výstupů rolí. Platí, dokud je nové rozhodnutí nezmění. Agenti: tohle čti
+po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí tento soubor.
+
+## 2026-11-24 — iterace 1, sjednocení specifikace
+
+1. **Vrstvy L5–L7 nemají v simulaci vlastní obálky.** Obálky jsou jen L4 (segment), L3 (paket),
+   L2 (rámec), na drátě bity (L1). V režimu ISO/OSI jsou L5, L6, L7 ve sloupci vrstev vidět,
+   ale zpráva jimi projde jako „data“ bez hlavičky; vysvětlivka řekne, že v TCP/IP tyhle
+   úkoly řeší aplikace (např. šifrování TLS, kódování znaků). Proč: prototyp s obálkami L5 a L6
+   by studenta naučil něco, co se v CCNA musí odnaučit (TCP/IP žádné hlavičky L5/L6 nepřidává).
+   Platí pravidlo „zjednodušit jen tak, aby se to nemuselo odnaučit“. Úprava pro `docs/ui.md`
+   a prototyp: ze středového panelu zmizí obálky L5 a L6; L7 je blok „data“ (obsah zprávy).
+2. **Konec rámce (FCS) je vidět už na úrovni 1** jako proužek „konec rámce“ (je v prototypu).
+   Obsah FCS až v rentgenu. Proč: rámec má opravdu hlavičku i patičku, je to levné a pravdivé.
+3. **Kroky úrovně 1 určuje scénář didaktika** (`scenarios/uroven1-zapouzdreni.md`, kroky 0–10),
+   ne 16 kroků z prototypu. UI se mu přizpůsobí.
+4. **Barvy:** platí paleta kreativce (`docs/ui.md`), barvy podle vrstvy (ne pracovní barvy
+   didaktika). Každá vrstva má i zkratku L1–L7 a tvar značky.
+5. **Domácí LAN se seznam.cz bez NAT se nepoužívá.** Privátní adresa by se bez NAT
+   do internetu nedostala — to by bylo zjednodušení, které se musí odnaučit. Do zavedení NAT
+   (úroveň 5) se směrování ukazuje na dvou sítích přes router (192.168.1.0/24 a 192.168.2.0/24,
+   jako vektor `ping-router`). Scénář „otevři seznam.cz“ přijde s NAT; do té doby může
+   router-hranice internetu NAT dělat jako označenou „černou skříňku“ (rozhodne se v iteraci 4).
+6. **Profily TTL** (PC 128, server Linux 64, router Cisco 255) a ARP podle RFC 826 podle
+   projektanta platí.
+7. **Smyčky v topologii:** editor je do zavedení STP nedovolí (varování), simulace má pojistku
+   `maxEvents`. Broadcast storm možná jako ukázka v úrovni 5.
+8. **Kolize na hubu se nemodelují** (do úrovně 5 nerozhodnuto, označit jako zjednodušení).
+9. **Cisco zahození prvního paketu při ARP (`.!!!!`):** výchozí chování podle RFC (fronta);
+   „věrnost Cisco“ jako volba až v úrovni 5.
+10. **Hlášky terminálu Windows:** rozhodne se v iteraci 2. Předběžně anglicky (Windows v angličtině
+    = shoda s návody a CCNA), s českou poznámkou simulátoru; ověřit jazyk Windows ve škole.
+11. **Vazba na maturitu IVT** (okruhy 2026/2027): okruh 12 Počítačové sítě (ISO-OSI a TCP/IP,
+    IP adresy, příkazy pro zjišťování konfigurace, hub/switch/router) a okruh 15 Internetové
+    technologie (DNS, www, e-mail). Didaktik podle toho doplní vazby místo „potvrdit“.
+12. **Provoz:** GitHub Pages + jednosouborová offline verze z `tools/bundle.mjs` (podle `docs/VYVOJ.md`).

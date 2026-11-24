@@ -1,0 +1,448 @@
+# Vývoj tcpipsim
+
+Stav: návrh architektury, iterace 1 (fáze specifikace). Autor: vývojář. Kód je zatím jen kostra
+(plánovač událostí, generátor náhodných čísel, prázdná stránka, testy). Rozhodnutí jsou psaná
+s důvodem, aby šla zpětně zvrátit.
+
+## 0. Rychlý start
+
+```bash
+tests/run_all.sh              # node testy jádra + smoke test stránky v headless Chromiu
+tests/run_all.sh --no-browser # jen node testy
+node --test tests/core/       # jednotlivá složka
+python3 -m http.server 8000   # lokální vývoj, pak http://localhost:8000/
+```
+
+Požadavky: Node 20+ (testy), libovolný moderní prohlížeč (Chrome/Edge 100+, Firefox 115+,
+Safari 16.4+). Nic se neinstaluje, `package.json` není potřeba.
+
+## 1. Základní rozhodnutí
+
+| # | Rozhodnutí | Proč |
+|---|---|---|
+| R1 | Čisté HTML/CSS/JS, **ES moduly**, bez build kroku a bez závislostí | Zadání projektu; stejný přístup jako git-simulator. Moduly dávají `import`, které funguje stejně v prohlížeči i v Node (`node --test`). |
+| R2 | Primární provoz = **GitHub Pages (https)**. Učitel nic nestahuje, sdílí odkaz. | Školní PC jsou Windows bez Pythonu a bez práv instalovat; odkaz do Google Classroom je nejjednodušší cesta. |
+| R3 | Z `file://` se **zdrojová** verze nespustí; pro offline je **jednosouborová** `tcpipsim-offline.html`, generovaná skriptem `tools/bundle.mjs` (Node, bez závislostí) při vydání | Ověřeno na gaze (Chromium 156): `<script type="module">` z `file://` blokuje CORS („origin null“). Ověřeno i řešení: moduly vložené jako text a načtené přes `Blob` URL fungují z `file://` bez přepínačů. Bundler jen přepíše cesty v `import`, kód nemění. Není to build krok pro vývoj ani Pages, jen balení pro stažení. |
+| R4 | `index.html` při načtení z `file://` ukáže srozumitelnou hlášku (kam jít místo toho) | Učitel, který si stáhne ZIP z GitHubu a dvakrát klikne, nesmí vidět prázdnou stránku. Ověřeno headless (hláška se zobrazí). |
+| R5 | Jádro simulace **bez DOM a bez `window`**, jen čistá data a funkce | Testovatelnost v Node; UI je jen pozorovatel. |
+| R6 | Simulace **nejdřív proběhne, pak se prohlíží**: jádro vyrobí úplný záznam (trace), UI se po něm pohybuje kurzorem | Krok vzad je pak triviální a přesný (UI nikdy nemění stav, viz `docs/ui.md` kap. 4). Simulované scénáře jsou malé (stovky událostí), takže dopočítat dopředu je levné. |
+| R7 | Krok vzad: **vratné delty v záznamu + kontrolní body (snapshoty) světa**; nový vstup (příkaz v terminálu, změna v editoru) = obnovit snapshot + deterministický replay, budoucnost se zahodí | Delty stačí na zobrazení (tabulky, PDU na lince) dopředu i dozadu. Plný snapshot světa je potřeba jen pro pokračování simulace z minulosti; replay zaručuje determinismus (R8). |
+| R8 | **Determinismus**: virtuální čas v celých µs, pořadí událostí (čas, pořadí naplánování), náhoda jen ze seedovaného `Rng`, žádné `Date.now()`, `Math.random()`, iterace přes `Set`/`Map` jen v pořadí vložení | Stejný scénář = stejný průběh (testy, sdílení, krok vzad). |
+| R9 | Události plánovače jsou **data** (`{type, payload}`), ne closures; stav uzlů je čistá data | Snapshot = `structuredClone(world)`. Obsluhy se hledají podle `type` v registru. |
+| R10 | Formát topologie = **stejné schéma uzlů a linek jako testovací vektory** (`docs/spec/vektory.md` kap. 2), doplněné o rozvržení a konfiguraci | Jedna sada loaderů a validací; vektor je vlastně scénář s očekávaným výsledkem. |
+
+## 2. Struktura adresářů
+
+```
+index.html              hlavní stránka (jen kostra, chyby zachytává do data-errors)
+css/                    styly (kreativec), proměnné v :root
+js/
+  main.js               vstupní bod stránky: načte scénář, sestaví jádro, připojí UI
+  core/                 JÁDRO, bez DOM. Importuje jen z core/ a proto/
+    index.js            veřejné API jádra (re-exporty), CORE_VERSION, FORMAT_VERSION
+    scheduler.js        plánovač diskrétních událostí            [hotovo]
+    rng.js              seedovaný generátor (mulberry32)         [hotovo]
+    world.js            svět: uzly, rozhraní, linky, stav, snapshot/restore
+    pdu.js              PDU s vnořením vrstev, id a rodokmen PDU
+    link.js             přenos po lince (zpoždění, později ztrátovost)
+    trace.js            záznam událostí s vratnými deltami
+    timeline.js         kurzor nad záznamem: kroky, krok vpřed/vzad, skok
+    registry.js         registr protokolů, demux (EtherType, Protocol, port)
+    topology.js         načtení + validace topologie, migrace verzí formátu
+    addr.js             práce s MAC/IPv4/prefixy (parse, format, longest prefix match)
+  proto/                moduly protokolů (bez DOM), jeden soubor = jeden protokol
+    ethernet.js arp.js ipv4.js icmp.js udp.js tcp.js dns.js http.js [dhcp.js nat.js]
+  devices/              chování typů uzlů (skládá protokoly): host.js hub.js switch.js router.js
+  wire/                 převod PDU na bajty (bez DOM): encode.js checksum.js pcap.js
+  cli/                  terminály nad jádrem (bez DOM): shell.js, wincmd/*.js, ios/*.js
+  scenario/             načítání scénářů, sdílení odkazem (bez DOM kromě share.js)
+  levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje)
+  ui/                   VŠE s DOM: views (výtah, topologie, sekvenční diagram, rentgen),
+                        controls (krokování), terminal (okno nad cli/), editor/
+scenarios/              scénáře: *.md (didaktik, text) a *.json (data pro simulátor)
+tests/
+  run_all.sh            všechny testy (node + smoke v prohlížeči)
+  core/*.test.js        jednotkové testy jádra
+  proto/*.test.js       testy protokolů (kódování, checksumy)
+  vectors/*.json        testovací vektory projektanta (docs/spec/vektory.md)
+  vectors.test.js       runner vektorů (od iterace 2, viz kap. 8)
+tools/
+  bundle.mjs            jednosouborová offline verze (iterace 3–4)
+docs/                   dokumentace týmu
+```
+
+**Pravidla závislostí** (hlídá je test, až bude co hlídat): `core/`, `proto/`, `devices/`, `wire/`,
+`cli/` nesmí importovat z `ui/` ani sahat na `document`/`window`/`localStorage`. `ui/` smí
+importovat z čehokoli. Žádné cyklické importy (kvůli bundleru R3).
+
+**Konvence kódu kvůli bundleru:** jen statické `import … from './relativni/cesta.js'` s příponou
+`.js`; žádný `import()` (dynamický), žádný top-level `await`, žádné `fetch` v jádře. Data
+(scénáře) načítá jen `scenario/` a pro offline verzi je bundler vloží do stránky.
+
+## 3. Jádro simulace
+
+### 3.1 Entity
+
+Celý stav simulace je jeden objekt `world` z čistých dat (snapshot = `structuredClone`):
+
+```js
+world = {
+  time: 0,                       // µs, kopie scheduler.now
+  nodes: { PC1: Node, … },       // pořadí klíčů = pořadí v topologii (determinismus)
+  links: { L1: Link, … },
+  pduSeq: 0,                     // čítač id PDU
+  rng: { state },                // Rng.snapshot()
+  scheduler: { now, seq, queue } // Scheduler.snapshot()
+}
+Node = { id, type: 'pc'|'server'|'hub'|'switch'|'router', label, config,
+         interfaces: { eth0: Interface, … },
+         state: { arp: {...}, ip: {...}, bridge: {...}, icmp: {...}, … } }   // klíč = id protokolu
+Interface = { name, mac, ip, prefix, up, link: 'L1' | null }
+Link = { id, a: { node, if }, b: { node, if }, delay: 1000, up: true }
+```
+
+**PDU** je neměnná vnořená struktura, každá úroveň = jedna vrstva. Hlavičky obsahují jen pole,
+která simulace potřebuje; zbytek reálné hlavičky (verze, IHL, checksum…) dopočítá `wire/encode.js`
+pro rentgen a pcap.
+
+```js
+{ id: 17, parent: 12,            // parent: z čeho vznikl (router: nový rámec ze starého)
+  proto: 'ethernet', h: { dst: 'ff:ff:ff:ff:ff:ff', src: '02:00:00:00:00:01', ethertype: 0x0806 },
+  payload: { proto: 'arp', h: { op: 1, sha, spa, tha, tpa }, payload: null } }
+```
+
+Rodokmen (`parent`) umožní v UI ukázat „tohle je pořád tentýž paket, jen v novém rámci“.
+
+### 3.2 Plánovač (hotovo: `js/core/scheduler.js`)
+
+- Virtuální čas v **celých mikrosekundách**. Model jednotkového zpoždění ze specifikace
+  (`model.md` kap. 7) = linka má `delay` 1000 µs; **krok vektoru = čas příchodu / 1000**.
+  Časovače v sekundách (ARP 300 s) se vejdou bez ztráty přesnosti (2^53 µs ≈ 285 let).
+- Fronta je binární halda podle (čas, pořadové číslo naplánování) → shodné časy proběhnou FIFO.
+- `on(type, handler)`, `schedule({type, payload, delay|at}) → id`, `cancel(id)`, `step()`,
+  `run({until, maxEvents})`, `subscribe(observer)`, `snapshot()`/`restore()`.
+- `maxEvents` je pojistka proti zahlcení (smyčka switchů bez STP, `spec/README.md` otázka 7).
+
+Typy událostí plánovače jsou jmenné prostory `<modul>.<co>`: `link.arrive`, `arp.timeout`,
+`tcp.rto`, `cli.command`. Obsluhu registruje modul, který typ vlastní.
+
+### 3.3 Záznam (trace) jako jediný zdroj pro zobrazení
+
+Jádro kromě plánovače vede **trace**: seznam záznamů, které popisují, co se stalo, tak podrobně,
+aby z nich šla bez jádra vykreslit animace, sekvenční diagram, rentgen i pcap:
+
+```js
+{ i: 42, t: 2000, node: 'SW1', kind: 'link.tx', link: 'L2', from: 'SW1', to: 'PC2', pdu: {...} }
+{ i: 43, t: 2000, node: 'SW1', kind: 'table', table: 'mac_table',
+  delta: { op: 'add', entry: { mac: '02:…:01', port: 'Fa0/1', vlan: 1, type: 'dynamic' } } }
+{ i: 44, t: 3000, node: 'PC3', kind: 'nic_drop', pdu: 17, detail: 'cizí cílová MAC' }
+{ i: 45, t: 3000, node: 'PC1', kind: 'encap', layer: 'L3', pdu: 21 }     // pro výtah (úroveň 1)
+```
+
+- `kind` používá slovník událostí z `vektory.md` kap. 6 (`arp_learn`, `flood`, `ip_forward`…)
+  plus technické `link.tx`, `link.rx`, `encap`, `decap`, `table`, `app` (výstup aplikace).
+- Delty tabulek mají tvar `{op: 'add'|'update'|'remove', entry, before}` → jsou vratné.
+- Tabulky se mění **jen** přes pomocníka `ctx.table(node, 'arp_cache').upsert(...)`, který
+  zároveň zapíše deltu. Ruční zápis do stavu mimo něj je chyba (hlídá test porovnáním snapshotu
+  s přehranými deltami).
+
+### 3.4 Kroky a krok vpřed/vzad (R6, R7)
+
+- **Krok** je didaktická jednotka, ne událost plánovače. `timeline.js` seskupí záznamy trace
+  do kroků podle profilu úrovně: úroveň 1 = každé `encap`/`decap` a přenos je krok
+  (výtah, `docs/ui.md`); úroveň 2–3 = jeden krok na jeden logický krok vektoru (všechny přenosy
+  se stejným časem příchodu, flooding na víc portů je jeden krok); úroveň 4 = podobně, s
+  možností „přeskoč handshake“.
+- Kurzor `timeline.goto(k)` vrátí **pohled** na stav po kroku k: tabulky uzlů, PDU na linkách,
+  texty vysvětlivek. Dopředu se delty aplikují, dozadu se aplikují inverzně. Pro skok posuvníkem
+  se ukládá pohled každých 32 kroků.
+- Nový vstup v kroku k (student napíše `ping` v terminálu): jádro obnoví nejbližší **plný
+  snapshot světa** ≤ k (ukládá se při každém vstupu a každých 256 událostí), přehraje do k,
+  naplánuje vstup a dopočítá dál. Budoucnost za k se zahodí (jako „undo“ v editoru).
+- Proč ne jen snapshoty po každém kroku: snapshot celého světa je dražší a pro zobrazení
+  zbytečný. Proč ne jen replay od začátku: u delších scénářů s TCP by krok vzad trval
+  znatelně dlouho na školním PC. Hybrid je obojí levné.
+
+### 3.5 Kontext pro moduly
+
+Obsluhy dostávají `ctx` (jediná brána do světa, usnadňuje testy):
+`ctx.now`, `ctx.node(id)`, `ctx.send(node, ifName, pdu)` (předá lince), `ctx.deliverUp(node,
+proto, pdu, meta)` (demux výš), `ctx.schedule(...)`, `ctx.cancel(id)`, `ctx.table(node, name)`,
+`ctx.emit(kind, data)` (trace), `ctx.rng`, `ctx.newPdu(proto, h, payload, parent)`.
+
+## 4. Protokoly jako moduly
+
+### 4.1 Rozhraní modulu
+
+```js
+// js/proto/arp.js
+export default {
+  id: 'arp',
+  layer: 'L2.5',                  // pro výtah a barvy (mezi L2 a L3, model.md kap. 1)
+  requires: ['ethernet'],
+  nodeTypes: ['pc', 'server', 'router'],
+  binds: { ethertype: 0x0806 },   // demux: ethernet.ethertype | ipv4.protocol | port
+  tables: ['arp_cache'],          // tabulky, které modul vlastní
+  init(node, ctx) { return { arp_cache: [], pending: [] }; },   // -> node.state.arp
+  receive(node, ifName, pdu, ctx) { … },                          // PDU z nižší vrstvy
+  api: { resolve(node, ifName, nextHopIp, ctx, onResolved) { … } }, // volají jiné moduly
+  events: { 'arp.timeout': (ev, ctx) => { … } },                  // obsluhy plánovače
+  commands: { pc: ['arp'] },                                       // příkazy terminálu (cli/)
+};
+```
+
+Kódování do bajtů je **oddělené** (`js/wire/encode.js` má pro každý `proto` funkci
+`encode(h, payloadBytes) → Uint8Array` a `fields(h) → [{name, offset, bits, value, display, ref}]`
+pro rentgen). Simulace bajty nepotřebuje; rentgen a pcap ano. Díky tomu jde kódování testovat
+samostatně proti reálným rámcům (hexdump z Wiresharku jako vektor).
+
+### 4.2 Registrace a zapnutí podle úrovně
+
+- `registry.js` má statický seznam všech modulů (statické importy, kvůli bundleru R3).
+- Scénář určuje sadu protokolů: `"protocols": [...]`; když chybí, vezme se výchozí sada
+  z `levels.js` pro `"level"`. Registr sadu doplní o `requires` a odmítne neznámé id.
+- Vypnutý protokol v simulaci **neexistuje** (demux ho nenajde → `ip_drop` s důvodem
+  „protokol není v této úrovni“), jeho příkazy v terminálu nejsou dostupné.
+- Úroveň zároveň řídí **zobrazení** (`levels.js` → UI): úroveň 1 skryje adresy, úroveň 2 ukáže
+  MAC/IP/port na obálkách, rentgen je dostupný od úrovně 2 atd. Jádro počítá vždy přesně;
+  úroveň mění jen to, co UI ukáže.
+
+| Úroveň | Výchozí protokoly |
+|---|---|
+| 1 Barvičky | ethernet, ipv4, udp (zpráva Alice → Bob; adresy skryté) |
+| 2 Adresy | ethernet, arp, ipv4, icmp, udp (+ hub, switch) |
+| 3 Směrování | + router, icmp time-exceeded/unreachable, tracert |
+| 4 Transport a aplikace | + tcp, dns, http |
+| 5 Směrem k CCNA | + dhcp, nat, filtrace (acl) |
+
+### 4.3 Kdo vlastní kterou tabulku
+
+| Tabulka (název ve vektorech) | Vlastník (modul) | Kde je | Kdo ji čte |
+|---|---|---|---|
+| `arp_cache` | `arp` | `node.state.arp.arp_cache` | `ipv4` přes `arp.api.resolve`, `cli` (`arp -a`, `show arp`) |
+| `mac_table` | `switch` (devices/switch.js, IEEE 802.1D) | `node.state.bridge.mac_table` | jen switch, `cli` (`show mac address-table`) |
+| `routing_table` | `ipv4` | `node.state.ip.routing_table` | `ipv4` (forwarding, longest prefix match), `cli` (`route print`, `show ip route`) |
+| sockety / spojení | `udp`, `tcp` | `node.state.tcp.sockets` | aplikace, `cli` (`netstat`) |
+| DNS cache | `dns` | `node.state.dns.cache` | `cli` (`ipconfig /displaydns`) |
+
+`routing_table` se **odvozuje** z konfigurace (adresy rozhraní → connected/local, brána →
+default, statické trasy z `config`), jak vyžaduje `vektory.md` kap. 3. Odvození je samostatná
+čistá funkce `ipv4.deriveRoutes(node)`, testovaná proti `initial_state` vektorů.
+
+## 5. Formát topologie a scénáře
+
+### 5.1 Verze
+
+Každý soubor má `"format": "tcpipsim-<druh>/<major>"` (`tcpipsim-topology/1`,
+`tcpipsim-scenario/1`, `tcpipsim-vector/1`). Minor změny jen přidávají nepovinné klíče
+(loader neznámé klíče ignoruje). Změna major = migrační funkce v `core/topology.js`
+(`migrate['tcpipsim-scenario/1'] → /2`), staré odkazy tak dál fungují.
+
+### 5.2 Topologie
+
+Uzly a linky přesně podle `vektory.md` kap. 2 (`id`, `type`, `interfaces`, `ports`, `gateway`,
+`ttl_default`, linky `a`/`b`), navíc nepovinné: `label` (popisek v UI), `pos: {x, y}` (mřížka
+editoru), `config` (statické trasy, později DHCP, ACL), na lince `delay`.
+
+**Příklad A: 2 PC + switch**
+
+```json
+{
+  "format": "tcpipsim-topology/1",
+  "id": "dva-pc-switch",
+  "title": "Dva počítače a switch",
+  "nodes": [
+    { "id": "PC1", "type": "pc", "label": "Alice", "pos": { "x": 2, "y": 4 },
+      "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:01", "ip": "192.168.1.10", "prefix": 24 }] },
+    { "id": "PC2", "type": "pc", "label": "Bob", "pos": { "x": 10, "y": 4 },
+      "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:02", "ip": "192.168.1.20", "prefix": 24 }] },
+    { "id": "SW1", "type": "switch", "pos": { "x": 6, "y": 2 }, "ports": ["Fa0/1", "Fa0/2", "Fa0/3", "Fa0/4"] }
+  ],
+  "links": [
+    { "id": "L1", "a": { "node": "PC1", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/1" } },
+    { "id": "L2", "a": { "node": "PC2", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/2" } }
+  ]
+}
+```
+
+**Příklad B: domácí LAN + router + server (obrázek z prezentací)**
+
+```json
+{
+  "format": "tcpipsim-topology/1",
+  "id": "domaci-lan-seznam",
+  "title": "Domácí síť a www.seznam.cz",
+  "nodes": [
+    { "id": "PC1", "type": "pc", "label": "Notebook", "pos": { "x": 2, "y": 2 }, "gateway": "192.168.1.1",
+      "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:01", "ip": "192.168.1.10", "prefix": 24 }] },
+    { "id": "PC2", "type": "pc", "label": "Stolní PC", "pos": { "x": 2, "y": 6 }, "gateway": "192.168.1.1",
+      "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:02", "ip": "192.168.1.20", "prefix": 24 }] },
+    { "id": "SW1", "type": "switch", "pos": { "x": 6, "y": 4 }, "ports": ["Fa0/1", "Fa0/2", "Fa0/3", "Fa0/4"] },
+    { "id": "R1", "type": "router", "label": "Domácí router", "pos": { "x": 10, "y": 4 },
+      "interfaces": [
+        { "name": "G0/0", "mac": "02:00:00:00:01:01", "ip": "192.168.1.1", "prefix": 24 },
+        { "name": "G0/1", "mac": "02:00:00:00:01:02", "ip": "77.75.75.1", "prefix": 24 } ] },
+    { "id": "SRV1", "type": "server", "label": "www.seznam.cz", "pos": { "x": 14, "y": 4 }, "gateway": "77.75.75.1",
+      "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:04", "ip": "77.75.75.172", "prefix": 24 }] }
+  ],
+  "links": [
+    { "id": "L1", "a": { "node": "PC1", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/1" } },
+    { "id": "L2", "a": { "node": "PC2", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/2" } },
+    { "id": "L3", "a": { "node": "SW1", "if": "Fa0/4" }, "b": { "node": "R1", "if": "G0/0" } },
+    { "id": "L4", "a": { "node": "R1", "if": "G0/1" }, "b": { "node": "SRV1", "if": "eth0" } }
+  ]
+}
+```
+
+Simulátor zjednodušuje: internet mezi domácím routerem a serverem je zkrácený na jednu linku
+a router nedělá NAT (NAT a ISP přijdou v úrovni 5). Adresa `77.75.75.1` je smyšlená brána.
+Toto zjednodušení musí odsouhlasit projektant a didaktik (privátní adresa by ve skutečném
+internetu bez NAT neprošla, student se to nesmí naučit špatně → v UI výslovně označit).
+
+### 5.3 Scénář
+
+Scénář = topologie (vložená, nebo odkaz `"topology": "domaci-lan-seznam"`) + úroveň + akce +
+texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `scenarios/*.json`.
+
+```json
+{
+  "format": "tcpipsim-scenario/1",
+  "id": "uroven2-ping-switch",
+  "title": "Ping přes switch",
+  "level": 2,
+  "seed": 1,
+  "protocols": null,
+  "topology": "dva-pc-switch",
+  "initial_state": { "arp_cache": { "PC1": [] } },
+  "actions": [ { "time": 0, "node": "PC1", "command": "ping", "args": { "dst": "192.168.1.20", "count": 1 } } ],
+  "steps": [
+    { "match": { "kind": "link.tx", "node": "PC1", "pdu.arp.op": 1 },
+      "title": "ARP request", "text": "PC1 nezná MAC adresu Boba, ptá se všech (broadcast)." }
+  ],
+  "terminal": { "enabled": true, "nodes": ["PC1", "PC2"] },
+  "questions": [ { "text": "Proč PC2 odpověděl jen PC1, a ne všem?", "answer": "…" } ]
+}
+```
+
+- `actions` a `initial_state` mají stejný tvar jako ve vektorech (`time` v sekundách, převádí
+  se na µs). `steps[].match` váže text vysvětlivky na záznam trace (ne na číslo kroku), takže
+  text sedí i po změně časování.
+- Když scénář `steps` nemá, vysvětlivky se generují ze `summary` událostí (jako ve vektorech).
+
+### 5.4 Sdílení odkazem
+
+- Vestavěný scénář: `index.html#s=uroven2-ping-switch`.
+- Vlastní topologie/scénář od učitele: `#d=<base64url(deflate-raw(JSON))>` přes nativní
+  `CompressionStream` (bez knihovny). Topologie s 10 uzly ≈ 3 kB JSON ≈ 1 kB v odkazu; to
+  Classroom i e-mail snesou. Data v hash se neposílají na server (soukromí, GitHub Pages je statický).
+- Pro větší soubory: tlačítko „Uložit / Otevřít soubor“ (`.json`, `<input type=file>` a
+  drag&drop; funguje i v offline verzi, protože nepotřebuje `fetch`).
+- Odkaz nese i `seed`, takže všichni studenti vidí stejný průběh.
+
+## 6. UI oddělené od jádra
+
+- Jádro nic nekreslí. UI dostane hotovou `timeline` a poslouchá `timeline.subscribe(view =>…)`
+  (pozorovatel). Každý pohled (výtah, topologie, sekvenční diagram, rentgen, tabulky) je
+  funkce `render(view)` nad stejným pohledem; žádný pohled si stav nedrží sám.
+- Animace jen interpoluje mezi pohledem k a k+1 (`docs/ui.md` kap. 4); přerušení animace
+  nemění stav.
+- **Sekvenční diagram** = `link.tx` záznamy (osy = uzly, šipky = přenosy, čas = krok).
+- **Rentgen** = `wire/encode.js` nad PDU z vybraného záznamu (pole + hexdump; IP/ICMP/TCP
+  checksumy se počítají skutečně podle RFC 1071, FCS se nepočítá, `model.md` kap. 8).
+- **Export pcap** = `wire/pcap.js`: klasický pcap (LINKTYPE_ETHERNET = 1), jeden soubor
+  na vybranou linku (jako odposlech na jednom kabelu; víc linek najednou by duplikovalo
+  rámce), časové razítko = virtuální čas. Stažení přes `Blob` + `<a download>` (jde i z `file://`).
+- **Terminál** (`cli/`) je modul nad jádrem bez DOM: `shell.execute(nodeId, 'ping 192.168.1.20')`
+  → naplánuje akci (`cli.command`) a vrátí objekt, který postupně dostává řádky výstupu z
+  událostí `app` v trace. Dialekty: `wincmd` (ipconfig, ping, tracert, arp, nslookup, netstat,
+  route print) a `ios` (zjednodušené Cisco IOS: režimy `>`/`#`/`(config)#`, `show ip route`,
+  `show arp`, `ip route`, `ping`). Okno terminálu (`ui/terminal.js`) jen zobrazuje. Testuje se
+  v Node (vstup → očekávaný text), texty hlášek podle `docs/ui.md`.
+- **Editor topologie** mění jen JSON topologie; po každé změně se svět sestaví znovu
+  (topologie je malá, je to okamžité). Undo/redo = zásobník verzí JSON.
+
+## 7. Výkon
+
+Školní PC a Raspberry Pi 4 jsou cílová spodní hranice. Typický scénář má stovky až nízké
+tisíce událostí; simulace dopředu trvá milisekundy. Rizikem je jen DOM: animovat
+`transform`/`opacity`, sekvenční diagram v SVG s omezeným počtem viditelných řádků.
+Měřit od iterace 2 na gaze (`performance.now()` v smoke testu).
+
+## 8. Testování
+
+| Vrstva | Nástroj | Co |
+|---|---|---|
+| jádro, protokoly, cli | `node --test` (vestavěný, bez závislostí) | `tests/**/*.test.js` |
+| vektory projektanta | `tests/vectors.test.js` (iterace 2) | každý `tests/vectors/*.json` = jeden test |
+| kódování | `tests/proto/*.test.js` | bajty proti hexdumpům reálných rámců, checksum = 0 po přepočtu |
+| stránka | headless Chromium v `tests/run_all.sh` | načtení `index.html` bez chyb |
+| vzhled | `chromium --headless --screenshot=…` | ruční kontrola snímků (kreativec, recenzent) |
+
+**Runner vektorů** (`tests/vectors.test.js`, rozhraní pro iteraci 2):
+
+```js
+const run = runVector(vector);   // js/core/harness.js: topologie → svět, initial_state,
+                                 // actions, run až do prázdné fronty (před vypršením časovačů)
+// run = { transmissions: [{step, link, from, to, pdu}], events: [...],
+//         finalState: { arp_cache, mac_table, routing_table }, appResult }
+compareVector(vector.expected, run);  // pravidla vektory.md kap. 5–7: pořadí na (link, from)
+                                      // přesně, step, částečná shoda polí, MAC bez ohledu na
+                                      // velikost písmen, tabulky jako množiny, bez `age`
+```
+
+`harness.js` převádí PDU jádra na tvar `pdu.eth/arp/ip/icmp` z vektorů a `frame_len` počítá
+přes `wire/encode.js`, takže vektor zároveň testuje kódování délek. Do té doby
+`tests/core/vectors-format.test.js` kontroluje aspoň tvar vektorů (verze, linky odkazují na
+existující rozhraní, každé rozhraní nejvýš v jedné lince).
+
+**Smoke test v prohlížeči** (ověřeno na gaze, Chromium 156):
+- `chromium --headless --dump-dom` nad **`http://127.0.0.1` na gaze zamrzne** (prohlížeč se
+  k lokálnímu serveru vůbec nepřipojí, ani mimo sandbox, ani s `--no-proxy-server`; příčinu
+  jsem nedohledal). Proto smoke test načítá `file://…/index.html` s přepínačem
+  `--allow-file-access-from-files`, který moduly ze souboru povolí. Na jiných strojích je
+  možné přidat variantu přes http.
+- Chyby se zjišťují dvojím způsobem: (1) inline skript v `index.html` zachytí `error`,
+  `unhandledrejection`, `console.error` a selhání načtení modulu do atributu `data-errors`
+  v DOM; (2) `--enable-logging=stderr` vypíše konzoli jako řádky `CONSOLE`, skript hledá
+  `Uncaught|Error|CORS|Failed to load`. Jádro po úspěšném startu nastaví `data-core="ok"`.
+- Ověřeno, že test opravdu selže při výjimce v modulu i při chybějícím importu.
+- `--user-data-dir` do dočasné složky, aby test nekolidoval s otevřeným prohlížečem.
+
+**Pravidla:** každý nový modul jádra má test; nová chyba = nejdřív test, který ji ukáže.
+Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
+
+## 9. Jak přidat protokol / scénář (návod, platí od iterace 2)
+
+**Protokol:** (1) spec v `docs/spec/<proto>.md` od projektanta, (2) `js/proto/<proto>.js` podle
+kap. 4.1, (3) kódování a pole pro rentgen ve `js/wire/encode.js`, (4) zápis do `registry.js`
+a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + vektor od projektanta.
+
+**Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.json` podle
+kap. 5.3, (3) zápis do `scenarios/index.json` (katalog), (4) smoke: `#s=<id>` se načte bez chyb.
+
+## 10. Rizika
+
+| Riziko | Dopad | Opatření |
+|---|---|---|
+| Offline verze z `file://` (R3) nefunguje v některém prohlížeči (Blob moduly ověřeny jen v Chromiu) | učitel bez internetu | ověřit Edge/Firefox na Windows ve škole; záloha: ZIP + návod `python -m http.server` |
+| Headless Chromium na gaze nenačte http (kap. 8) | smoke test neověří reálný provoz přes server | test přes `file://` s přepínačem; ruční kontrola na GitHub Pages při vydání |
+| TCP (stavy, retransmise, okna) je výrazně složitější než ARP/IP | zpoždění úrovně 4 | zúžit: bez okna a Nagle, pevné RTO, jen scénáře z didaktiky; vektory dřív než kód |
+| Rozjetí formátu scénáře mezi didaktikem, projektantem a jádrem | rozbité scénáře | jedno schéma (R10), validátor s českými hláškami, test, který načte všechny `scenarios/*.json` |
+| Krok vzad po interaktivním vstupu (terminál) mate studenta („kam zmizela budoucnost“) | UX | UI to řekne textem; rozhodne kreativec |
+| Smyčky v topologii bez STP | zamrznutí stránky | `maxEvents` + hláška; editor smyčky hlásí (otázka 7 ve spec) |
+| Sdílení odkazem přes `CompressionStream` (Safari < 16.4, starý Firefox) | odkaz nejde otevřít | pojistka: nekomprimovaný base64url `#j=`, delší odkaz |
+| Výkon animací na projektorových PC | trhání | jen `transform`/`opacity`, měřit na gaze |
+| Přesnost texty hlášek Windows/IOS | student se naučí špatný výstup | ověřit na školním PC a v Packet Traceru (projektant), texty v jednom souboru |
+
+## 11. Odhad pracnosti iterací
+
+Odhad v pracovních dnech vývojáře (agent + kontrola), bez času ostatních rolí.
+
+| Iterace | Obsah | Jádro | UI | Celkem | Riziko |
+|---|---|---|---|---|---|
+| 1 | úroveň 1 Barvičky: world, pdu, link, trace, timeline (krok vpřed/vzad), ethernet+ipv4+udp bez adres v UI, výtah, ovládání, scénář z JSON | 3 | 4 | 7 | nízké |
+| 2 | úroveň 2 Adresy: arp, icmp (ping), hub, switch, runner vektorů (ping-hub, ping-switch), topologie a tabulky v UI, rentgen L2/L3, sekvenční diagram, terminál cmd (`ping`, `arp -a`, `ipconfig`) | 5 | 5 | 10 | střední (rentgen, sekvenční diagram) |
+| 3 | úroveň 3 Směrování: router, routing table, LPM, ICMP time exceeded/unreachable, `tracert`, IOS CLI základ, vektor ping-router, export pcap, sdílení odkazem, offline bundle | 6 | 4 | 10 | střední (IOS CLI rozsah) |
+| 4 | úroveň 4 Transport a aplikace: udp, tcp (handshake, ACK, ztráta, retransmise, ukončení), dns, http, `netstat`/`nslookup`, editor topologie | 9 | 6 | 15 | vysoké (TCP, editor) |
+
+Editor topologie lze přesunout do iterace 3, pokud ho didaktik potřebuje dřív (nezávisí na TCP).

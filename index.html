@@ -1,0 +1,42 @@
+<!doctype html>
+<html lang="cs">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>tcpipsim</title>
+  <script>
+    // Zachytí chyby ještě před načtením modulů; smoke test čte data-errors z DOM.
+    (function () {
+      var root = document.documentElement;
+      function fail(msg) {
+        root.dataset.errors = String((Number(root.dataset.errors) || 0) + 1);
+        root.dataset.lastError = String(msg).slice(0, 300);
+      }
+      window.addEventListener('error', function (e) { fail(e.message || 'chyba načtení zdroje'); }, true);
+      window.addEventListener('unhandledrejection', function (e) { fail(e.reason); });
+      var origError = console.error;
+      console.error = function () { fail(Array.prototype.join.call(arguments, ' ')); origError.apply(console, arguments); };
+      window.__tcpipsimModuleFailed = function () {
+        fail('modul se nenačetl');
+        if (location.protocol === 'file:') document.getElementById('file-warning').hidden = false;
+      };
+    })();
+  </script>
+</head>
+<body>
+  <header>
+    <h1>tcpipsim</h1>
+    <p>Výukový simulátor sítě TCP/IP</p>
+  </header>
+  <main>
+    <p id="core-status">Načítám jádro simulace…</p>
+    <div id="file-warning" hidden>
+      <p><strong>Stránka je otevřená přímo ze souboru (file://).</strong>
+        Prohlížeč v tomto režimu nenačte JavaScriptové moduly. Otevři simulátor online
+        (GitHub Pages), nebo použij offline verzi <code>tcpipsim-offline.html</code>,
+        případně spusť lokální server (návod v <code>docs/VYVOJ.md</code>).</p>
+    </div>
+  </main>
+  <script type="module" src="js/main.js" onerror="window.__tcpipsimModuleFailed()"></script>
+</body>
+</html>
