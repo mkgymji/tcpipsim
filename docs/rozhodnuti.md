@@ -232,3 +232,18 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     Kontrola týmu nově ověřuje u každého kroku shodu „o kom mluví text = čí sloupec je vidět“.
 
 58. **Nadpis karty tipu je „Otázka: …“** (Michal: „Ptám se tebe“ zní česky divně). Mění 56a.
+
+## 2026-11-26 — rozsah úrovně 4 „Transport a aplikace“
+
+59. **Úroveň 4 = TCP a aplikace na jedné cestě bez NAT.** Topologie úrovně 3 + server SRV1 v síti 2
+    (192.168.2.10/24, MAC 02:00:00:00:00:04, Linux, TTL 64; brána 192.168.2.1), na něm DNS (UDP 53)
+    a web (TCP 80) se jménem `www.skola.lan` (interní školní server — pravdivé bez NAT, rozh. 5).
+    Děj: Alice zadá `http://www.skola.lan` → DNS dotaz/odpověď (UDP) → TCP three-way handshake
+    (SYN, SYN-ACK, ACK; čísla sekvencí od ISN, v rentgenu relativní i absolutní) → HTTP GET a odpověď
+    (data, ACK) → ukončení (FIN/ACK). Jedna nová myšlenka: „TCP je spojovaný a spolehlivý, UDP ne;
+    aplikace se najde podle socketu IP:port“. Navazuje na Michalovu prezentaci „3. TCP/IP - L4“
+    (porty, socket, multiplex, UDP vs TCP, three-way handshake) a „4. aplikační vrstva“ (DNS, HTTP).
+    Terminál: `nslookup`, `netstat -an` (ESTABLISHED, LISTEN, TIME_WAIT), `curl` nebo prohlížeč jako
+    akce scénáře; na Bobovi zůstávají aplikace z úrovně 2. Ztráta segmentu a retransmise jako
+    volitelná část (ukazuje „spolehlivost“ z L4 a)). NAT a seznam.cz až v úrovni 5. Specifikace:
+    projektant + didaktik; UI pokračuje vzory úrovní 2–3 (bez samostatného kreativce, šetří tokeny).
