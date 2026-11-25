@@ -45,8 +45,9 @@ function rowStatus(layers, members) {
 // Sloupec vrstev uzlu. Mřížka má vždy 7 stop (L7 nahoře); sloučené vrstvy TCP/IP zaberou víc stop.
 // `pass` = vrstvy ISO/OSI, kterými zpráva v tomto kroku jen prošla (L7 -> L6 -> L5): krátce
 // se postupně zvýrazní (ui.md kap. 3). V TCP/IP jsou uvnitř jednoho řádku, tam se nekreslí.
-export function renderStack(el, nodeView, modelId, pass = []) {
-  const rows = MODELS[modelId].rows;
+// `pdu4` = jiný název PDU transportní vrstvy (úroveň 2: „segment / datagram“, rozhodnutí 32).
+export function renderStack(el, nodeView, modelId, pass = [], { pdu4 = null } = {}) {
+  const rows = MODELS[modelId].rows.map((r) => (pdu4 && r.members.length === 1 && r.members[0] === 4 ? { ...r, pdu: pdu4 } : r));
   el.innerHTML = rows.map((r) => {
     const order = r.members.length === 1 ? pass.indexOf(r.members[0]) : -1;
     const passEl = order >= 0
@@ -57,7 +58,8 @@ export function renderStack(el, nodeView, modelId, pass = []) {
     const stripe = merged
       ? `<span class="stripe" aria-hidden="true">${r.members.map((n) => `<i style="--s:var(--L${n})"></i>`).join('')}</span>` : '';
     const stLabel = { wait: 'čeká', done: 'hotovo', active: 'právě tady', dropped: 'zahodil' }[status];
-    return `<button type="button" class="row ${status}${merged ? ' merged' : ''}" data-layer="${r.id}"
+    const long = pdu4 && r.pdu === pdu4 ? ' pdu-long' : '';
+    return `<button type="button" class="row ${status}${merged ? ' merged' : ''}${long}" data-layer="${r.id}"
       style="${cssVars(r.color)};grid-row:${top} / span ${r.members.length}"
       aria-label="${esc(`${r.badge} ${r.name}, ${r.pdu}, ${stLabel}`)}">
       ${passEl}${stripe}${status === 'dropped' ? '<span class="xmark" aria-hidden="true">⊗ zahodil</span>' : ''}${badge(r.color, r.badge)}<span class="nm"><span class="l1"><span>${esc(r.name)}</span>

@@ -29,9 +29,8 @@ function ipconfig(node, all) {
   if (all) {
     out.push(`${dots('host')}${hostName(node)}`, `${dots('dnsSuffix')}`, `${dots('node')}Hybrid`,
       `${dots('routing')}No`, `${dots('wins')}No`);
-  } else {
-    out.push('');
   }
+  // mezi „Windows IP Configuration“ a adaptérem jsou dva prázdné řádky (cmd.md kap. 2)
   out.push('', 'Ethernet adapter Ethernet:', '', `${dots('conn')}`);
   if (all) {
     out.push(`${dots('desc')}Simulated Ethernet Adapter`,
@@ -63,19 +62,25 @@ function arpA(node) {
   }
   lines.push('');
   const note = [rows.length
-    ? 'Simulátor zjednodušuje: MAC adresu už PC zná (předvyplněná ARP tabulka); jak ji zjistí, uvidíš v úrovni 3.'
-    : 'Žádný záznam typu dynamic: tento počítač si žádnou MAC adresu nezapamatoval.',
-  'Řádky static jsou adresy pro broadcast a multicast, které Windows zná vždy (vysvětlíme v úrovni 3). Na školním PC jich může být víc.'];
+    ? `Simulátor zjednodušuje: ${node.label ?? 'počítač'} MAC adresu už zná (předvyplněná ARP tabulka); jak ji zjistí, uvidíš v úrovni 3.`
+    : `Simulátor: ${node.label ?? 'počítač'} nemá žádný záznam typu dynamic, žádnou MAC si nezapamatoval.`,
+  'Řádky static (broadcast, multicast) má Windows vždy; vysvětlíme je v úrovni 3.'];
   return { lines, note: note.join(' ') };
 }
 
 // Vrací { lines: (string | {text, mark})[], note?: string, clear?: true }.
 export function winExec(node, line) {
-  const cmd = line.trim().replace(/\s+/g, ' ');
+  // přepínač smí být přilepený k příkazu jako ve Windows: ipconfig/all, arp/a
+  const cmd = line.trim().replace(/\s+/g, ' ').replace(/^(ipconfig|arp)(?=[/-])/i, '$1 ');
   const lc = cmd.toLowerCase();
   if (lc === '') return { lines: [] };
   if (lc === 'ipconfig') return ipconfig(node, false);
   if (lc === 'ipconfig /all' || lc === 'ipconfig -all') return ipconfig(node, true);
+  if (lc.startsWith('ipconfig ')) {
+    // skutečný Windows pod chybou vypíše ještě dlouhou nápovědu (USAGE)
+    return { lines: ['', 'Error: unrecognized or incomplete command line.', ''],
+      note: 'Simulátor zkracuje: skutečný Windows pod chybou vypíše ještě nápovědu. Zkus „ipconfig“ nebo „ipconfig /all“.' };
+  }
   if (lc === 'arp -a' || lc === 'arp -g' || lc === 'arp /a') return arpA(node);
   if (lc === 'cls') return { lines: [], clear: true };
   if (lc.startsWith('arp')) {

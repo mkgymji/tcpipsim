@@ -6,6 +6,7 @@ import { buildLevel2 } from '../scenario/level2.js';
 import { renderStack, esc } from './render.js';
 import { topologyHtml, nestHtml, nestCaption, appsHtml, explainHtml2, summaryHtml, xrayHtml, presentTabs,
   XRAY_TABS, termLinesHtml, termTitle } from './render2.js';
+import { tipEvaluator, evalTip } from './tips.js';
 import { frameFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { isHost } from '../devices/types.js';
@@ -43,23 +44,23 @@ export function createLevel2(host) {
   const stepAt = (k) => timeline.steps[k];
   const predictAt = (k) => stepAt(k)?.predict ?? null;
   const tipsAt = (k) => ui.tips.get(k) ?? new Set();
+  // rozhodnutí 31: krok tipu -> krok, který ho vyhodnotí (scénář: evaluates)
+  const ev = tipEvaluator(timeline.steps);
 
-  // Skutečné porty, na které zařízení rámec poslalo v kroku k (vyhodnocení tipu).
-  function actualPorts(k, pred) {
-    const v = timeline.view(k);
-    const ports = Object.entries(v.portState[pred.node] ?? {}).filter(([, s]) => s === 'out').map(([p]) => p);
-    return ports.length ? ports : (v.decision?.node === pred.node ? v.decision.outPorts : []);
+  // Vyhodnocení potvrzených tipů v kroku k (věty pro vysvětlivku, HTML).
+  function evalLines(k) {
+    return ev.tipsEvaluatedAt(k).map((tk) => {
+      const ans = ui.answers.get(tk);
+      return ans?.length ? evalTip(timeline, tk, k, ans).html : '';
+    }).filter(Boolean);
   }
-  const labelOf = (pred, port) => pred.options.find((o) => o.port === port)?.label ?? port;
-  const joinI = (arr) => (arr.length ? arr.join(' i ') : 'nikam');
-
-  function evalLine(k) {
-    const pk = k - 1, pred = predictAt(pk), ans = ui.answers.get(pk);
-    if (!pred || !ans?.length) return '';
-    if (pred.choices) return `<b>Tvůj tip:</b> ${esc(ans.join(', '))}. Ověř si ho v dalších krocích.`;
-    const act = actualPorts(k, pred);
-    const same = act.length === ans.length && act.every((p) => ans.includes(p));
-    return `<b>Tvůj tip:</b> ${esc(joinI(ans.map((p) => labelOf(pred, p))))}. <b>Skutečnost:</b> ${esc(joinI(act.map((p) => labelOf(pred, p))))}.${same ? ' Sedí.' : ''}`;
+  // Potvrzený tip k portům zařízení, které je v kroku k vidět (štítek „tip“ u portů).
+  function evaluatedPortTips(k, v) {
+    for (const tk of ev.tipsEvaluatedAt(k)) {
+      const pred = predictAt(tk), ans = ui.answers.get(tk);
+      if (pred?.node && ans?.length && v.nodes[pred.node]) return new Set(ans);
+    }
+    return new Set();
   }
 
   function xrayState(v) {
@@ -89,7 +90,7 @@ export function createLevel2(host) {
     const termHint = s.terminal && v.nodes[s.terminal.node]
       ? { ...s.terminal, label: v.nodes[s.terminal.node].label } : null;
     els.explain.innerHTML = explainHtml2(v, model, total, {
-      predict: pred, tips: tipsAt(k), evalLine: evalLine(k), termHint,
+      predict: pred, tips: tipsAt(k), evalLines: evalLines(k), termHint,
     });
     renderXray(v);
   }
@@ -99,8 +100,10 @@ export function createLevel2(host) {
     const pred = predictAt(k);
     const changed = new Set(v.changes.map((r) => r.kind));
     const swapIdx = timeline.steps.findIndex((s) => s.match.kind === 'topo.swap');
-    els.topo.innerHTML = topologyHtml(v, { pair: pairOf(v), selected: ui.selected, predict: pred?.options ? pred : null,
-      tips: tipsAt(k), changed, canSwap: k === swapIdx - 1, animate });
+    // krok tipu: volby u portů; krok vyhodnocení: štítek „tip“ u portů, které student vybral
+    const portPred = pred?.node ? pred : null;
+    els.topo.innerHTML = topologyHtml(v, { pair: pairOf(v), selected: ui.selected, predict: portPred,
+      tips: portPred ? tipsAt(k) : evaluatedPortTips(k, v), changed, canSwap: k === swapIdx - 1, animate });
   }
 
   function render(v, { animate, model }) {
@@ -111,13 +114,13 @@ export function createLevel2(host) {
     els.rName.textContent = rN?.label ?? '';
     els.sRole.textContent = 'odesílatel, shora dolů';
     els.rRole.textContent = v.dropped?.node === pair.receiver ? 'zahodil rámec' : 'příjemce, zdola nahoru';
-    renderStack(els.stackS, sN, model);
-    renderStack(els.stackR, rN, model);
+    renderStack(els.stackS, sN, model, [], { pdu4: 'segment / datagram' });
+    renderStack(els.stackR, rN, model, [], { pdu4: 'segment / datagram' });
     const changed = new Set(v.changes.map((r) => r.kind));
-    const cap = nestCaption(v, pair);
+    const cap = nestCaption(v, pair, { tip: Boolean(predictAt(cur())?.node) });
     els.cap.textContent = cap.left;
     els.capR.textContent = cap.right;
-    els.nest.innerHTML = nestHtml(v, model, { pair, sel: ui.xray.sel, animate, socket: v.step.socket, changed });
+    els.nest.innerHTML = nestHtml(v, model, { pair, sel: ui.xray.sel, animate, socket: v.step.socket, changed, arp: v.step.arpHint });
     els.apps.innerHTML = appsHtml(v, pair.receiver);
     els.apps.classList.toggle('has', Boolean(v.inbox[pair.receiver]));
     if (!animate) els.nest.firstElementChild?.classList.add('anim-flash');
@@ -200,10 +203,22 @@ export function createLevel2(host) {
   function fieldByNumber(n) {
     const v = view();
     const xs = xrayState(v);
-    if (!v.flowFrame || !xs.tabs.length) return;
+    if (!v.flowFrame || !xs.tabs.length) return false;
     const tab = xs.tabs.includes(ui.xray.tab) ? ui.xray.tab : xs.tabs[0];
     const f = frameFields(v.flowFrame).blocks[tab].fields.find((x) => x.n === n);
     if (f) selectField(f.id, tab);
+    return Boolean(f);
+  }
+  // Čísla polí z klávesnice: dvě číslice rychle po sobě = dvouciferné pole (12, 13).
+  const digits = { prev: null, at: 0 };
+  function digitKey(d, now) {
+    if (digits.prev !== null && now - digits.at < 900 && fieldByNumber(digits.prev * 10 + d)) {
+      digits.prev = null;
+      return;
+    }
+    if (d > 0) fieldByNumber(d);
+    digits.prev = d;
+    digits.at = now;
   }
 
   function hover(e, on) {
@@ -248,14 +263,13 @@ export function createLevel2(host) {
       if (k === swapIdx - 1) return 'Vyměnit za switch';
       return k === 0 ? 'Začít' : 'Vpřed';
     },
+    isTip(k) { return Boolean(predictAt(k)); },
     beforeQuestions() {
       let ok = 0, n = 0;
       for (const [k, ans] of ui.answers) {
-        const pred = predictAt(k);
-        if (!pred?.options) continue;
+        if (!predictAt(k)?.node || !ans.length) continue;
         n++;
-        const act = actualPorts(k + 1, pred);
-        if (act.length === ans.length && act.every((p) => ans.includes(p))) ok++;
+        if (evalTip(timeline, k, ev.evaluatorOf(k), ans).same) ok++;
       }
       $('q-tips').textContent = n ? `Tipy „kam switch nebo hub pošle rámec“: ${ok} z ${n} sedělo. Nic se neukládá.` : '';
     },
@@ -289,6 +303,7 @@ export function createLevel2(host) {
       if (t.dataset.tab) { ui.xray.tab = t.dataset.tab; ui.xray.sel = null; renderXray(); }
     },
     onKey(e) {
+      if (!/^[0-9]$/.test(e.key)) digits.prev = null;   // jiná klávesa ukončí dvouciferné číslo pole
       if (e.target.id === 'term-input') { termKey(e); return true; }
       if (e.key === 'Escape') {
         if (ui.term.open) closeTerm(); else { ui.xray.sel = null; renderXray(); }
@@ -299,7 +314,15 @@ export function createLevel2(host) {
         e.preventDefault();
         return true;
       }
-      if (e.target.matches?.('input, textarea')) return false;
+      // posuvník kroků (input type=range) R a čísla polí nepohltí
+      if (e.target.matches?.('input[type=text], textarea')) return false;
+      if ((e.key === 'Enter' || e.key === ' ') && e.target.matches?.('#info tr[data-field]')) {
+        const t = e.target;
+        selectField(ui.xray.sel === t.dataset.field ? null : t.dataset.field, t.dataset.tab);
+        document.querySelector(`#info tr[data-field="${t.dataset.field}"]`)?.focus();
+        e.preventDefault();
+        return true;
+      }
       if (e.key === 'r' || e.key === 'R') {
         const xs = xrayState(view());
         if (xs.tabs.length) {
@@ -309,23 +332,30 @@ export function createLevel2(host) {
         }
         return true;
       }
-      if (/^[1-9]$/.test(e.key)) { fieldByNumber(Number(e.key)); return true; }
+      if (/^[0-9]$/.test(e.key)) { digitKey(Number(e.key), e.timeStamp || Date.now()); return true; }
       if (e.key === 'Enter' && predictAt(cur()) && tipsAt(cur()).size && !e.target.matches?.('button')) {
         host.go(cur() + 1, { animate: true });
         return true;
       }
       return false;
     },
+    // Obnovit: tipy a výpisy terminálu pryč, historie příkazů (šipka nahoru) zůstává
     onReset() {
-      ui.tips.clear(); ui.answers.clear(); ui.pair = null; ui.selected = null; closeTerm();
+      ui.tips.clear(); ui.answers.clear(); ui.pair = null; ui.selected = null; ui.term.log = {}; closeTerm();
     },
-    // parametry adresy pro odkazy a snímky: x=tab, f=pole, t=terminál, c=příkaz, pick=tipy, pair=příjemce
+    // parametry adresy pro odkazy a snímky: x=tab, f=pole, t=terminál, c=příkaz, pick=tipy v kroku,
+    // ans=potvrzené tipy (id:volby;id:volby, např. sw1:Fa0/2;swap:Ne), pair=příjemce
     applyParams(p) {
       const k = cur();
       if (stepAt(k).xray) ui.xray = { tab: stepAt(k).xray.tab, sel: stepAt(k).xray.fields[0] };
       if (p.get('x')) ui.xray = { tab: p.get('x'), sel: null };
       if (p.get('f')) ui.xray.sel = p.get('f');
       if (p.get('pick')) ui.tips.set(k, new Set(p.get('pick').split(',')));
+      for (const part of (p.get('ans') ?? '').split(';').filter(Boolean)) {
+        const [id, vals] = part.split(':');
+        const tk = timeline.steps.findIndex((s) => s.predict?.id === id);
+        if (tk >= 0 && vals) ui.answers.set(tk, vals.split(','));
+      }
       if (p.get('pair')) ui.pair = { flowKey: flowKey(view()), receiver: p.get('pair') };
       if (p.get('sel')) ui.selected = p.get('sel');
     },

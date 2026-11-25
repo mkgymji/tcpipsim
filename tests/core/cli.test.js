@@ -34,12 +34,25 @@ test('arp -a: Alice zná Boba (dynamic), Cyril jen statické řádky (rozhodnut�
   const c = out('7', 'PC3', 'arp -a');
   assert.doesNotMatch(c, /dynamic/);
   assert.match(c, /255\.255\.255\.255 +ff-ff-ff-ff-ff-ff +static/);
-  assert.match(execute(at('7').nodes.PC3, 'arp -a').note, /nezapamatoval/);
+  assert.match(execute(at('7').nodes.PC3, 'arp -a').note, /^Simulátor: Cyril nemá žádný záznam typu dynamic, žádnou MAC si nezapamatoval\. Řádky static \(broadcast, multicast\) má Windows vždy/);
   assert.match(execute(at('4').nodes.PC1, 'arp -d').note, /úroveň 3/);
 });
 
-test('show mac address-table: krok 11 prázdná, krok 15 dva záznamy Cisco zápisem, Cyril chybí', () => {
-  const e = out('11', 'SW1', 'show mac address-table');
+test('ipconfig: dva prázdné řádky před adaptérem; ipconfig/all bez mezery; chybný přepínač (recenzent 4)', () => {
+  const short = out('1', 'PC1', 'ipconfig').split('\n');
+  assert.deepEqual(short.slice(0, 5), ['', 'Windows IP Configuration', '', '', 'Ethernet adapter Ethernet:']);
+  assert.equal(out('1', 'PC1', 'ipconfig/all'), out('1', 'PC1', 'ipconfig /all'));
+  assert.equal(out('1', 'PC1', 'IPCONFIG -ALL'), out('1', 'PC1', 'ipconfig /all'));
+  for (const bad of ['ipconfig /foo', 'ipconfig /al', 'ipconfig all', 'ipconfig/x']) {
+    const r = execute(at('1').nodes.PC1, bad);
+    assert.equal(plain(r), '\nError: unrecognized or incomplete command line.\n', bad);
+    assert.match(r.note, /ipconfig \/all/);
+  }
+  assert.equal(out('1', 'PC1', 'arp/a'), out('1', 'PC1', 'arp -a'));
+});
+
+test('show mac address-table: krok 10 prázdná, krok 15 dva záznamy Cisco zápisem, Cyril chybí', () => {
+  const e = out('10', 'SW1', 'show mac address-table');
   assert.match(e, /Total Mac Addresses for this criterion: 0/);
   const t = out('15', 'SW1', 'show mac address-table');
   assert.match(t, /^ {3}1 {4}0200\.0000\.0001 {4}DYNAMIC {5}Fa0\/1$/m);
@@ -48,6 +61,20 @@ test('show mac address-table: krok 11 prázdná, krok 15 dva záznamy Cisco záp
   assert.match(t, /Total Mac Addresses for this criterion: 2/);
   assert.equal(out('15', 'SW1', 'sh mac add'), t, 'zkratky jako IOS');
   assert.match(out('15', 'SW1', 'show mac address-table interface fa0/2'), /Total Mac Addresses for this criterion: 1/);
+  assert.match(out('15', 'SW1', 'show mac address-table interface FastEthernet0/3'), /criterion: 0/);
+});
+
+test('IOS: neplatný port se stříškou, clear mac address-table je platný příkaz (recenzent 9)', () => {
+  const sw = at('15').nodes.SW1;
+  const r = execute(sw, 'show mac address-table interface fa0/9');
+  assert.equal(r.lines[1], "% Invalid input detected at '^' marker.");
+  assert.equal(r.lines[0].indexOf('^'), 'SW1#show mac address-table interface '.length);
+  for (const c of ['clear mac address-table', 'clear mac address-table dynamic', 'cl mac add']) {
+    const x = execute(sw, c);
+    assert.deepEqual(x.lines, [], c);
+    assert.match(x.note, /^Simulátor zjednodušuje: v úrovni 2 tabulku jen čteš/, c);
+  }
+  assert.equal(plain(execute(sw, 'clear mac')).split('\n')[0], '% Incomplete command.');
 });
 
 test('chybné příkazy: IOS stříška, neúplný příkaz; Windows not recognized; prompty a dialekty', () => {

@@ -65,7 +65,7 @@ export function iosExec(node, line) {
   const w = p.words.join(' ');
   if (w === 'enable' || w === 'terminal') return { lines: [] };
   if (w === 'exit') return { lines: [], note: 'V simulátoru konzole zůstává otevřená; zavřeš ji tlačítkem Zavřít nebo Esc.' };
-  if (w === 'show' || w === 'show mac' || w === 'clear' || w === 'clear mac' || w === 'clear mac address-table') {
+  if (w === 'show' || w === 'show mac' || w === 'clear' || w === 'clear mac') {
     return { lines: ['% Incomplete command.', ''] };
   }
   if (w.startsWith('clear mac address-table')) {
@@ -76,7 +76,15 @@ export function iosExec(node, line) {
       note: 'Výchozí doba stárnutí je 300 s. Simulátor zjednodušuje: čas v simulátoru neběží jako ve skutečnosti.' };
   }
   let filter = () => true;
-  if (p.words.includes('interface')) { const port = normPort(p.arg); filter = (e) => e.port === port; }
+  if (p.words.includes('interface')) {
+    const port = normPort(p.arg);
+    // neexistující port: IOS ukáže chybu se stříškou pod argumentem
+    if (!node.ports?.includes(port)) {
+      const at = cmd.search(/\S+$/);
+      return { lines: [`${' '.repeat(iosPrompt(node).length + at)}^`, "% Invalid input detected at '^' marker.", ''], caretOnly: true };
+    }
+    filter = (e) => e.port === port;
+  }
   const note = 'Skutečný switch vypíše navíc řádky s portem CPU, to jsou adresy, které patří switchi samotnému.';
   return { lines: table(node, filter), note };
 }

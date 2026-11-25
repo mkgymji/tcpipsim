@@ -41,7 +41,7 @@ const els = {
 
 // Adaptér úrovně: { scenario, timeline, level, render(view, opts), renderPanels(view),
 // onStepChange(prevK, nextK), onModelChange(from, to), onClick(e), onKey(e), forwardLabel(k),
-// beforeForward(k), applyParams(params), dir(view) }
+// beforeForward(k), applyParams(params), dir(view), isTip(k) = na kroku k se přehrávání zastaví }
 const host = { state, rerender: () => render(), go: (k, o) => go(k, o), cur: () => timeline.cursor,
   setPlaying: (on) => setPlaying(on), openQuestions: () => openQuestions() };
 const app = levelId === 2 ? createLevel2(host) : createLevel1(host);
@@ -102,7 +102,13 @@ function go(k, { animate = false } = {}) {
   timeline.goto(next);
   setFrozen(false);
   render({ animate: animate && forwardOne, prev });
-  if (state.playing) schedule();
+  if (!state.playing) return;
+  // na kroku s tipem se přehrávání zastaví (rozhodnutí 31); animace doběhne, nezmrazí se
+  if (app.isTip?.(cur())) {
+    state.playing = false;
+    clearTimeout(state.timer);
+    renderControls();
+  } else schedule();
 }
 
 function schedule() {

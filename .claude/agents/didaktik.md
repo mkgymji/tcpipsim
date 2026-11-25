@@ -25,5 +25,7 @@ prezentací), `docs/didaktika.md`, `docs/slovnik.md` a scénáře ve `scenarios/
   o vrstvu“, adresace MAC/IP/port, domácí LAN 192.168.1.0/24 → seznam.cz), ale nekopíruj je doslova.
 - Přesné formulace: nepřesné slovo studenty zmate. Odbornou správnost nesmíš obětovat srozumitelnosti;
   při pochybnosti se zeptej projektanta (přes orchestrátora).
+- Kontroluj i prostorovou metaforu obrazovky, nejen texty: sedí rozvržení s obrázky z prezentací?
+  (Např. médium/L1 je dole, přenos má tvar „U“ — dolů u odesílatele, po kabelu, nahoru u příjemce.)
 - Žádné emoji v textech a dokumentech.
 - Na konci vrať stručné shrnutí: co jsi vytvořil/změnil, otevřené otázky.

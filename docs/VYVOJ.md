@@ -70,7 +70,8 @@ js/
   levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje: xray, terminal)
   ui/                   UI: render.js (úroveň 1 a společné: výtah, odznaky), render2.js (úroveň 2: hvězda
                         s hubem/switchem, MAC tabulka, obálky s adresami, rentgen, vysvětlivka s předpovědí,
-                        řádky terminálu; funkce vracejí HTML jako text, testují se v Node), app1.js a app2.js
+                        řádky terminálu; funkce vracejí HTML jako text, testují se v Node), tips.js (tip:
+                        krok tipu <-> krok vyhodnocení, věta „Sedí / Nesedí: důvod“), app1.js a app2.js
                         (adaptéry úrovní: stav UI a události), urlstate.js (#u=2&k=8b&m=tcpip)
 scenarios/              scénáře: *.md (didaktik, text) a *.js (data pro simulátor, viz kap. 5.3)
 tests/
@@ -381,7 +382,8 @@ texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `
 - **Úroveň (hotovo):** `#u=2&k=12&m=osi`; bez `u` je úroveň 1 (staré odkazy platí). Výběr úrovně
   v záhlaví a změna `u` v adrese stránku načtou znovu (jiné jádro i DOM). `<title>` podle úrovně.
   Úroveň 2 navíc čte (pro odkazy a snímky): `x=ethernet|ipv4|udp` záložka rentgenu, `f=eth.dst` pole,
-  `t=PC1` otevřený terminál a `c=<příkaz>` (může být víckrát), `pick=Fa0/2,Fa0/3` tip předpovědi,
+  `t=PC1` otevřený terminál a `c=<příkaz>` (může být víckrát), `pick=Fa0/2,Fa0/3` tip v kroku tipu,
+  `ans=sw1:Fa0/2;swap:Ne` potvrzené tipy (id tipu ze scénáře) pro snímek kroku vyhodnocení,
   `pair=PC3` příjemce ve výtahu, `sel=SW1` vybraný uzel.
 - **Krok a model (hotovo, rozhodnutí 21):** `index.html#k=8b&m=tcpip`. `k` je označení kroku
   jako v UI (`8` = `8a`), `m` = `osi | tcpip`. Adresa se při krokování a přepnutí přepisuje
@@ -471,13 +473,18 @@ dál kontroluje tvar všech vektorů.
 - Ověřeno, že test opravdu selže při výjimce v modulu i při chybějícím importu.
 - `--user-data-dir` do dočasné složky, aby test nekolidoval s otevřeným prohlížečem.
 - Smoke test načte `index.html` (úroveň 1) i `index.html#u=2&k=13&t=SW1&c=…` (úroveň 2 s terminálem).
+- `run_all.sh` hledá výsledek testu ovládání jako atribut prvku (`id="result" data-result="OK"`);
+  samotný text `data-result="OK"` je i v komentáři souboru, dřívější grep proto nemohl selhat.
 - **Test ovládání:** `tests/browser/interact.html` načte `index.html#k=8b&m=tcpip` v iframe
   (file:// + `--allow-file-access-from-files` = stejný původ), posílá události a kliká, výsledek
   zapíše do `<pre id="result" data-result="OK|FAIL">`; `run_all.sh` ho čte z `--dump-dom`
   a vypíše řádky, které selhaly. Nový ovládací prvek = nová kontrola tam. Druhá část přepne
-  výběrem v záhlaví na úroveň 2 a projde tip na port + vyhodnocení, krok vzad s MAC tabulkou,
-  dvojici Alice -> Cyril, výběr pole (buňka štítku, klávesa 1, R), terminál switche, Esc,
-  „Spustit za mě“.
+  výběrem v záhlaví na úroveň 2 a projde tip na port (nic neprozrazuje) + vyhodnocení s důvodem
+  a štítkem „tip“, zastavení přehrávání na tipu, krok vzad s MAC tabulkou, dvojici Alice -> Cyril,
+  výběr pole (buňka štítku, klávesy 1, 1+2 = pole 12, R a čísla i na zaměřeném posuvníku, Enter na
+  řádku rentgenu), terminál switche, Esc, „Spustit za mě“, Obnovit (výpisy pryč, historie zůstane).
+- **Snímky úrovně 2 (iterace 2, opravy):** `tmp/fix2/` (900 i 720 px; tipy `tipNN`, vyhodnocení
+  `evalNN`, rentgen, terminál; `mac4.html` = kontrola místa pro 4 řádky MAC tabulky).
 - **Snímky:** `tmp/fix/shot.sh <název> 'k=5&m=tcpip' 1280 720` (stav se zadává adresou), úroveň 2
   např. `'u=2&k=15&t=SW1&c=show%20mac%20address-table'`; snímky iterace 2 jsou v `tmp/u2/`.
 
@@ -492,7 +499,8 @@ a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + ve
 
 **Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
 kap. 5.3 (texty kroků doslova z .md; úroveň 2 navíc `initial_state`, akce `udp_send`/`mark`/`swap`
-a u kroku `predict`, `terminal`, `xray`, `socket`, `summary`, viz hlavička `uroven2-adresy.js`), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
+a u kroku `predict`, `evaluates`, `terminal`, `xray`, `socket`, `summary`, `arpHint`, viz hlavička
+`uroven2-adresy.js`), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
 každý krok najde svůj záznam (`buildSteps` jinak vyhodí chybu), (5) smoke test.
 
 **UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok 4 (označení jako v UI, např. `8b`) v režimu TCP/IP,
@@ -510,17 +518,36 @@ tlačítku tlačítko aktivuje, jinde přehrává. Úroveň bez rentgenu (`level
 panel „Detail“ a bez terminálu (`terminal: false`) skrytý terminál.
 Odloženo (rozhodnuti.md bod 19): zpětná animace kroku vzad, animované slučování řádků.
 
-**UI úrovně 2 (jak ladit):** `index.html#u=2&k=13`. Adaptér `ui/app2.js` drží jen stav UI (dvojice
+**UI úrovně 2 (jak ladit):** `index.html#u=2&k=12`. Adaptér `ui/app2.js` drží jen stav UI (dvojice
 ve výtahu, vybraný uzel, záložka a pole rentgenu, tipy předpovědi, historie terminálu), simulaci
 nemění. Klik na PC = příjemce ve výtahu + tlačítko Terminál (klik na odesílatele vrátí výchozí
 dvojici); klik na hlavičku switche = tlačítko Terminál. Klávesy navíc: `R` záložka rentgenu,
-`1`–`9` pole, `Esc` zruší výběr / zavře terminál, `F2` nebo `` ` `` terminál, `Enter` potvrdí tip.
+číslo pole (dvě číslice do 0,9 s = pole 12, 13), `Enter`/mezerník na řádku rentgenu vybere pole,
+`Esc` zruší výběr / zavře terminál, `F2` nebo `` ` `` terminál, `Enter` potvrdí tip.
 Pole se propojují atributem `data-field` (řádek rentgenu, bajty hexdumpu, buňka štítku: najetí =
-třída `hl` na všech místech, klik = výběr). Předpověď: krok s `predict` (porty nebo volby) se
-vyhodnotí podle portů `ven` v dalším kroku; Vpřed se pak jmenuje „Potvrdit tip“; nic se neukládá,
-počet trefených tipů je v dialogu Kontrolní otázky. Terminál vypisuje stav v aktuálním kroku
-(tabulky z pohledu), historie příkazů se drží po dobu stránky. Při výšce do 820 px se zkracují
-štítky (MAC `02:…:01`, bez popisků buněk) a řádky výtahu bez „kdo se stará“ (ui.md 11.3, 11.7).
+třída `hl` na všech místech, klik = výběr).
+
+**Tip (rozhodnutí 31):** krok s `predict` je samostatný krok se stavem PŘED rozhodnutím zařízení:
+krok končí záznamem `phy.rx` (a případně `mac_learn`) na zařízení, rámec leží na vstupním portu
+(pohled ho kreslí i na kabelu, kterým přišel), žádné výstupy ani přijal/zahodil. Volby
+(`tipOptions` v render2.js) se berou z topologie: porty zařízení kromě vstupního (`pick: 'hosts'` =
+popisek podle připojeného PC); `choices` = volby textem (Ano/Ne) s větami `verdicts`. Krok se
+`evaluates: [id]` (jinak následující krok) ukáže výsledek a jednu větu „Tvůj tip: … Skutečnost: …
+Sedí. / Nesedí: <why>“ (`ui/tips.js`), porty s tipem dostanou štítek „tip“. Nadpis karty
+„Tip: …“, volby hned pod textem; Vpřed se jmenuje „Potvrdit tip“; přehrávání se na kroku tipu
+zastaví (`app.isTip`, bez zmrazení animace); nic se neukládá, počet trefených tipů je v dialogu
+Kontrolní otázky. Testy „nic neprozrazuje“: `tests/core/level2.test.js` a `tests/ui/render2.test.js`.
+
+Terminál vypisuje stav v aktuálním kroku (tabulky z pohledu); historie příkazů (šipka nahoru) se
+drží po dobu stránky, Obnovit smaže jen výpisy. Při výšce do 820 px: bez popisků buněk štítků (MAC
+a IP celé), užší sloupce vrstev, rámec na kabelu jen jako šipka, data L7 na jednom řádku, souhrn
+rentgenu skrytý (aspoň 3 pole viditelná), vysvětlivka do 40 % výšky se svým posuvníkem.
+
+**Dluh pro úroveň 3 (projektant, nález 13):** `devices/switch.js` označuje flooding skupinové MAC
+důvodem `'broadcast'` i pro multicast (`isGroupMac`), UI pak píše „broadcast → flooding“. A síťová
+karta PC přijme jakoukoli skupinovou MAC (multicast bez filtru skupin). Na úrovni 2 se multicast
+nevyskytuje; před ARP/IGMP na úrovni 3 rozlišit `reason: 'broadcast' | 'multicast'` a filtr karty
+(přijmout jen broadcast a přihlášené skupiny), doplnit vektor.
 
 ## 10. Rizika
 

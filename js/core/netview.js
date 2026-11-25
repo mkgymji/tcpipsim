@@ -85,7 +85,12 @@ export function netViewAt(records, upto, from = 0) {
           v.focus = { node: r.node, layer: 2 };
           v.pills[r.node] = 'incoming';
         } else {
-          if (cur) setPort(v, r.node, r.if, 'in');
+          if (cur) {
+            setPort(v, r.node, r.if, 'in');
+            // rámec leží na vstupním portu: kabel, kterým přišel, ho v kroku ukazuje (rozhodnutí 31)
+            const l = Object.values(v.links).find((x) => (x.a.node === r.node && x.a.if === r.if) || (x.b.node === r.node && x.b.if === r.if));
+            if (l) v.wires[l.id] = { from: l.a.node === r.node ? l.b.node : l.a.node, to: r.node, pdu: r.pdu };
+          }
           v.packet = { form: nv.type === 'hub' ? 'bits' : 'pdu', pdu: r.pdu, bytes: r.bytes, at: r.node };
           v.focus = { node: r.node, layer: nv.type === 'hub' ? 1 : 2 };
         }

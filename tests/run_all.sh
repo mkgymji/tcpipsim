@@ -54,10 +54,11 @@ else
     echo "== Test ovládání v prohlížeči (tests/browser/interact.html)"
     timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \
       --user-data-dir="$TMP/profile2" --allow-file-access-from-files \
-      --virtual-time-budget=8000 \
+      --virtual-time-budget=20000 \
       --dump-dom "file://$ROOT/tests/browser/interact.html" >"$TMP/interact.html" 2>/dev/null
     sed -n '/<pre/,/<\/pre>/p' "$TMP/interact.html" | sed -e 's/<[^>]*>//g' -e 's/&amp;/\&/g' -e 's/&gt;/>/g' | grep -v '^ok' || true
-    if grep -q 'data-result="OK"' "$TMP/interact.html"; then
+    # pozor: komentář v interact.html obsahuje text data-result="OK", hledá se atribut prvku #result
+    if grep -q 'id="result" data-result="OK"' "$TMP/interact.html"; then
       echo "Test ovládání OK"
     else
       echo "TEST OVLÁDÁNÍ SELHAL"; FAIL=1

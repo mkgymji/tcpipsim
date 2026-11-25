@@ -107,3 +107,19 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
 36. **Kroky 9–10 (odpověď přes hub)** se zkrátí na jeden krok — opakovaný jev nenese novou myšlenku.
 37. **Slovo „výtah“ ani „prostředník“ se studentovi neukazuje** (interní pojmy). Legenda: „dvojitý obrys =
     odesílatel a příjemce vybrané zprávy“.
+
+## 2026-11-25 — připomínka Michala: kde je fyzická vrstva
+
+38. **Přenos se kreslí jako „U“: dolů u odesílatele, po médiu dole, nahoru u příjemce.** Dosud se
+    rámec pohyboval po kabelu v topologii nahoře, nad sloupci vrstev, a prostřední blok
+    (obálky / „Bity Alice → Bob“) stál nahoře bez ohledu na aktivní vrstvu. Student tak viděl bity
+    létat nad aplikační vrstvou, což odporuje obrázku z prezentací (médium = L1 = dole).
+    Nově: (a) prostřední blok svisle sleduje aktivní vrstvu (při zapouzdření klesá, na drátě je
+    v řádku L1, při rozbalení stoupá); (b) mezi řádky L1 odesílatele a příjemce vede pruh
+    „médium (kabel)“, po kterém jedou bity; přes hub/switch se v pruhu ukáže zařízení s výškou
+    jen do své vrstvy (hub L1, switch L2) — rámec u switche vystoupá do L2 a zase klesne;
+    (c) topologie nahoře zůstává jako mapa „kde v síti jsme“; aktivní kabel v ní se zvýrazní stejně
+    jako pruh média dole a popisek odkáže „bity jedou po kabelu — dole ve vrstvě L1“.
+    Platí pro úroveň 1 i 2. Proč: prostorová metafora musí sedět s vrstvovým modelem; jinak se
+    musí odnaučit. Ponaučení: kontrola didaktika ověřuje i rozvržení obrazovky proti obrázkům
+    z prezentací, ne jen texty.
