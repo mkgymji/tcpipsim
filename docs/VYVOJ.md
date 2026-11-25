@@ -633,3 +633,6 @@ Editor topologie lze přesunout do iterace 3, pokud ho didaktik potřebuje dří
 
 `img/favicon.svg` (vnořené obálky L2, L3, L4 v barvách palety) a `img/apple-touch-icon.png` 180x180
 (vyrenderováno z SVG headless Chromiem). Offline verze (`tools/bundle.mjs`) musí favicon vložit jako data URL.
+
+## Nasazení a cache
+GitHub Pages posílá soubory s `Cache-Control: max-age=600`. Při změně CSS nebo JS zvyš číslo `?v=` u `css/app.css` a `js/main.js` v `index.html`, jinak prohlížeč může 10 minut kombinovat nové HTML se starým CSS (stalo se 2026-11-26 u patičky).
