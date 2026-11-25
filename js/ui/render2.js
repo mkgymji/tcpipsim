@@ -333,7 +333,7 @@ export function explainHtml2(view, model, total, { predict, tips, evalLines = []
     const opts = predict.choices ? predict.choices.map((c) => ({ port: c, label: c })) : tipOptions(view, predict);
     out.push(`<div class="predict" role="group" aria-label="${esc(predict.q)}">${predict.help ? `<p class="phelp">${esc(predict.help)}</p>` : ''}${opts.map((o) => `<button type="button" class="btn small${tips?.has(o.port) ? ' on' : ''}"
       data-pick="${esc(o.port)}" aria-pressed="${tips?.has(o.port) ? 'true' : 'false'}">${esc(o.label)}</button>`).join('')}
-      <small>${predict.choices ? 'Vyber a dej Vpřed.' : 'Vyber (i víc) a dej Vpřed.'}</small></div>`);
+      <small>${predict.choices ? 'Vyber a klikni na Potvrdit tip.' : 'Vyber (i víc) a klikni na Potvrdit tip.'}</small></div>`);
   }
   for (const line of evalLines) out.push(`<p class="evalline">${line}</p>`);
   const note = textFor(s.note, model);

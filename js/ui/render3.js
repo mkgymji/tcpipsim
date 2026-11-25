@@ -370,7 +370,7 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
   if (predict) {
     out.push(`<div class="predict" role="group" aria-label="${esc(predict.q)}">${predict.choices.map((c) => `<button type="button" class="btn small${tips?.has(c) ? ' on' : ''}"
       data-pick="${esc(c)}" aria-pressed="${tips?.has(c) ? 'true' : 'false'}"${tipLocked ? ' disabled' : ''}>${esc(c)}</button>`).join('')}
-      <small>${predict.multi ? 'Vyber (i víc) a dej Vpřed.' : 'Vyber a dej Vpřed.'}</small></div>`);
+      <small>${predict.multi ? 'Vyber (i víc) a klikni na Potvrdit tip.' : 'Vyber a klikni na Potvrdit tip.'}</small></div>`);
   }
   if (s.fix) out.push('<p class="fixline"><button type="button" class="btn small main" data-fix>Oprav bránu</button><small>nastaví výchozí bránu 192.168.1.1</small></p>');
   for (const line of evalLines) out.push(`<p class="evalline">${line}</p>`);
