@@ -350,6 +350,10 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
   if (v.dropped && (v.dropped.node === pair.receiver || v.dropped.node === pair.sender) && v.dropped.kind === 'nic') {
     note = `<p class="dropmsg">${esc(label(v, v.dropped.node))}: cílová MAC není moje, karta rámec zahodila.</p>`;
   }
+  // rozhodnutí 57: Cyril ve sloupci příjemce zahodil ARP dotaz (hledaná IP není jeho)
+  if (v.dropped?.kind === 'arp' && v.dropped.node === pair.receiver && anchor.at === 'receiver') {
+    note = `<p class="dropmsg">${esc(label(v, v.dropped.node))}: ARP hledá ${esc(v.dropped.ip)}, to není moje adresa. Dotaz zahodil, nic neodpoví.</p>`;
+  }
   if (v.delivered && v.delivered.node === pair.sender && anchor.at === 'sender') {
     const d = v.delivered;
     note += `<p class="same">${esc(label(v, d.node))}: ${d.icmpType === 11 ? `Time Exceeded od ${esc(d.from)}` : `odpověď od ${esc(d.from)}, TTL ${d.ttl}`}</p>`;

@@ -130,3 +130,45 @@ export function slideFloat(laneEl, oldRect, animate) {
   fl.style.setProperty('--dy', `${dy}px`);
   fl.classList.add('anim-slide');
 }
+
+// ---- Sloupec příjemce patří uzlu, o kterém krok mluví (rozhodnutí 57) ----
+
+/**
+ * Uzel, který v kroku zahodil rámec a je v ohnisku (např. Cyril), pokud není ve dvojici:
+ * jeho sloupec se ukáže místo příjemce. Jinak null. Bez DOM, testuje se v Node.
+ */
+export function dropColumn(v, pair) {
+  const id = v?.dropped?.node;
+  if (!id || v.focus?.node !== id || v.nodes?.[id]?.type !== 'pc') return null;
+  if (id === pair?.sender || id === pair?.receiver) return null;
+  return id;
+}
+
+/** Dvojice pro sloupce: příjemce nahradí uzel, který rámec zahodil (dropColumn). */
+export function columnPair(v, pair) {
+  const drop = dropColumn(v, pair);
+  return drop ? { ...pair, receiver: drop, dropCol: true } : pair;
+}
+
+/** Věta u L2 zahazujícího uzlu: „cílová …:02 ≠ moje …:03 → zahozeno“ (prostý text). */
+export function dropNote(v) {
+  const d = v?.dropped;
+  if (!d) return '';
+  const n = v.nodes?.[d.node];
+  const short = (mac) => `…:${String(mac).slice(String(mac).lastIndexOf(':') + 1)}`;
+  // ARP: jen poslední bajt IP (celé adresy jsou v poznámce u bloku), sloupec je úzký
+  const oct = (ip) => `.${String(ip).split('.').pop()}`;
+  if (d.kind === 'arp') return `hledá ${oct(d.ip)} ≠ moje ${oct(n?.ip ?? n?.interfaces?.[0]?.ip ?? '?')} → zahozeno`;
+  if (d.dst && d.mac) return `cílová ${short(d.dst)} ≠ moje ${short(d.mac)} → zahozeno`;
+  return 'zahozeno';
+}
+
+/**
+ * Štítek přepnutí sloupce v kroku po zahození: „Teď Bob“ (příjemce je v ohnisku), jinak „Zpět: Bob“.
+ * prev/cur = columnPair předchozího a tohoto kroku. Vrací text nebo ''.
+ */
+export function columnSwitchLabel(prev, cur, v, label) {
+  if (!prev?.dropCol || cur?.dropCol || prev.receiver === cur?.receiver || !cur?.receiver) return '';
+  // štítek jen když krok opravdu mluví o příjemci; jinak by rušil (úroveň 3 krok 7: ARP odpověď Alici)
+  return v?.focus?.node === cur.receiver ? `Teď ${label}` : '';
+}

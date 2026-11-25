@@ -955,3 +955,23 @@ body.reduce-motion :is(.left .topo, .left .lift, #explain, #info, #termwin) { tr
 footer.controls { position: relative; }
 .license { position: absolute; right: 12px; bottom: 1px; margin: 0; font-size: 11px; line-height: 1.2; color: #4B5563; }
 .license a { color: inherit; }
+
+/* Rozhodnutí 57: sloupec uzlu, který rámec zahodil (Cyril). Nad zahozenou vrstvou je vše šedé. */
+.row.unreached { background: #E5E7EB; border-color: #9AA5B1; color: var(--wait-ink); }
+.row.unreached .nm, .row.unreached svg.b { opacity: 0.55; }
+.row .nodata { position: absolute; right: 6px; bottom: 1px; font-size: 13px; font-weight: 700; color: var(--wait-ink);
+  background: #E5E7EB; padding: 0 4px; border-radius: 4px; line-height: 1.2; }
+/* štítek „Teď Bob“ v kroku po zahození: sloupec se viditelně přepnul zpět na příjemce */
+.now-badge { display: inline-block; margin-left: 6px; padding: 1px 8px; border-radius: 999px; background: #FFE28A;
+  color: #000; border: 2px solid var(--ink); font-size: 13px; font-weight: 700; vertical-align: middle;
+  animation: nowPulse 900ms ease-out 2; }
+.now-badge[hidden] { display: none; }
+@keyframes nowPulse { 0% { transform: scale(1); } 40% { transform: scale(1.18); } 100% { transform: scale(1); } }
+@media (prefers-reduced-motion: reduce) { .now-badge { animation: none; } }
+body.reduce-motion .now-badge { animation: none; }
+.row.unreached .nm { display: none; }
+.row.unreached .nodata, body.lvl3 .row.unreached .nodata { position: static; order: 2; background: none; padding: 0; font-size: 13px; }
+/* zahozená vrstva s větou: místo jména věta „cílová …:02 ≠ moje …:03 → zahozeno“ vedle odznaku L2 */
+.row.has-note .nm { display: none; }
+.row.has-note .xmark, body.lvl3 .row.has-note .xmark { position: static; order: 2; border: 0; padding: 0; background: none;
+  font-size: 12.5px; line-height: 1.05; text-align: left; white-space: normal; }

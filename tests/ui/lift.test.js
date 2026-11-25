@@ -78,3 +78,52 @@ test('úroveň 2: pásek bitů je krátký (8 bitů) a krok tipu v pruhu nic nep
   const v6 = at2('6');
   assert.match(mediumHtml(v6, pair2(v6), { dev: mediumDevice(v6) }), /ribbon at-seg-r/);
 });
+
+// Rozhodnutí 57: sloupec příjemce patří uzlu, o kterém krok mluví (Cyril při zahození, pak zase Bob).
+import scn3 from '../../scenarios/uroven3-smerovani.js';
+import { buildLevel3 } from '../../js/scenario/level3.js';
+import { columnPair, dropNote, columnSwitchLabel } from '../../js/ui/lift.js';
+import { stepFocus } from '../../js/ui/focus.js';
+
+const t3 = buildLevel3(scn3).timeline;
+const colOf = (v) => columnPair(v, pair2(v));
+const upperActive = (v, id) => [3, 4, 5, 6, 7].filter((n) => v.nodes[id].layers[n] === 'active');
+
+test('rozh. 57: úroveň 2 krok 7 — sloupec je Cyril, nad L2 nic aktivní; krok 8 zase Bob se štítkem', () => {
+  const k = t2.steps.findIndex((s) => s.title === 'Cyril rámec zahodí');
+  const v = t2.view(k), p = colOf(v);
+  assert.equal(p.receiver, 'PC3');
+  assert.equal(p.dropCol, true);
+  assert.equal(v.nodes.PC3.layers[2], 'dropped');
+  assert.deepEqual(upperActive(v, 'PC3'), []);
+  assert.equal(dropNote(v), 'cílová …:02 ≠ moje …:03 → zahozeno');
+  assert.equal(stepFocus(t2.steps[k], v), 'vrstvy');
+  const v8 = t2.view(k + 1), p8 = colOf(v8);
+  assert.equal(p8.receiver, 'PC2');
+  assert.equal(columnSwitchLabel(p, p8, v8, 'Bob'), 'Teď Bob');
+  assert.match(t2.steps[k + 1].text, /^Mezitím u Boba: /);
+  // krok vzad: stav je funkcí kroku, zpět na 7 je sloupec znovu Cyrilův
+  assert.equal(colOf(t2.view(k)).receiver, 'PC3');
+});
+
+test('rozh. 57: úroveň 2 krok 12 (flooding) — text i sloupec mluví o Bobovi', () => {
+  const k = t2.steps.findIndex((s) => s.match.kind === 'flood');
+  const v = t2.view(k);
+  assert.equal(colOf(v).receiver, 'PC2');
+  assert.match(t2.steps[k].text, /Bob rámec přijal/);
+});
+
+test('rozh. 57: úroveň 3 krok 6 — ARP dotaz zahodil Cyril, jeho sloupec; krok 7 zpět Bob', () => {
+  const k = t3.steps.findIndex((s) => s.num === 6);
+  const v = t3.view(k), p = colOf(v);
+  assert.equal(p.receiver, 'PC3');
+  assert.deepEqual(upperActive(v, 'PC3'), []);
+  assert.equal(dropNote(v), 'hledá .1 ≠ moje .30 → zahozeno');
+  assert.equal(stepFocus(t3.steps[k], v), 'vrstvy');
+  const v7 = t3.view(k + 1), p7 = colOf(v7);
+  assert.equal(p7.receiver, 'PC2');
+  assert.equal(columnSwitchLabel(p, p7, v7, 'Bob'), '');
+  // krok 23 (špatná brána): zahodil router, sloupec zůstává Alice → Bob
+  const k23 = t3.steps.findIndex((s) => s.num === 23);
+  assert.equal(colOf(t3.view(k23)).receiver, 'PC2');
+});

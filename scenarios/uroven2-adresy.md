@@ -160,8 +160,9 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 
 #### Krok 7: Cyril rámec zahodí
 
-- Vidí: u Cyrila přijmou bity jen na L1–L2; rámec se složí a hned zmizí. Vrstvy L3, L4 a aplikace
-  zůstanou šedé. U Cyrila v topologii: „cílová 02:…:02 ≠ moje 02:…:03“ a „zahodil“ (rozhodnutí 35).
+- Vidí (rozhodnutí 57): pravý sloupec patří Cyrilovi („Cyril · není cíl“), rámec stojí v jeho L2
+  s křížkem „cílová …:02 ≠ moje …:03 → zahozeno“; vrstvy L3, L4 a aplikace jsou šedé
+  s popiskem „sem nic nedorazí“. Ohnisko: vrstvy. U Cyrila v topologii: „cílová 02:…:02 ≠ moje 02:…:03“ a „zahodil“ (rozhodnutí 35).
 - Dělá: klikne na Cyrila (výtah ukáže „Rámec Alice → Bob (dostal i Cyril)“) a v rentgenu **porovná
   Cílovou MAC (`…:02`) s MAC Cyrilovy karty (`…:03`)**. Může u Cyrila spustit `arp -a`: žádný
   záznam typu dynamic, jen statické řádky. Poznámka simulátoru: „Cyril nemá žádný záznam typu
@@ -178,7 +179,8 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 #### Krok 8: Bob rozbalí a každá vrstva zkontroluje svou adresu (8a, 8b, 8c)
 
 - Vidí: tři postupné kroky jako ve scénáři 1. U každého se v rentgenu vybere pole, které vrstva čte.
-- 8a (L2): „Cílová MAC je Bobova, karta rámec přijala a vrstva sundala obálku.“
+- Sloupec vpravo se přepne zpět na Boba, nadpis krátce zvýrazní štítek „Teď Bob“ (rozhodnutí 57).
+- 8a (L2): „Mezitím u Boba: cílová MAC je jeho, karta rámec přijala a vrstva sundala obálku.“
 - 8b (L3): „Cílová IP adresa je Bobova, síťová vrstva sundala obálku.“
 - 8c (L4): „Cílový port 5000: operační systém předal zprávu aplikaci „zprávy“.“
   Note: „Každá vrstva zkontrolovala svou adresu: MAC, IP a port.“
@@ -228,7 +230,7 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 - Vidí: switch hledá `02:…:02`, nenajde („neznámá cílová MAC → flooding“). Rámec rozešle na Fa0/2
   i Fa0/3. Cyril rámec zahodí jako v kroku 7, Bob ho přijme (zkráceně, zpráva dorazí do „zprávy“).
 - Text: „Boba switch zatím nezná, a tak rámec rozešle na všechny ostatní porty. Tomu se říká flooding.
-  Cyril rámec zahodil stejně jako u hubu.“
+  Bob rámec přijal a rozbalil (vpravo), Cyril ho zahodil stejně jako u hubu (v topologii).“
 - Note: „Switch se na začátku chová jako hub, protože zatím nic nezná. Pak už ne.“
 - Vyhodnocení, např.: „Tvůj tip: Fa0/2. Skutečnost: Fa0/2 i Fa0/3. Nesedí: Bobovu MAC switch zatím
   nezná, a tak rámec rozešle jako hub.“

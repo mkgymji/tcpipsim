@@ -102,7 +102,7 @@ export default {
       text: 'Cyril dotaz zahodil, protože hledaná adresa není jeho. Router odpoví, protože 192.168.1.1 je adresa jeho rozhraní. Bob dotaz nedostal: broadcast se přes router nepřenáší.',
       note: 'ARP se ptá jen v jedné síti. Nikdy se neptá na adresu v jiné síti (za routerem).',
       hint: 'Klikni na Cyrila: arp -a ukáže, že si Alici nezapamatoval (nový záznam si zapíše jen ten, koho se ptala).',
-      terminal: { node: 'PC3', cmd: 'arp -a' } },
+      terminal: { node: 'PC3', cmd: 'arp -a' }, focus: 'vrstvy' }, // rozhodnutí 57: vpravo Cyrilův sloupec
     { num: 7, match: { kind: 'arp_reply', node: 'R1' }, title: 'ARP odpověď',
       text: 'Router odpověděl přímo Alici (ne všem). Teď Alice ví MAC brány a zapamatovala si ji.',
       note: 'Dotaz byl broadcast (všem), odpověď unicast (jen tazateli).',

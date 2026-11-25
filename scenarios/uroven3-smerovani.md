@@ -187,6 +187,8 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   adresa není jeho, a zahodí ho (štítek „ARP: není pro mě“, žádný nový záznam v jeho ARP tabulce). R1 dotaz
   přijme, hledaná adresa je jeho Gi0/0 (192.168.1.1), zapíše si Alici do své ARP tabulky a chystá odpověď.
   Bob nic neví; u hranice routeru se broadcast zastaví (animace: pruh s popiskem „konec broadcastové domény“).
+  Pravý sloupec patří Cyrilovi („Cyril · není cíl“, u L2 „hledá .1 ≠ moje .30 → zahozeno“,
+  vyšší vrstvy „sem nic nedorazí“); v kroku 7 se vrátí na Boba se štítkem „Zpět: Bob“ (rozhodnutí 57).
 - Text: „Tvůj tip: <volba>. Skutečnost: Cyril a R1. Cyril dotaz zahodil, protože hledaná adresa není jeho.
   Router odpoví, protože 192.168.1.1 je adresa jeho rozhraní. Bob dotaz nedostal: broadcast se přes router nepřenáší.“
 - Note: „ARP se ptá jen v jedné síti. Nikdy se neptá na adresu v jiné síti (za routerem).“

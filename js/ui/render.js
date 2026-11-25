@@ -46,23 +46,27 @@ function rowStatus(layers, members) {
 // `pass` = vrstvy ISO/OSI, kterými zpráva v tomto kroku jen prošla (L7 -> L6 -> L5): krátce
 // se postupně zvýrazní (ui.md kap. 3). V TCP/IP jsou uvnitř jednoho řádku, tam se nekreslí.
 // `pdu4` = jiný název PDU transportní vrstvy (od rozhodnutí 49 se nepoužívá: ve sloupci obecně „segment“).
-export function renderStack(el, nodeView, modelId, pass = [], { pdu4 = null } = {}) {
+export function renderStack(el, nodeView, modelId, pass = [], { pdu4 = null, dropNote = '' } = {}) {
   const rows = MODELS[modelId].rows.map((r) => (pdu4 && r.members.length === 1 && r.members[0] === 4 ? { ...r, pdu: pdu4 } : r));
-  el.innerHTML = rows.map((r) => {
+  // rozhodnutí 57: nad vrstvou, která zahodila, je vše šedé „sem nic nedorazí“ (řádky jsou L7 → L1)
+  const dropIdx = rows.findIndex((r) => rowStatus(nodeView.layers, r.members) === 'dropped');
+  el.innerHTML = rows.map((r, i) => {
     const order = r.members.length === 1 ? pass.indexOf(r.members[0]) : -1;
     const passEl = order >= 0
       ? `<span class="pass anim-pass" style="animation-delay:calc(${order * 300}ms * var(--k))" aria-hidden="true"></span>` : '';
     const top = 8 - Math.max(...r.members);
     const status = rowStatus(nodeView.layers, r.members);
+    const unreached = dropIdx > i && status === 'wait';
     const merged = r.members.length > 1;
     const stripe = merged
       ? `<span class="stripe" aria-hidden="true">${r.members.map((n) => `<i style="--s:var(--L${n})"></i>`).join('')}</span>` : '';
     const stLabel = { wait: 'čeká', done: 'hotovo', active: 'právě tady', dropped: 'zahodil', skip: 'přeskočeno, ICMP nemá porty' }[status];
     const long = pdu4 && r.pdu === pdu4 ? ' pdu-long' : '';
-    return `<button type="button" class="row ${status}${merged ? ' merged' : ''}${long}" data-layer="${r.id}"
+    const why = status === 'dropped' && dropNote ? `, ${dropNote}` : unreached ? ', sem nic nedorazí' : '';
+    return `<button type="button" class="row ${status}${merged ? ' merged' : ''}${unreached ? ' unreached' : ''}${status === 'dropped' && dropNote ? ' has-note' : ''}${long}" data-layer="${r.id}"
       style="${cssVars(r.color)};grid-row:${top} / span ${r.members.length}"
-      aria-label="${esc(`${r.badge} ${r.name}, ${r.pdu}, ${stLabel}`)}">
-      ${passEl}${stripe}${status === 'dropped' ? '<span class="xmark" aria-hidden="true">⊗ zahodil</span>' : ''}${status === 'skip' ? '<span class="skipmark" aria-hidden="true">bez portů</span>' : ''}${badge(r.color, r.badge)}<span class="nm"><span class="l1"><span>${esc(r.name)}</span>
+      aria-label="${esc(`${r.badge} ${r.name}, ${r.pdu}, ${stLabel}${why}`)}">
+      ${passEl}${stripe}${status === 'dropped' ? `<span class="xmark" aria-hidden="true">⊗ ${esc(dropNote || 'zahodil')}</span>` : ''}${unreached ? '<span class="nodata" aria-hidden="true">sem nic nedorazí</span>' : ''}${status === 'skip' ? '<span class="skipmark" aria-hidden="true">bez portů</span>' : ''}${badge(r.color, r.badge)}<span class="nm"><span class="l1"><span>${esc(r.name)}</span>
       <span class="pdu">${esc(r.pdu)}</span></span><small>${esc(r.whoShort)}</small></span></button>`;
   }).join('');
 }

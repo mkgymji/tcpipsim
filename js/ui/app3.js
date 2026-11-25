@@ -10,7 +10,7 @@ import { termLinesHtml, termTitle } from './render2.js';
 import { topologyHtml3, nestHtml3, nestCaption3, mediumHtml3, liftAnchor3, laneEnd3, mediumDevices3, explainHtml3,
   maskCard, compareCard, tablesCard, probesCard, summaryCard3, xrayHtml3, xrayTarget, currentMessage } from './render3.js';
 import { tipEvaluator, evalTip } from './tips.js';
-import { placeLane, slideFloat } from './lift.js';
+import { placeLane, slideFloat, columnPair, dropNote, columnSwitchLabel } from './lift.js';
 import { pduFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { stepLabel } from '../core/timeline.js';
@@ -31,7 +31,7 @@ export function createLevel3(host) {
     topo: document.querySelector('.topo'), stackS: $('stack-sender'), stackR: $('stack-receiver'),
     nest: $('nest'), cap: $('env-caption'), capR: $('env-reads'), explain: $('explain'), info: $('info'),
     sName: $('sender-name'), rName: $('receiver-name'), sRole: $('sender-role'), rRole: $('receiver-role'),
-    term: $('termwin'), lane: $('lane'), medium: $('medium'),
+    rNow: $('receiver-now'), term: $('termwin'), lane: $('lane'), medium: $('medium'),
   };
   document.querySelector('aside').classList.add('no-term');
   $('term').hidden = true;
@@ -45,7 +45,8 @@ export function createLevel3(host) {
 
   function pairOf(v) {
     const f = v.flow;
-    return f ? { sender: f.sender, receiver: f.receiver } : { sender: 'PC1', receiver: 'PC2' };
+    // rozhodnutí 57: v kroku zahození patří sloupec příjemce uzlu, který rámec zahodil (Cyril)
+    return f ? columnPair(v, { sender: f.sender, receiver: f.receiver }) : { sender: 'PC1', receiver: 'PC2' };
   }
 
   function evalLines(k) {
@@ -87,9 +88,14 @@ export function createLevel3(host) {
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
     els.sRole.textContent = 'odesílatel, shora dolů';
-    els.rRole.textContent = 'příjemce, zdola nahoru';
+    const dropHere = v.dropped?.node === pair.receiver && Boolean(pair.dropCol);
+    els.rRole.textContent = dropHere ? '· není cíl' : 'příjemce, zdola nahoru';
+    const prevV = cur() > 0 ? timeline.view(cur() - 1) : null;
+    const now = prevV ? columnSwitchLabel(pairOf(prevV), pair, v, rN?.label ?? '') : '';
+    els.rNow.textContent = now;
+    els.rNow.hidden = !now;
     renderStack(els.stackS, sN, model);   // rozhodnutí 49: ve sloupci vrstev „segment“
-    renderStack(els.stackR, rN, model);
+    renderStack(els.stackR, rN, model, [], { dropNote: dropHere ? dropNote(v) : '' });
     const cap = nestCaption3(v);
     els.cap.textContent = cap.left;
     els.capR.textContent = cap.right;

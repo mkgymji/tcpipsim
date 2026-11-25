@@ -7,7 +7,8 @@ import { renderStack, esc } from './render.js';
 import { topologyHtml, nestHtml, nestCaption, appsHtml, explainHtml2, summaryHtml, xrayHtml, presentTabs,
   XRAY_TABS, termLinesHtml, termTitle } from './render2.js';
 import { tipEvaluator, evalTip } from './tips.js';
-import { liftAnchor, laneEnd, mediumHtml, mediumDevice, placeLane, slideFloat } from './lift.js';
+import { liftAnchor, laneEnd, mediumHtml, mediumDevice, placeLane, slideFloat, columnPair, dropNote,
+  columnSwitchLabel } from './lift.js';
 import { frameFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { isHost } from '../devices/types.js';
@@ -30,7 +31,7 @@ export function createLevel2(host) {
     topo: document.querySelector('.topo'), stackS: $('stack-sender'), stackR: $('stack-receiver'),
     nest: $('nest'), cap: $('env-caption'), capR: $('env-reads'), explain: $('explain'), info: $('info'),
     sName: $('sender-name'), rName: $('receiver-name'), sRole: $('sender-role'), rRole: $('receiver-role'),
-    term: $('termwin'), lane: $('lane'), medium: $('medium'),
+    rNow: $('receiver-now'), term: $('termwin'), lane: $('lane'), medium: $('medium'),
   };
   document.querySelector('aside').classList.add('no-term');
   $('term').hidden = true;
@@ -39,7 +40,9 @@ export function createLevel2(host) {
   function pairOf(v) {
     const f = v.flow ?? { sender: 'PC1', receiver: 'PC2' };
     const override = ui.pair && ui.pair.flowKey === flowKey(v) ? ui.pair.receiver : null;
-    return { sender: f.sender, receiver: override ?? f.receiver };
+    if (override) return { sender: f.sender, receiver: override };
+    // rozhodnutí 57: v kroku zahození patří sloupec příjemce uzlu, který rámec zahodil (Cyril)
+    return columnPair(v, { sender: f.sender, receiver: f.receiver });
   }
 
   const stepAt = (k) => timeline.steps[k];
@@ -114,9 +117,15 @@ export function createLevel2(host) {
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
     els.sRole.textContent = 'odesílatel, shora dolů';
-    els.rRole.textContent = v.dropped?.node === pair.receiver ? 'zahodil rámec' : 'příjemce, zdola nahoru';
+    const dropHere = v.dropped?.node === pair.receiver;
+    els.rRole.textContent = dropHere ? '· není cíl' : 'příjemce, zdola nahoru';
+    // krok po zahození: sloupec viditelně přepne zpět na příjemce (štítek „Teď Bob“)
+    const prevV = cur() > 0 ? timeline.view(cur() - 1) : null;
+    const now = prevV && flowKey(prevV) === flowKey(v) ? columnSwitchLabel(pairOf(prevV), pair, v, rN?.label ?? '') : '';
+    els.rNow.textContent = now;
+    els.rNow.hidden = !now;
     renderStack(els.stackS, sN, model);   // rozhodnutí 49: ve sloupci vrstev „segment“
-    renderStack(els.stackR, rN, model);
+    renderStack(els.stackR, rN, model, [], { dropNote: dropHere ? dropNote(v) : '' });
     const changed = new Set(v.changes.map((r) => r.kind));
     const cap = nestCaption(v, pair, { tip: Boolean(predictAt(cur())?.node) });
     els.cap.textContent = cap.left;
