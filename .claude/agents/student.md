@@ -19,3 +19,4 @@ popis) a zadání scénáře.
 ## Výstup
 Zpráva „kde jsem se zasekl“: seznam míst seřazený od nejhoršího, ke každému co jsi čekal a co se stalo.
 Pozor: víš o sítích víc než skutečný student; vědomě se drž úrovně běžného studenta.
+- U každého kroku si ověř: sedí to, co čteš, s tím, co vidíš (čí je sloupec vpravo, co svítí)? Nesoulad hlas jako zmatení.

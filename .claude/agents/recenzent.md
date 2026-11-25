@@ -20,3 +20,4 @@ Než začneš, přečti `CLAUDE.md` v kořeni repa a zadání iterace, které do
 - Neopravuj, jen hlas. Žádné domněnky bez ověření; nejisté nálezy označ jako nejisté.
 - Výstup: seznam nálezů od nejzávažnějšího (kritické / důležité / drobné), ke každému: kde, co je špatně,
   jak se to projeví, návrh opravy jednou větou.
+- U každého kroku ověř shodu textu a obrazu: o kom/čem text mluví = co je ve sloupcích a bloku vidět (např. „Cyril zahodil“ nesmí mít vpravo Boba se svítící vrstvou).

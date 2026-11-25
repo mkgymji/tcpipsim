@@ -218,3 +218,15 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     nebo kliknutí zvýrazní cíl.
     Platí pro úrovně 1–3. Proč: menší kognitivní zátěž při samostatném krokování; tip je výzva
     k akci a musí „křičet“, rentgen je místo, kam se jen občas odkazuje.
+
+## 2026-11-26 — připomínka Michala: rámec u uzlu, který není cílem
+
+57. **Sloupec příjemce vždy patří uzlu, o kterém krok mluví.** Dosud v kroku „Cyril rámec zahodí“
+    (úroveň 2 krok 7, krok 12 flooding; úroveň 3 Cyril/R1 a ARP dotaz) zůstával vpravo Bob se svítící L2
+    a v dalším kroku se pokračovalo rozbalováním — student viděl „přijal“, text říkal „zahodil“.
+    Nově: (a) v kroku zahození je vpravo **Cyril** (nadpis „Cyril · není cíl“), rámec stojí v jeho L2
+    s křížkem a větou „cílová …:02 ≠ moje …:03 → zahozeno“, vyšší vrstvy šedé s popiskem
+    „sem nic nedorazí“; blok se dál nepohybuje. (b) Další krok **viditelně přepne** na Boba:
+    nadpis sloupce se změní a krátce zvýrazní („Teď Bob“), text začne „Mezitím u Boba: …“.
+    (c) V topologii jsou přijímající uzel i zahazující uzel odlišené (Bob „přijal“, Cyril „zahodil“) — to už platí.
+    Kontrola týmu nově ověřuje u každého kroku shodu „o kom mluví text = čí sloupec je vidět“.
