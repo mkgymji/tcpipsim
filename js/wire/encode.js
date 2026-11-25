@@ -1,4 +1,4 @@
-// Převod PDU na bajty (bez DOM). Úroveň 1: Ethernet II + IPv4 + UDP + data (UTF-8).
+// Převod PDU na bajty (bez DOM). Ethernet II, ARP, IPv4, ICMP, UDP, data (UTF-8).
 // Rámec bez preambule a bez FCS, s výplní na 60 B (docs/spec/model.md kap. 5, ethernet.md).
 
 const utf8 = new TextEncoder();
@@ -58,7 +58,34 @@ function encodeEthernet(pdu) {
   return frame;
 }
 
-const ENCODERS = { data: encodeData, udp: (p) => encodeUdp(p, null), ipv4: encodeIpv4, ethernet: encodeEthernet };
+// ARP pro Ethernet a IPv4: 28 B (arp.md kap. 2).
+function encodeArp(pdu) {
+  const h = pdu.h;
+  return new Uint8Array([...u16(h.htype ?? 1), ...u16(h.ptype ?? 0x0800), 6, 4, ...u16(h.op),
+    ...mac(h.sha), ...ip(h.spa), ...mac(h.tha), ...ip(h.tpa)]);
+}
+
+// ICMP (icmp.md): Echo = typ, kód, součet, Identifier, Sequence, data; chybová zpráva = typ,
+// kód, součet, 4 B nul a IP hlavička + prvních 8 B původního paketu (h.orig = původní PDU).
+function encodeIcmp(pdu) {
+  const h = pdu.h;
+  let rest, body;
+  if (h.orig) {
+    rest = [0, 0, 0, 0];
+    body = encode(h.orig).subarray(0, 28);
+  } else {
+    rest = [...u16(h.id ?? 0), ...u16(h.seq ?? 0)];
+    body = pdu.payload ? encode(pdu.payload) : new Uint8Array(0);
+  }
+  const msg = new Uint8Array(8 + body.length);
+  msg.set([h.type, h.code ?? 0, 0, 0, ...rest]);
+  msg.set(body, 8);
+  msg.set(u16(checksum(msg)), 2);
+  return msg;
+}
+
+const ENCODERS = { data: encodeData, udp: (p) => encodeUdp(p, null), ipv4: encodeIpv4, ethernet: encodeEthernet,
+  arp: encodeArp, icmp: encodeIcmp };
 
 export function encode(pdu) {
   const fn = ENCODERS[pdu.proto];

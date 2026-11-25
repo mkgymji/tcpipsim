@@ -7,7 +7,7 @@ export function dataPdu(id, text) {
 
 // Obalí `inner` hlavičkou protokolu `proto` na vrstvě `layer`.
 export function encapsulate(id, proto, layer, h, inner) {
-  return Object.freeze({ id, parent: inner.id, proto, layer, h: Object.freeze({ ...h }), payload: inner });
+  return Object.freeze({ id, parent: inner?.id ?? null, proto, layer, h: Object.freeze({ ...h }), payload: inner });
 }
 
 // Sundá vnější obálku; vrací vnitřní PDU.

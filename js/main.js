@@ -1,4 +1,4 @@
-// Vstupní bod stránky: výběr úrovně (#u=2) a společné ovládání (krokování, přehrávání,
+// Vstupní bod stránky: výběr úrovně (#u=2, #u=3) a společné ovládání (krokování, přehrávání,
 // rychlost, model vrstev, klávesy, adresa). Co a jak se kreslí, řeší adaptér úrovně
 // (ui/app1.js, ui/app2.js). Jádro vyrobí záznam (trace), timeline z něj poskládá kroky
 // scénáře a UI se po krocích jen pohybuje (VYVOJ.md R6, kap. 6).
@@ -9,6 +9,7 @@ import { esc, stepTitle } from './ui/render.js';
 import { parseHash, parseLevel, formatHash } from './ui/urlstate.js';
 import { createLevel1 } from './ui/app1.js';
 import { createLevel2 } from './ui/app2.js';
+import { createLevel3 } from './ui/app3.js';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const DWELL_MS = 4200;        // doba jednoho kroku při přehrávání (1x): animace + čtení
@@ -44,7 +45,7 @@ const els = {
 // beforeForward(k), applyParams(params), dir(view), isTip(k) = na kroku k se přehrávání zastaví }
 const host = { state, rerender: () => render(), go: (k, o) => go(k, o), cur: () => timeline.cursor,
   setPlaying: (on) => setPlaying(on), openQuestions: () => openQuestions() };
-const app = levelId === 2 ? createLevel2(host) : createLevel1(host);
+const app = levelId === 3 ? createLevel3(host) : levelId === 2 ? createLevel2(host) : createLevel1(host);
 const { timeline, scenario } = app;
 const total = Math.max(...timeline.steps.map((s) => s.num));
 const last = timeline.length - 1;

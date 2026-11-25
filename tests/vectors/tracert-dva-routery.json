@@ -4,7 +4,7 @@
   "title": "Úroveň 3: tracert -d přes dva routery (TTL 1, 2, 3 -> Time Exceeded, Time Exceeded, Echo Reply)",
   "description": "Alice — R1 — R2 — server, přímé kabely. Síť 192.168.2.0/24 je tranzitní mezi routery (R1 Gi0/1 .1, R2 Gi0/0 .2). R1 má statickou cestu 192.168.3.0/24 via 192.168.2.2, R2 výchozí cestu 0.0.0.0/0 via 192.168.2.1. ARP cache jsou naplněné předchozím pingem, aby vektor ukazoval jen TTL. Windows tracert posílá ICMP Echo Request (ne UDP jako Linux a Cisco), 3 sondy na každý skok, TTL 1, 2, 3; data 64 B nul (podle záznamu provozu, ověřit při pilotu). Router, kterému by TTL kleslo na 0, paket zahodí a pošle Time Exceeded ze zdrojové adresy rozhraní, kterým zpráva odchází (RFC 1812 4.3.2.4) - proto tracert ukáže 192.168.1.1 a 192.168.2.2, tj. adresy rozhraní směrem k Alici. Cíl odpoví Echo Reply a tracert skončí. Simulátor zjednodušuje: další sonda odchází hned po příchodu odpovědi na předchozí; Windows bez -d by se navíc ptal DNS na jména (reverzní dotazy), proto akce odpovídá tracert -d. Vektor má skip, dokud jádro neumí akci tracert.",
   "level": 3,
-  "skip": "jádro zatím neumí akci tracert ani ICMP Time Exceeded (úroveň 3)",
+  "skip": "pozdější rozšíření se dvěma routery (rozhodnutí 44); jádro ho už přehraje, scénář zatím ne",
   "spec_refs": [
     "docs/spec/icmp.md kap. 3 a 4",
     "docs/spec/ipv4.md kap. 3 a 5",

@@ -4,7 +4,7 @@
 import { stepIndex, stepLabel } from '../core/timeline.js';
 
 export const MODEL_IDS = ['osi', 'tcpip'];
-export const LEVEL_IDS = [1, 2];
+export const LEVEL_IDS = [1, 2, 3];
 
 // Úroveň z adresy (bez znalosti kroků, rozhoduje se podle ní, co se načte).
 export function parseLevel(hash) {

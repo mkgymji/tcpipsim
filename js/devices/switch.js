@@ -23,7 +23,10 @@ export function switchReceive(node, inPort, frame, bytes, ctx) {
         detail: `${src} na ${inPort} (záznam obnoven, stáří 0)` });
     }
   }
-  const others = node.ports.filter((p) => p !== inPort);
+  // porty bez kabelu (úroveň 3: Fa0/2 volný) nejsou „up“, switch na ně nic neposílá
+  const linked = (p) => !ctx.world?.links || Object.values(ctx.world.links).some((l) =>
+    (l.a.node === node.id && l.a.if === p) || (l.b.node === node.id && l.b.if === p));
+  const others = node.ports.filter((p) => p !== inPort && linked(p));
   const known = isGroupMac(dst) ? null : table.find((e) => normMac(e.mac) === dst);
   if (!known) {
     const reason = isGroupMac(dst) ? 'broadcast' : 'unknown';

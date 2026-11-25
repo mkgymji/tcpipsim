@@ -3,15 +3,23 @@
 // compareVector: pravidla vektory.md kap. 5–7 (pořadí na (linka, směr) přesně, step, částečná
 // shoda polí, MAC bez ohledu na velikost písmen, tabulky jako množiny bez `age`).
 // Bez DOM.
-import { runNetwork, DEFAULT_DELAY } from './netsim.js';
+import { runNetwork, DEFAULT_DELAY, LEVEL3_PROTOCOLS } from './netsim.js';
 import { buildWorld } from './netsim.js';
 import { normMac } from './addr.js';
 
-// Příkazy, které jádro zatím neumí (ARP a ICMP přijdou v úrovni 3).
-const UNSUPPORTED = { ping: 'ping (ICMP a ARP) přijde s úrovní 3' };
+// Příkazy, které jádro zatím neumí (prázdné: ping a tracert umí od úrovně 3).
+const UNSUPPORTED = {};
 
 export const EVENT_KINDS = ['nic_drop', 'arp_learn', 'arp_ignore', 'arp_queue', 'mac_learn', 'flood', 'forward',
-  'filter', 'repeat', 'ip_forward', 'ip_deliver', 'ip_drop', 'udp_send', 'udp_deliver', 'udp_no_listener'];
+  'filter', 'repeat', 'ip_forward', 'ip_deliver', 'ip_drop', 'udp_send', 'udp_deliver', 'udp_no_listener',
+  'arp_fail', 'arp_expire'];
+
+// Protokoly pro přehrání vektoru: úroveň 3 a vektory s ping/tracert mají ARP a ICMP (ARP se
+// opravdu posílá), starší vektory úrovně 2 jen předvyplněnou ARP tabulku (rozhodnutí 14).
+export function vectorProtocols(vector) {
+  const l3 = (vector.level ?? 0) >= 3 || vector.actions.some((a) => a.command === 'ping' || a.command === 'tracert');
+  return l3 ? LEVEL3_PROTOCOLS : null;
+}
 
 // Důvod, proč vektor zatím nejde přehrát (null = jde).
 export function vectorSkipReason(vector) {
@@ -30,7 +38,14 @@ export function vectorPdu(frame, bytes) {
     else if (p.proto === 'ipv4') {
       out.ip = { src: p.h.src, dst: p.h.dst, ttl: p.h.ttl, protocol: p.h.protocol, id: p.h.id };
     } else if (p.proto === 'udp') out.udp = { sport: p.h.sport, dport: p.h.dport };
-    else if (p.proto === 'data') {
+    else if (p.proto === 'arp') {
+      out.arp = { op: p.h.op === 1 ? 'request' : 'reply', sha: p.h.sha, spa: p.h.spa, tha: p.h.tha, tpa: p.h.tpa };
+    } else if (p.proto === 'icmp') {
+      out.icmp = { type: p.h.type, code: p.h.code };
+      if (p.h.orig) out.icmp.orig = { src: p.h.orig.h.src, dst: p.h.orig.h.dst, protocol: p.h.orig.h.protocol };
+      else Object.assign(out.icmp, { id: p.h.id, seq: p.h.seq, data_len: p.payload ? new TextEncoder().encode(p.payload.payload).length : 0 });
+      break;   // data uvnitř ICMP nejsou data aplikace (vektor je u ICMP nekontroluje)
+    } else if (p.proto === 'data') {
       const len = new TextEncoder().encode(p.payload).length;
       out.data = { text: p.payload, len };
     }
@@ -45,6 +60,7 @@ export function vectorPdu(frame, bytes) {
 export function runVector(vector) {
   const { records, world } = runNetwork({
     topology: vector.topology, initialState: vector.initial_state ?? {}, actions: vector.actions,
+    protocols: vectorProtocols(vector),
   });
   const transmissions = records.filter((r) => r.kind === 'link.tx').map((r) => ({
     step: (r.t + (r.delay ?? DEFAULT_DELAY)) / 1000, link: r.link, from: r.from, to: r.to, pdu: vectorPdu(r.pdu, r.bytes),
@@ -63,7 +79,40 @@ export function runVector(vector) {
   for (const n of Object.values(buildWorld(vector.topology).nodes)) {
     if (n.state.routing_table) initialRoutes[n.id] = n.state.routing_table;
   }
-  return { records, transmissions, events, finalState: final, initialRoutes, appResult: { received } };
+  return { records, transmissions, events, finalState: final, initialRoutes, appResult: { received, apps: appResults(records) } };
+}
+
+// Výsledky aplikací ping a tracert ze záznamu (vektory.md kap. 7): ping = sent, received (jen
+// Echo Reply), replies[], errors[]; tracert = reached, hops[] (sondy jednoho TTL = jeden skok).
+export function appResults(records) {
+  const out = [];
+  for (const st of records.filter((r) => r.kind === 'app.start')) {
+    const evs = records.filter((r) => r.kind === 'app.event' && r.run === st.run);
+    if (st.app === 'ping') {
+      const replies = evs.filter((e) => e.result.kind === 'reply')
+        .map((e) => ({ from: e.result.from, bytes: e.result.bytes, ttl: e.result.ttl }));
+      const errors = evs.filter((e) => e.result.kind !== 'reply').map((e) => {
+        const x = { seq: e.seq, kind: e.result.kind };
+        if (e.result.from) x.from = e.result.from;
+        if (e.result.code != null) x.code = e.result.code;
+        return x;
+      });
+      out.push({ node: st.node, command: 'ping', sent: evs.length, received: replies.length, replies, errors });
+    } else {
+      const hops = [];
+      for (const e of evs) {
+        let h = hops.find((x) => x.hop === e.ttl);
+        if (!h) { h = { hop: e.ttl, from: null, replies: 0, kind: 'timeout' }; hops.push(h); }
+        if (e.result.kind !== 'timeout') {
+          h.replies++;
+          h.from ??= e.result.from;
+          h.kind = e.result.kind === 'echo_reply' ? 'echo_reply' : e.result.kind === 'time_exceeded' ? 'time_exceeded' : e.result.kind;
+        }
+      }
+      out.push({ node: st.node, command: 'tracert', reached: hops.some((h) => h.kind === 'echo_reply'), hops });
+    }
+  }
+  return out;
 }
 
 // Částečná shoda: všechna pole z `exp` musí být v `act` se stejnou hodnotou (rekurzivně).
@@ -139,10 +188,22 @@ export function compareVector(vector, run) {
   }
   // 5. výsledek aplikací (UDP): received jako množina, not_received nic nedostaly
   const ar = exp.app_result;
-  if (ar?.received) {
+  if (Array.isArray(ar?.received)) {
     const key = (r) => JSON.stringify([r.node, r.app, r.port, r.from, r.text]);
     const a = run.appResult.received.map(key).sort(), e = ar.received.map(key).sort();
     if (JSON.stringify(a) !== JSON.stringify(e)) out.push(`app_result.received: čekáno ${e.join(' ')} | je ${a.join(' ')}`);
+  }
+  if (ar?.command === 'ping' || ar?.command === 'tracert') {
+    const act = run.appResult.apps.find((a) => a.node === ar.node && a.command === ar.command);
+    if (!act) out.push(`app_result: ${ar.command} na ${ar.node} neproběhl`);
+    else {
+      const exp = { ...ar };
+      if (ar.command === 'ping') exp.errors ??= [];
+      partialDiff(exp, act, 'app_result', out);
+      for (const k of ['replies', 'errors', 'hops']) {
+        if (exp[k] && act[k] && exp[k].length !== act[k].length) out.push(`app_result.${k}: čekáno ${exp[k].length}, je ${act[k].length}`);
+      }
+    }
   }
   for (const n of ar?.not_received ?? []) {
     if (run.appResult.received.some((r) => r.node === n.node && r.app === n.app && (n.port == null || r.port === n.port))) {

@@ -178,7 +178,7 @@ Inline SVG v `viewBox="0 0 64 56"`, tah `#14181C` 4 px, výplň bílá/světle m
 
 - Hub se v popiscích ani v nápovědě nenazývá „opakovač“ (repeater je jiné zařízení); správně „hub“, vysvětlení „rozeslá bity na všechny ostatní porty“. Kolize se nekreslí (rozhodnutí 8; označit jako zjednodušení).
 - Zařízení se v topologii rozlišují tvarem a popiskem, ne barvou. Barva ikony je neutrální (vrstvy nesou barvu). Zařízení, které čte jen do vrstvy X (hub L1, switch L2, router L3), má pod ikonou drobnou značku nejvyšší vrstvy (např. čtverec `L2`) a nad kabely jen tyto vrstvy ve výtahu aktivní.
-- Kabel: plná čára 6 px `#14181C`; port/rozhraní popsané písmem (`Fa0/1`, `G0/0` od úrovně 3).
+- Kabel: plná čára 6 px `#14181C`; port/rozhraní popsané písmem (`Fa0/1`, `Gi0/0` od úrovně 3, rozhodnutí 40).
 - Aktivní/vybrané zařízení: obrys 6 px + kroužek; stav chyby (ztráta paketu): výrazný křížek v kruhu a text, ne jen červená.
 
 ## 8. Editor topologie (návrh pro pozdější úrovně)
@@ -374,7 +374,18 @@ Nadpis karty „Tip: Co R1 s paketem udělá?“, volby **Fa0/0 zpět, Fa0/1, za
 ### 12.11 Čitelnost a rozměry
 Ověřeno snímky 1400x900 a 1280x720: nic se nepřekrývá, nic neuniká z okna (tělo stránky má `grid-template-columns:minmax(0,1fr)`, protože bez toho se širší obsah promítl za okraj okna). Při 720 px se skrývá: MAC u zařízení v topologii (vždy), podnadpisy sloupců vrstev, záhlaví sloupců a vysvětlující druhá věta v kartě porovnání. Nejmenší písmo 15 px, kromě šedých pomocných popisků všude tmavý text. Písmo MAC v kartě porovnání má mírně stažený řez (`letter-spacing:-.04em`), aby se 17 znaků vešlo do buňky na šířku 380 px; na Windows s Consolas je pohodlně.
 
-### 12.12 Otevřené body k rozhodnutí
+### 12.12 Implementace (iterace 3): odchylky od návrhu
+Platí rozhodnutí 39–48; prototyp je jen vizuální vzor. Rozhraní routeru jsou Gi0/0 a Gi0/1, MAC `02:00:00:00:01:01` a `…:01:02` (rozh. 39, 40); body 12.12.1 a 12.12.2 níže jsou tím rozhodnuté.
+- **Topologie** má i Cyrila (síť 1: Alice nahoře, Cyril dole, SW1 s MAC tabulkou). U PC jméno, IP, MAC (při 720 px skrytá), výchozí brána a ARP tabulka (zkráceně `…1.1 → …01:01`, celá v popisku). Výška 316 px (900) a 264 px (720; o 20 px víc než návrh, jinak se karty PC nevešly).
+- **Směrovací tabulka R1** ukazuje i řádky L (rozh. 39 a cmd.md kap. 12.3; při 720 px skryté). Sloupec Shoda jen v kroku, kdy router vybírá. `show ip route` vypisuje i řádky L (návrh v 12.10 „bez řádků L“ neplatí).
+- **Věže v pruhu média** se kreslí pro zařízení na cestě vybrané dvojice (Alice → Bob: SW1 a R1, Alice → Cyril: jen SW1). Blok se zprávou končí nad nejvyšší věží (aby R1 do L3 zůstal vidět), proto je u odesílatele a příjemce o řádek výš než aktivní vrstva. V routeru je paket kompaktní (bez pruhu „L4: žádný segment“), aby se vešel nad věž i při 720 px.
+- **Řádek L4 u pingu** (rozh. 47): šrafovaný, tečkovaný, PDU „segment / datagram“ zůstává; štítek na horním okraji řádku zní „bez portů“ (delší „ICMP nemá porty“ se do 170–192 px nevejde, celé znění je v obálce a v rentgenu).
+- **Pravý panel:** karta kroku (Maska, Rámec před a za R1, Tabulky po kroku, Sondy tracert, Shrnutí) a pod ní rentgen. Časová osa (sekvenční diagram, 12.8) a karta „Shoda po bitech“ (LPM s víc řádky) se v iteraci 3 nedělají: scénář má LPM jen u Alice (/24 proti /0) a tracert přes jeden router; sondy ukazuje tabulka.
+- **Tip na routeru** (12.9) se ve scénáři netipuje (rozh. 43: tipy 3, 5, 11, 13, 16, 18, 22a, 24a); tipy mají volby ze scénáře se správnou odpovědí, kterou test ověřuje proti simulaci.
+- **Části A–D:** tlačítka A B C D v hlavičce vysvětlivky (skok na začátek části). Kroky 22 a 24 mají části a/b: a = diagnóza (tip „Kde je chyba?“), b = po „Oprav bránu“.
+- Písmo 13–14 px v hustých tabulkách topologie (MAC, ARP, směrovací tabulka) je pod minimem 15 px z kap. 5; ověřit na projektoru.
+
+### 12.13 Otevřené body k rozhodnutí
 1. **MAC rozhraní R1** (`…:11` a `…:12`): potvrdit s projektantem.
 2. **Výchozí TTL 128** (Windows) místo 64: potvrdit s projektantem a didaktikem (sedí s výstupem ping `TTL=127`).
 3. **Název PDU u L4** v řádku vrstvy: „datagram“ pro UDP, „segment“ pro TCP, „bez portů“ pro ICMP (úroveň 2 měla „segment / datagram“, v užším sloupci se nevejde). Dopad na rozh. 32.

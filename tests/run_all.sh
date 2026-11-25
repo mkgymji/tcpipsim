@@ -30,8 +30,10 @@ else
     trap 'rm -rf "$TMP"' EXIT
     # file:// + --allow-file-access-from-files: na gaze headless Chromium nenačte
     # http://127.0.0.1 (zamrzne), proto se stránka testuje ze souboru s povolenými moduly.
-    # Načte se úroveň 1 (bez adresy) a úroveň 2 (#u=2, krok s MAC tabulkou a rentgenem).
-    for HASH in "" "#u=2&k=13&t=SW1&c=show%20mac%20address-table"; do
+    # Načte se úroveň 1 (bez adresy), úroveň 2 (#u=2, krok s MAC tabulkou a rentgenem) a úroveň 3
+    # (#u=3: krok s routerem a konzolí IOS, krok tracertu s živým výpisem terminálu Windows).
+    for HASH in "" "#u=2&k=13&t=SW1&c=show%20mac%20address-table" "#u=3&k=9&t=R1&c=enable&c=show%20ip%20route" \
+                "#u=3&k=20&t=PC1&c=tracert%20192.168.2.20"; do
       timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \
         --user-data-dir="$TMP/profile" --allow-file-access-from-files \
         --enable-logging=stderr --v=0 --virtual-time-budget=5000 \

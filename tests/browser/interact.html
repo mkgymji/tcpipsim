@@ -233,6 +233,66 @@ f.onload = async () => {
     inp2.dispatchEvent(new w2.KeyboardEvent('keydown', { key: 'ArrowUp', bubbles: true }));
     check(q('#term-input').value === 'ipconfig /all', `historie příkazů zůstala (${q('#term-input').value})`);
     check(!r2.dataset.errors, `úroveň 2 bez chyb (${r2.dataset.lastError ?? ''})`);
+
+    // ---- úroveň 3: výběr v záhlaví, tip, části A–D, Oprav bránu, terminál Windows a IOS ----
+    let wait3 = loaded();
+    q('.lvlseg [data-level="3"]').click();
+    await wait3; await wait(300);
+    const d3 = f.contentDocument, w3 = f.contentWindow, r3 = d3.documentElement;
+    const q3 = (s) => d3.querySelector(s);
+    const key3 = (k, t = d3.body) => t.dispatchEvent(new w3.KeyboardEvent('keydown', { key: k, bubbles: true }));
+    const lab3 = () => q3('#prog-label').textContent;
+    check(r3.dataset.level === '3' && r3.dataset.core === 'ok', `výběr úrovně 3 načte úroveň 3 (${w3.location.hash})`);
+    check(d3.title === 'tcpipsim: Úroveň 3 Směrování', `title úrovně 3 (${d3.title})`);
+    check(lab3().startsWith('Krok 0 z 25'), `úroveň 3 má kroky 0–25 (${lab3()})`);
+    // tip v kroku 5 (ARP): nic neprozradí, Vpřed = Potvrdit tip, vyhodnocení v kroku 6
+    w3.location.hash = '#u=3&k=5&m=osi';
+    await wait(250);
+    check(q3('#explain h3').textContent.startsWith('Tip:'), 'krok 5: nadpis Tip');
+    check(!q3('.sw3 .decision'), 'tip: switch ještě nerozhodl');
+    q3('#explain [data-pick="Cyril"]').click();
+    q3('#explain [data-pick="R1 (Gi0/0)"]').click();
+    check(q3('#fwd-label').textContent === 'Potvrdit tip', `Vpřed = Potvrdit tip (${q3('#fwd-label').textContent})`);
+    key3('ArrowRight');
+    await wait(250);
+    check(lab3().startsWith('Krok 6 z 25') && q3('#explain .evalline')?.textContent.includes('Sedí'), `krok 6 vyhodnotí tip (${q3('#explain .evalline')?.textContent})`);
+    // věž routeru v pruhu média do L3 (rozhodnutí 48)
+    w3.location.hash = '#u=3&k=9&m=osi';
+    await wait(250);
+    check(q3('.tower3.router .tcell.active') && q3('.tower3.router').textContent.includes('Síťová'), 'krok 9: R1 v pruhu média, aktivní L3');
+    const fl3 = rect(q3('#nest .float')), tw3 = rect(q3('.tower3.router'));
+    check(fl3 && tw3 && fl3.bottom <= tw3.top + 4, `blok sedí na věži routeru (${Math.round(fl3?.bottom)} <= ${Math.round(tw3?.top)})`);
+    check(q3('.rt3 tr.hit')?.textContent.includes('192.168.2.0/24'), 'směrovací tabulka R1: vybraný řádek');
+    // skok na začátek části C
+    q3('[data-part]:nth-child(3)').click();
+    await wait(150);
+    check(lab3().startsWith('Krok 18 z 25'), `část C začíná krokem 18 (${lab3()})`);
+    // část D: Oprav bránu = přechod na opravený krok
+    w3.location.hash = '#u=3&k=22a&m=osi';
+    await wait(250);
+    check(q3('#fwd-label').textContent === 'Oprav bránu', `Vpřed = Oprav bránu (${q3('#fwd-label').textContent})`);
+    q3('[data-fix]').click();
+    await wait(250);
+    check(lab3().startsWith('Krok 22b') && q3('.pc3.a-PC1 .gw').textContent.includes('192.168.1.1'), `Oprav bránu nastaví bránu (${lab3()})`);
+    // terminál Windows: živý ping se doplňuje krokováním
+    w3.location.hash = '#u=3&k=3&m=osi';
+    await wait(250);
+    q3('[data-run="PC1"]').click();
+    check(q3('#term-body').textContent.includes('Pinging 192.168.2.20') && !q3('#term-body').textContent.includes('Reply from'), 'krok 3: ping běží, odpověď ještě není');
+    w3.location.hash = '#u=3&k=14&m=osi';
+    await wait(250);
+    check((q3('#term-body').textContent.match(/TTL=127/g) ?? []).length === 4, 'krok 14: 4× Reply TTL=127 ve stejném výpisu');
+    key3('Escape', q3('#term-input'));
+    // IOS: R1>, enable, show ip route, traceroute odmítnut
+    q3('[data-node="R1"]').click();
+    q3('[data-term="R1"]').click();
+    const inp3 = q3('#term-input');
+    check(q3('#termwin .prompt:last-of-type')?.textContent === 'R1>', 'konzole R1 začíná v R1>');
+    inp3.value = 'enable'; inp3.dispatchEvent(new w3.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    const inp4 = q3('#term-input');
+    inp4.value = 'traceroute 192.168.2.20'; inp4.dispatchEvent(new w3.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
+    check(q3('#term-body').textContent.includes('R1#traceroute') && q3('#term-body').textContent.includes('tracert na PC'), 'enable -> R1#, traceroute odmítnut');
+    check(!r3.dataset.errors, `úroveň 3 bez chyb (${r3.dataset.lastError ?? ''})`);
   } catch (e) {
     check(false, `výjimka: ${e}`);
   }

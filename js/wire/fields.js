@@ -112,3 +112,104 @@ export function byteRegion(ff, i) {
   if (i < ff.dataOff + ff.dataLen) return 'data';
   return 'pad';
 }
+
+// ---- úroveň 3: obecný rozklad rámce s ARP nebo IPv4 + ICMP (rentgen.md, arp.md, icmp.md) ----
+
+const ICMP_TYPES = { 0: 'Echo Reply', 3: 'Destination Unreachable', 8: 'Echo Request', 11: 'Time Exceeded' };
+const ICMP_CODES = { 3: { 0: 'network unreachable', 1: 'host unreachable', 3: 'port unreachable' }, 11: { 0: 'TTL vypršelo cestou' } };
+
+/**
+ * Rozloží PDU (ethernet rámec, nebo samotný IPv4 paket, dokud rámec nevznikl) na bloky polí.
+ * Vrací { bytes, blocks: [{ id, title, tab, layer, start, end, fields }], summary, padOff, padLen }.
+ * Pole mají stejný tvar jako frameFields (id, n, name, ws, bits, off, len, value, key, explain).
+ */
+export function pduFields(top) {
+  const b = encode(top);
+  const F = (id, n, name, ws, bits, off, len, value, key, explain) => ({ id, n, name, ws, bits, off, len, value, key, explain });
+  const blocks = [];
+  let ip0 = 0, padOff = b.length, padLen = 0;
+  let inner = top;
+  if (top.proto === 'ethernet') {
+    const et = u16(b, 12);
+    const bodyLen = top.payload.proto === 'ipv4' ? u16(b, 16) : 28;
+    padOff = 14 + bodyLen; padLen = b.length - padOff;
+    blocks.push({ id: 'ethernet', title: 'Rámec (Ethernet II)', tab: 'rámec', layer: 2, start: 0, end: 14, fields: [
+      F('eth.dst', 1, 'Cílová MAC', 'Destination · eth.dst', 48, 0, 6, macAt(b, 0), true,
+        'MAC adresa síťové karty, které je rámec určen na tomto úseku (další skok, ne nutně konečný cíl). ff:ff:ff:ff:ff:ff = všem (broadcast).'),
+      F('eth.src', 2, 'Zdrojová MAC', 'Source · eth.src', 48, 6, 6, macAt(b, 6), true, 'MAC adresa síťové karty, která rámec na tomto úseku odeslala.'),
+      F('eth.type', 3, 'EtherType (typ obsahu)', 'Type · eth.type', 16, 12, 2, `${h4(et)} (${ETHERTYPES[et] ?? '?'})`, true,
+        'Co je uvnitř rámce: 0x0800 IPv4 paket, 0x0806 zpráva ARP (bez IP paketu).'),
+      ...(padLen > 0 ? [F('eth.padding', 4, 'Výplň', 'Padding · eth.padding', padLen * 8, padOff, padLen, `${padLen} B nul`, false,
+        'Nuly, kterými se krátký rámec doplní na nejmenší povolenou délku 60 bajtů (bez kontrolního pole).')] : []),
+      F('eth.fcs', padLen > 0 ? 5 : 4, 'Kontrola chyb (FCS)', 'Frame check sequence · eth.fcs', 32, b.length, 0, 'nepočítá se', false,
+        'Kontrolní číslo (CRC-32) z celého rámce. Simulátor ho nepočítá.'),
+    ] });
+    ip0 = 14;
+    inner = top.payload;
+  }
+  if (inner.proto === 'arp') {
+    const o = ip0, op = u16(b, o + 6);
+    blocks.push({ id: 'arp', title: 'ARP zpráva (přímo v rámci, bez IP)', tab: 'ARP', layer: 2, start: o, end: o + 28, fields: [
+      F('arp.htype', 1, 'Typ hardwaru', 'Hardware type · arp.hw.type', 16, o, 2, `${u16(b, o)} (Ethernet)`, false, 'Druh linkové vrstvy: 1 = Ethernet.'),
+      F('arp.ptype', 2, 'Typ protokolu', 'Protocol type · arp.proto.type', 16, o + 2, 2, `${h4(u16(b, o + 2))} (IPv4)`, false, 'Ke kterým adresám se hledá MAC: 0x0800 = IPv4.'),
+      F('arp.hlen', 3, 'Délka MAC', 'Hardware size · arp.hw.size', 8, o + 4, 1, `${b[o + 4]} B`, false, 'Délka MAC adresy v bajtech.'),
+      F('arp.plen', 4, 'Délka IP', 'Protocol size · arp.proto.size', 8, o + 5, 1, `${b[o + 5]} B`, false, 'Délka IP adresy v bajtech.'),
+      F('arp.op', 5, 'Operace', 'Opcode · arp.opcode', 16, o + 6, 2, op === 1 ? '1 = dotaz (request)' : '2 = odpověď (reply)', true,
+        'Dotaz: „kdo má tuto IP?“ (všem). Odpověď: „tuhle IP mám já, moje MAC je…“ (jen tazateli).'),
+      F('arp.sha', 6, 'MAC odesílatele', 'Sender MAC address · arp.src.hw_mac', 48, o + 8, 6, macAt(b, o + 8), true, 'MAC toho, kdo zprávu poslal.'),
+      F('arp.spa', 7, 'IP odesílatele', 'Sender IP address · arp.src.proto_ipv4', 32, o + 14, 4, ipAt(b, o + 14), true, 'IP toho, kdo zprávu poslal; příjemce dotazu si ji zapíše.'),
+      F('arp.tha', 8, 'Hledaná MAC', 'Target MAC address · arp.dst.hw_mac', 48, o + 18, 6, `${macAt(b, o + 18)}${op === 1 ? ' (neznámá)' : ''}`, op !== 1,
+        'U dotazu nuly: právě tuhle MAC tazatel nezná. U odpovědi MAC tazatele.'),
+      F('arp.tpa', 9, 'Hledaná IP', 'Target IP address · arp.dst.proto_ipv4', 32, o + 24, 4, ipAt(b, o + 24), true,
+        'U dotazu IP, ke které se hledá MAC (vždy ve stejné síti: další skok). U odpovědi IP tazatele.'),
+    ] });
+    return { bytes: b, blocks, padOff, padLen,
+      summary: `Rámec: ${b.length} B · Ethernet II · ARP ${op === 1 ? `dotaz: kdo má ${ipAt(b, o + 24)}?` : `odpověď: ${ipAt(b, o + 14)} je na ${macAt(b, o + 8)}`}` };
+  }
+  // IPv4 + ICMP
+  const o = ip0, ihl = (b[o] & 0x0f) * 4, total = u16(b, o + 2), proto = b[o + 9];
+  blocks.push({ id: 'ipv4', title: 'Paket (IPv4)', tab: 'paket', layer: 3, start: o, end: o + ihl, fields: [
+    F('ip.version', 1, 'Verze', 'Version · ip.version', 4, o, 1, String(b[o] >> 4), false, 'Verze protokolu IP; tady 4 (IPv4).'),
+    F('ip.hdr_len', 2, 'Délka hlavičky', 'Header Length · ip.hdr_len', 4, o, 1, `${ihl} B`, false, 'Délka IP hlavičky; 5 slov po 4 B = 20 B.'),
+    F('ip.dsfield', 3, 'DSCP a ECN', 'Differentiated Services · ip.dsfield', 8, o + 1, 1, String(b[o + 1]), false, 'Třída provozu a hlášení zahlcení; 0 = běžný provoz.'),
+    F('ip.len', 4, 'Celková délka', 'Total Length · ip.len', 16, o + 2, 2, `${total} B`, false, 'Délka celého paketu: hlavička a všechno, co nese.'),
+    F('ip.id', 5, 'Identifikace', 'Identification · ip.id', 16, o + 4, 2, String(u16(b, o + 4)), false, 'Číslo paketu od tohoto odesílatele (pro skládání částí).'),
+    F('ip.flags', 6, 'Příznaky a posun části', 'Flags, Fragment Offset', 16, o + 6, 2, bin(u16(b, o + 6), 16), false, 'Dělení paketu na části; tady se nedělí.'),
+    F('ip.ttl', 7, 'TTL (doba života)', 'Time to Live · ip.ttl', 8, o + 8, 1, String(b[o + 8]), true,
+      'Kolik routerů paket ještě smí projít. Každý router TTL sníží o 1; kdyby kleslo na 0, paket zahodí a pošle zpět Time Exceeded.'),
+    F('ip.proto', 8, 'Protokol (typ obsahu)', 'Protocol · ip.proto', 8, o + 9, 1, `${proto} (${IPPROTO[proto] ?? '?'})`, true,
+      'Co je uvnitř paketu: 1 = ICMP, 6 = TCP, 17 = UDP. ICMP nemá porty, jede přímo v paketu.'),
+    F('ip.checksum', 9, 'Kontrolní součet hlavičky', 'Header Checksum · ip.checksum', 16, o + 10, 2, `${h4(u16(b, o + 10))} (správný)`, false,
+      'Číslo spočítané jen z IP hlavičky. Router po snížení TTL součet přepočítá, proto se na každém skoku mění.'),
+    F('ip.src', 10, 'Zdrojová IP', 'Source Address · ip.src', 32, o + 12, 4, ipAt(b, o + 12), true, 'IP původního odesílatele; router ji nemění.'),
+    F('ip.dst', 11, 'Cílová IP', 'Destination Address · ip.dst', 32, o + 16, 4, ipAt(b, o + 16), true, 'IP konečného cíle; router ji nemění, podle ní hledá ve směrovací tabulce.'),
+  ] });
+  if (inner.payload?.proto === 'icmp') {
+    const c = o + ihl, t = b[c], code = b[c + 1];
+    const err = t === 3 || t === 11;
+    const fields = [
+      F('icmp.type', 1, 'Typ', 'Type · icmp.type', 8, c, 1, `${t} = ${ICMP_TYPES[t] ?? '?'}`, true, 'Druh zprávy ICMP: 8 Echo Request (ping), 0 Echo Reply, 11 Time Exceeded, 3 Destination Unreachable.'),
+      F('icmp.code', 2, 'Kód', 'Code · icmp.code', 8, c + 1, 1, `${code}${ICMP_CODES[t]?.[code] ? ` (${ICMP_CODES[t][code]})` : ''}`, err, 'Upřesnění typu.'),
+      F('icmp.checksum', 3, 'Kontrolní součet', 'Checksum · icmp.checksum', 16, c + 2, 2, `${h4(u16(b, c + 2))} (správný)`, false, 'Kontrolní součet celé zprávy ICMP.'),
+    ];
+    if (err) {
+      const q = c + 8;
+      fields.push(F('icmp.unused', 4, 'Nevyužito', 'Unused', 32, c + 4, 4, '0', false, 'Čtyři bajty nul.'),
+        F('icmp.orig', 5, 'Původní paket (kopie začátku)', 'Internet Protocol (vložený)', (total - ihl - 8) * 8, q, total - ihl - 8,
+          `IP ${ipAt(b, q + 12)} → ${ipAt(b, q + 16)}, TTL ${b[q + 8]}, protokol ${b[q + 9]}`, true,
+          'IP hlavička a prvních 8 B paketu, který router zahodil. Podle ní odesílatel pozná, kterou zprávu router zahodil (tracert tak spáruje sondu s odpovědí).'));
+    } else {
+      fields.push(F('icmp.id', 4, 'Identifikátor', 'Identifier · icmp.ident', 16, c + 4, 2, String(u16(b, c + 4)), false, 'Rozliší „relace“ pingu.'),
+        F('icmp.seq', 5, 'Pořadové číslo', 'Sequence Number · icmp.seq', 16, c + 6, 2, String(u16(b, c + 6)), false, 'Číslo dotazu; odpověď ho zkopíruje.'),
+        F('icmp.data', 6, 'Data', 'Data · data', (total - ihl - 8) * 8, c + 8, total - ihl - 8,
+          b[c + 8] === 0 ? `${total - ihl - 8} B nul` : `"${DECODE.decode(b.subarray(c + 8, o + total))}" (${total - ihl - 8} B)`, false,
+          'Data dotazu; odpověď je vrací beze změny.'));
+    }
+    fields.push(F('icmp.noport', 0, 'Zdrojový a cílový port', 'žádné', 0, c, 0, 'žádné: ICMP nemá porty', false,
+      'ICMP jede přímo v IP paketu, nemá obálku transportní vrstvy, a tedy ani porty (rozhodnutí 47).'));
+    blocks.push({ id: 'icmp', title: 'ICMP (uvnitř paketu)', tab: 'ICMP', layer: 3, start: c, end: o + total, fields });
+  }
+  const sum = `${top.proto === 'ethernet' ? `Rámec: ${b.length} B · Ethernet II · ` : ''}IPv4 ${ipAt(b, o + 12)} → ${ipAt(b, o + 16)} · TTL ${b[o + 8]}`
+    + (proto === 1 ? ` · ICMP typ ${b[o + ihl]}` : '');
+  return { bytes: b, blocks, padOff, padLen, summary: sum };
+}

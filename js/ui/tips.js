@@ -31,6 +31,13 @@ const joinI = (arr) => (arr.length ? arr.join(' i ') : 'nikam');
  */
 export function evalTip(timeline, tipK, evalK, ans) {
   const pred = timeline.steps[tipK].predict;
+  if (pred.choices && pred.answer != null) {
+    // úroveň 3: správná odpověď je ve scénáři (testy ji ověřují proti záznamu simulace)
+    const actual = [].concat(pred.answer);
+    const same = actual.length === ans.length && actual.every((x) => ans.includes(x));
+    const why = typeof pred.why === 'object' ? (ans.map((a) => pred.why[a]).find(Boolean) ?? Object.values(pred.why)[0]) : pred.why;
+    return { same, actual, html: `<b>Tvůj tip:</b> ${esc(joinI(ans))}. <b>Skutečnost:</b> ${esc(joinI(actual))}. ${esc(same ? 'Sedí.' : `Nesedí: ${why ?? ''}`)}` };
+  }
   if (pred.choices) {
     const a = ans[0];
     return { same: null, actual: null, html: `<b>Tvůj tip:</b> ${esc(a)}. ${esc(pred.verdicts?.[a] ?? '')}`.trim() };

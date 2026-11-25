@@ -1,12 +1,15 @@
 # Vývoj tcpipsim
 
-Stav: iterace 2. Úroveň 1 „Barvičky“ beze změny chování (adresy sjednocené podle rozhodnutí 25),
-úroveň 2 „Adresy“ funguje (kroky 0–17 podle `scenarios/uroven2-adresy.md`, hub a switch, MAC tabulka,
-rentgen, terminál Windows a Cisco IOS, předpověď). Přenos se v obou úrovních kreslí jako „U“
-(rozhodnutí 38, `ui/lift.js`, kap. 6). Autor: vývojář.
+Stav: iterace 3. Úrovně 1 „Barvičky“ a 2 „Adresy“ beze změny chování, úroveň 3 „Směrování“ funguje
+(kroky 0–25 v částech A–D podle `scenarios/uroven3-smerovani.md`: ARP s frontou a 3 pokusy, ICMP Echo,
+Time Exceeded, Destination Unreachable, router s LPM a TTL, tracert, chyby brány s „Oprav bránu“,
+terminál Windows i Cisco IOS routeru). Přenos se ve všech úrovních kreslí jako „U“ (rozhodnutí 38,
+48). Autor: vývojář.
 Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), síťová simulace s více uzly
-(`core/netsim.js`: PC se zásobníkem Ethernet/IPv4/UDP, hub, switch), runner testovacích vektorů,
-kódování rámce do bajtů a pole pro rentgen, terminál nad pohledem (`cli/`), UI úrovní 1 a 2.
+(`core/netsim.js`: PC a router se zásobníkem Ethernet/ARP/IPv4/ICMP/UDP, hub, switch), runner
+testovacích vektorů (všechny kromě `tracert-dva-routery`, který je `skip` podle rozhodnutí 44, ale
+jádro ho už přehraje), kódování rámce do bajtů a pole pro rentgen, terminál nad pohledem (`cli/`),
+UI úrovní 1–3.
 Rozhodnutí jsou psaná s důvodem, aby šla zpětně zvrátit.
 
 ## 0. Rychlý start
@@ -52,22 +55,33 @@ js/
     pdu.js              PDU s vnořením vrstev, id a rodokmen PDU  [hotovo]
     trace.js            záznam událostí                           [hotovo, delty od iterace 2]
     transfer.js         přenos jedné zprávy vrstvami mezi 2 uzly (úroveň 1)  [hotovo]
-    netsim.js           síť s více uzly: PC (Ethernet/IPv4/UDP, ARP tabulka jen čtená), hub, switch,
-                        akce udp_send / swap / mark, záznam + koncové tabulky  [hotovo, úroveň 2]
+    netsim.js           síť s více uzly: PC, router (L3), hub, switch; protokoly podle úrovně
+                        (`protocols`: bez 'arp' = úroveň 2, ARP tabulka jen čtená); ARP (fronta podle
+                        next hopu, 3 pokusy po 1 s, arp_fail, stárnutí při čtení), IPv4 (LPM, TTL,
+                        ICMP chyby), aplikace ping a tracert; akce udp_send / ping / tracert / set_gateway
+                        / swap / mark, záznam + koncové tabulky  [hotovo, úroveň 3]
     netview.js          pohled úrovně 2 po kroku: uzly, tabulky, štítky PC, porty, rámce na kabelech  [hotovo]
+    netview3.js         pohled úrovně 3: navíc router (hop: rámec před a za), ARP a směrovací tabulky,
+                        běhy aplikací (apps: události pingu/tracertu pro živý výpis terminálu)  [hotovo]
     harness.js          runVector / compareVector (vektory.md kap. 5–7)  [hotovo]
     addr.js             MAC (zápisy Windows/Cisco, skupinové), IPv4 (maska, síť, broadcast, multicast MAC)  [hotovo]
     timeline.js         kroky ze scénáře (match), pohled po kroku k (viewFn podle úrovně), vpřed/vzad  [hotovo]
     world.js, link.js, topology.js   (plán: snapshot světa, ztrátovost, validace a migrace formátu)
   proto/                moduly protokolů (bez DOM), jeden soubor = jeden protokol
     registry.js         statický registr protokolů, pořadí v zásobníku, demux()  [hotovo]
-    ethernet.js ipv4.js udp.js   [úroveň 1: hlavička, přijetí, binds/demuxField]; arp.js icmp.js tcp.js dns.js http.js [dhcp.js nat.js]
-  devices/              chování typů uzlů: types.js (host/hub/switch), hub.js, switch.js (IEEE 802.1D); router.js (úroveň 3)
+    ethernet.js ipv4.js udp.js   [hlavička, přijetí, binds/demuxField]; ipv4.js navíc deriveRoutes (PC i router:
+                        connected, local, static_routes) a lookupRoute (LPM); arp.js icmp.js [úroveň 3: data,
+                        parametry a stavba zpráv; chování s plánovačem je v core/netsim.js]; tcp.js dns.js http.js (plán)
+  devices/              chování typů uzlů: types.js (host/hub/switch), hub.js, switch.js (IEEE 802.1D; porty bez
+                        kabelu se nefloodují); router je v core/netsim.js (routerIp), protože potřebuje ARP a plánovač
   wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071],
                         fields.js [pole pro rentgen: posun, délka, hodnota z bajtů, názvy CZ/Wireshark], pcap.js (plán)
   cli/                  terminály nad pohledem (bez DOM): shell.js (dialekt podle typu uzlu), wincmd.js
-                        (ipconfig, ipconfig /all, arp -a), ios.js (show mac address-table, zkratky, chyby IOS)
-  scenario/             sestavení úrovně ze scénáře (level1.js, level2.js), později sdílení odkazem
+                        (ipconfig, ipconfig /all, arp -a; úroveň 3: ping, tracert, arp -d, route print = netstat -nr),
+                        ios.js (switch: show mac address-table), iosrouter.js (router: R1> / enable / R1#,
+                        show ip route, show ip interface brief, show ip arp, ping; traceroute a konfigurace odmítnuté)
+  scenario/             sestavení úrovně ze scénáře (level1.js, level2.js, level3.js + whatIf: ping/tracert
+                        z terminálu jako samostatná simulace ze stavu kroku), později sdílení odkazem
   levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje: xray, terminal)
   ui/                   UI: render.js (úroveň 1 a společné: výtah, odznaky), lift.js (přenos jako „U“,
                         rozhodnutí 38: kotva bloku podle aktivní vrstvy, pruh média s bity, hub/switch v pruhu;
@@ -255,7 +269,7 @@ samostatně proti reálným rámcům (hexdump z Wiresharku jako vektor).
 |---|---|
 | 1 Barvičky | ethernet, ipv4, udp (zpráva Alice → Bob; adresy skryté) |
 | 2 Adresy | ethernet, ipv4, udp (+ hub, switch; ARP tabulka jen předvyplněná, rozhodnutí 14; ARP a ICMP v úrovni 3) |
-| 3 Směrování | + router, icmp time-exceeded/unreachable, tracert |
+| 3 Směrování | ethernet, arp, ipv4, icmp, udp (+ router; ping, tracert; ARP se opravdu posílá) |
 | 4 Transport a aplikace | + tcp, dns, http |
 | 5 Směrem k CCNA | + dhcp, nat, filtrace (acl) |
 
@@ -324,16 +338,16 @@ editoru), `config` (statické trasy, později DHCP, ACL), na lince `delay`.
     { "id": "SW1", "type": "switch", "pos": { "x": 6, "y": 4 }, "ports": ["Fa0/1", "Fa0/2", "Fa0/3", "Fa0/4"] },
     { "id": "R1", "type": "router", "label": "Domácí router", "pos": { "x": 10, "y": 4 },
       "interfaces": [
-        { "name": "G0/0", "mac": "02:00:00:00:01:01", "ip": "192.168.1.1", "prefix": 24 },
-        { "name": "G0/1", "mac": "02:00:00:00:01:02", "ip": "77.75.75.1", "prefix": 24 } ] },
+        { "name": "Gi0/0", "mac": "02:00:00:00:01:01", "ip": "192.168.1.1", "prefix": 24 },
+        { "name": "Gi0/1", "mac": "02:00:00:00:01:02", "ip": "77.75.75.1", "prefix": 24 } ] },
     { "id": "SRV1", "type": "server", "label": "www.seznam.cz", "pos": { "x": 14, "y": 4 }, "gateway": "77.75.75.1",
       "interfaces": [{ "name": "eth0", "mac": "02:00:00:00:00:04", "ip": "77.75.75.172", "prefix": 24 }] }
   ],
   "links": [
     { "id": "L1", "a": { "node": "PC1", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/1" } },
     { "id": "L2", "a": { "node": "PC2", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/2" } },
-    { "id": "L3", "a": { "node": "SW1", "if": "Fa0/4" }, "b": { "node": "R1", "if": "G0/0" } },
-    { "id": "L4", "a": { "node": "R1", "if": "G0/1" }, "b": { "node": "SRV1", "if": "eth0" } }
+    { "id": "L3", "a": { "node": "SW1", "if": "Fa0/4" }, "b": { "node": "R1", "if": "Gi0/0" } },
+    { "id": "L4", "a": { "node": "R1", "if": "Gi0/1" }, "b": { "node": "SRV1", "if": "eth0" } }
   ]
 }
 ```
@@ -445,7 +459,8 @@ Měřit od iterace 2 na gaze (`performance.now()` v smoke testu).
 | Vrstva | Nástroj | Co |
 |---|---|---|
 | jádro, protokoly, cli | `node --test` (vestavěný, bez závislostí) | `tests/**/*.test.js` |
-| vektory projektanta | `tests/core/vectors.test.js` | každý `tests/vectors/*.json` = jeden test; `ping-*` skip do úrovně 3 (ARP, ICMP) |
+| vektory projektanta | `tests/core/vectors.test.js` | každý `tests/vectors/*.json` = jeden test; `skip` jen `tracert-dva-routery` (rozhodnutí 44) |
+| úroveň 3 | `tests/core/level3.test.js`, `tests/ui/render3.test.js` | testovací kritéria scénáře, LPM, terminál Windows a IOS, runner pozná špatný ping/tracert, ICMP součty, vykreslení všech kroků, tipy nic neprozradí |
 | úroveň 2 | `tests/core/level2.test.js`, `devices.test.js`, `cli.test.js`, `tests/ui/render2.test.js` | testovací kritéria scénáře, switch/hub, terminál (vstup -> text), vykreslení všech kroků |
 | kódování | `tests/proto/*.test.js` | bajty proti hexdumpům reálných rámců, checksum = 0 po přepočtu |
 | logika UI | `node --test` (`tests/ui/`) | panel Detail pro všechna id × model, texty podle režimu, zakázané zkratky, adresa |
@@ -469,8 +484,10 @@ compareVector(vector.expected, run);  // pravidla vektory.md kap. 5–7: pořad�
 
 `harness.js` převádí PDU jádra na tvar `pdu.eth/ip/udp/data` z vektorů a `frame_len`, `total_length`
 a UDP `length` čte z bajtů z `wire/encode.js`, takže vektor zároveň testuje kódování délek. Odvozená
-směrovací tabulka se porovná s `initial_state.routing_table`. Vektory s akcí, kterou jádro ještě
-neumí (`ping`), runner přeskočí s důvodem (`vectorSkipReason`). `tests/core/vectors-format.test.js`
+směrovací tabulka se porovná s `initial_state.routing_table`. Vektory úrovně 3 a vektory s akcí
+`ping`/`tracert` se přehrají se zapnutým ARP a ICMP (`vectorProtocols`); `app_result` pingu a tracertu
+se porovná (částečná shoda + stejný počet odpovědí/chyb/skoků, `appResults` ze záznamů `app.start` /
+`app.event`). Události `arp_fail`, `arp_expire` jsou ve slovníku. `tests/core/vectors-format.test.js`
 dál kontroluje tvar všech vektorů.
 
 **Smoke test v prohlížeči** (ověřeno na gaze, Chromium 156):
@@ -485,7 +502,8 @@ dál kontroluje tvar všech vektorů.
   `Uncaught|Error|CORS|Failed to load`. Jádro po úspěšném startu nastaví `data-core="ok"`.
 - Ověřeno, že test opravdu selže při výjimce v modulu i při chybějícím importu.
 - `--user-data-dir` do dočasné složky, aby test nekolidoval s otevřeným prohlížečem.
-- Smoke test načte `index.html` (úroveň 1) i `index.html#u=2&k=13&t=SW1&c=…` (úroveň 2 s terminálem).
+- Smoke test načte `index.html` (úroveň 1), `index.html#u=2&k=13&t=SW1&c=…` (úroveň 2 s terminálem)
+  a dvě adresy úrovně 3 (konzole R1 s `show ip route`, živý `tracert` na Alici).
 - `run_all.sh` hledá výsledek testu ovládání jako atribut prvku (`id="result" data-result="OK"`);
   samotný text `data-result="OK"` je i v komentáři souboru, dřívější grep proto nemohl selhat.
 - **Test ovládání:** `tests/browser/interact.html` načte `index.html#k=8b&m=tcpip` v iframe
@@ -556,7 +574,22 @@ drží po dobu stránky, Obnovit smaže jen výpisy. Při výšce do 820 px: bez
 a IP celé), užší sloupce vrstev, rámec na kabelu jen jako šipka, data L7 na jednom řádku, souhrn
 rentgenu skrytý (aspoň 3 pole viditelná), vysvětlivka do 40 % výšky se svým posuvníkem.
 
-**Dluh pro úroveň 3 (projektant, nález 13):** `devices/switch.js` označuje flooding skupinové MAC
+**UI úrovně 3 (jak ladit):** `index.html#u=3&k=12`. Adaptér `ui/app3.js`, kreslení `ui/render3.js`
+(topologie dvou sítí s podbarvenými oblastmi, R1 jako karta přes hranici sítí se směrovací a ARP tabulkou;
+pruh média s věžemi zařízení na cestě dvojice: switch do L2, router do L3, rozhodnutí 48; blok končí nad
+nejvyšší věží, aby zůstala vidět; v routeru kompaktní paket s TTL `128 → 127`; vlevo od věže „starý rámec
+zahozen“, vpravo „nový rámec“). Pravý panel: karta podle `step.panel` (`mask`, `compare` = Rámec před
+a za R1, `tables`, `probes`) a pod ní rentgen (`wire/fields.js` `pduFields`: Ethernet, ARP, IPv4, ICMP
+včetně vložené hlavičky). Tipy úrovně 3 mají volby a správnou odpověď ve scénáři (`predict.answer`,
+`multi`); test ověřuje odpověď proti záznamu. Skok na začátek části A–D (`part3` ve scénáři) tlačítky
+v hlavičce vysvětlivky; krok s `fix` má tlačítko „Oprav bránu“ (a Vpřed se tak jmenuje). Terminál:
+`ping`/`tracert`, které ve scénáři v tomto kroku běží nebo začaly, se vypisují „živě“ (řádky přibývají
+krokováním); jiné se spustí jako samostatná simulace ze stavu kroku (`level3.whatIf`), `arp -d`
+a `clear arp-cache` mění jen pískoviště terminálu v daném kroku. Konzole routeru začíná v `R1>`.
+Adresa navíc: `x`, `f`, `t`, `c`, `pick`, `ans`, `sel` jako u úrovně 2. Snímky: `tmp/u3impl/`.
+
+**Dluh pro úroveň 3 (projektant, nález 13; vyřešeno v iteraci 3 jen částečně):** s ARP karta přijme jen
+svou MAC a broadcast (ne cizí multicast); `reason: 'multicast'` u switche zatím ne. `devices/switch.js` označuje flooding skupinové MAC
 důvodem `'broadcast'` i pro multicast (`isGroupMac`), UI pak píše „broadcast → flooding“. A síťová
 karta PC přijme jakoukoli skupinovou MAC (multicast bez filtru skupin). Na úrovni 2 se multicast
 nevyskytuje; před ARP/IGMP na úrovni 3 rozlišit `reason: 'broadcast' | 'multicast'` a filtr karty

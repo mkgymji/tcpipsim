@@ -4,7 +4,6 @@
   "title": "Úroveň 3: tracert -d z Alice na Boba přes jeden router (TTL 1 -> Time Exceeded, TTL 2 -> Echo Reply)",
   "description": "Topologie úrovně 3 (rozhodnutí 39, routing.md kap. 7): Alice (Fa0/1) a Cyril (Fa0/3) na SW1 v 192.168.1.0/24, R1 Gi0/0 na Fa0/4, Bob se přestěhoval do 192.168.2.0/24 (192.168.2.20, MAC zůstává 02:00:00:00:00:02) a je přímo na R1 Gi0/1; Fa0/2 je volný. ARP cache a MAC tabulka jsou naplněné předchozím pingem (koncový stav ping-arp-prvni), aby vektor ukazoval jen TTL. Windows tracert posílá ICMP Echo Request s TTL 1, 2, …, 3 sondy na skok, data 64 B nul (ověřit při pilotu). Sonda s TTL 1: R1 ji zahodí a pošle Time Exceeded ze zdrojové adresy rozhraní, kterým zpráva odchází (192.168.1.1, RFC 1812 4.3.2.4). Sonda s TTL 2: R1 sníží TTL na 1 a doručí ji Bobovi, který odpoví Echo Reply; tracert skončí. Výpis: 1 192.168.1.1, 2 192.168.2.20 (rozhodnutí 44). Simulátor zjednodušuje: další sonda odchází hned po odpovědi na předchozí; akce odpovídá tracert -d (bez DNS). Vektor má skip, dokud jádro neumí akci tracert.",
   "level": 3,
-  "skip": "jádro zatím neumí akci tracert ani ICMP Time Exceeded (úroveň 3)",
   "spec_refs": [
     "docs/spec/icmp.md kap. 3 a 4",
     "docs/spec/ipv4.md kap. 3 a 5",
