@@ -15,6 +15,10 @@ import { pduFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { stepLabel } from '../core/timeline.js';
 
+// role sloupce; při úzkém sloupci nebo se štítkem „Teď Bob“ CSS ukáže jen šipku (720p)
+const ROLE_S = 'odesílatel<span class="dir">, shora dolů</span><span class="dira" aria-hidden="true"> ↓</span>';
+const ROLE_R = 'příjemce<span class="dir">, zdola nahoru</span><span class="dira" aria-hidden="true"> ↑</span>';
+
 const $ = (id) => document.getElementById(id);
 
 export function createLevel3(host) {
@@ -87,9 +91,9 @@ export function createLevel3(host) {
     const sN = v.nodes[pair.sender], rN = v.nodes[pair.receiver];
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
-    els.sRole.textContent = 'odesílatel, shora dolů';
+    els.sRole.innerHTML = ROLE_S;
     const dropHere = v.dropped?.node === pair.receiver && Boolean(pair.dropCol);
-    els.rRole.textContent = dropHere ? '· není cíl' : 'příjemce, zdola nahoru';
+    els.rRole.innerHTML = dropHere ? '· není cíl' : ROLE_R;
     const prevV = cur() > 0 ? timeline.view(cur() - 1) : null;
     const now = prevV ? columnSwitchLabel(pairOf(prevV), pair, v, rN?.label ?? '') : '';
     els.rNow.textContent = now;
@@ -287,6 +291,8 @@ export function createLevel3(host) {
 
   return {
     scenario: scn, timeline, level,
+    // odkazové čipy z textu kroku (rozhodnutí 56c, main.js)
+    selectField, openTerm: (id) => openTerm(id || (ui.selected && dialectOf(view().nodes[ui.selected] ?? {}) ? ui.selected : 'PC1')),
     render,
     renderPanels,
     onStepChange(prevK, nextK) {

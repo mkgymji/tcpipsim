@@ -10,6 +10,7 @@ import { ipToInt, prefixMask, macWindows } from '../core/addr.js';
 import { parsePrefix, routeMatches } from '../proto/ipv4.js';
 import { esc, badge, rowLabel } from './render.js';
 import { macHtml, ipHtml } from './render2.js';
+import { chipsHtml } from './chips.js';
 
 const cssVars = (n) => `--c:var(--L${n});--t:var(--L${n}t)`;
 const label = (v, id) => v.nodes[id]?.label ?? id;
@@ -40,8 +41,8 @@ function pcCard(v, id, ui) {
   const gwChanged = v.newEntries[id]?.gateway;
   const gw = ui.hideGw && id === 'PC1' ? '' : n.gateway ? `brána ${ipHtml(n.gateway)}` : '<b class="nogw">bez brány</b>';
   const arp = n.arp_cache.length
-    ? `<span class="arp3" title="${esc(`ARP tabulka: ${n.arp_cache.map((e) => `${e.ip} → ${e.mac}`).join(', ')}`)}">${n.arp_cache.map((e, i) => `<span class="${v.newEntries[id]?.[e.ip] ? 'new' : ''}">${i ? '' : '<b class="al">ARP</b>'}<span class="dim">…</span>${esc(e.ip.split('.').slice(2).join('.'))} → <span class="dim">…</span>${esc(macTail(e.mac))}</span>`).join('')}</span>`
-    : '<span class="arp3 empty">ARP: prázdná</span>';
+    ? `<span class="arp3" data-target="${id}.arp" title="${esc(`ARP tabulka: ${n.arp_cache.map((e) => `${e.ip} → ${e.mac}`).join(', ')}`)}">${n.arp_cache.map((e, i) => `<span class="${v.newEntries[id]?.[e.ip] ? 'new' : ''}">${i ? '' : '<b class="al">ARP</b>'}<span class="dim">…</span>${esc(e.ip.split('.').slice(2).join('.'))} → <span class="dim">…</span>${esc(macTail(e.mac))}</span>`).join('')}</span>`
+    : `<span class="arp3 empty" data-target="${id}.arp">ARP: prázdná</span>`;
   return `<div class="pc3 a-${id}${inPair ? ' pair' : ''}${ui.selected === id ? ' sel' : ''}${v.focus?.node === id ? ' act' : ''}">
     <button type="button" class="pcbtn" data-node="${id}" aria-label="${esc(`${n.label}, IP ${n.ip}/${n.prefix}${gw ? `, brána ${n.gateway ?? 'žádná'}` : ''}, MAC ${n.mac}. Klik: terminál`)}">
     <span class="pchead"><svg aria-hidden="true"><use href="#ico-pc"/></svg><span class="nm">${esc(n.label)}</span></span>
@@ -58,13 +59,13 @@ function switchCard(v, id, ui) {
   const dec = d ? (d.kind === 'flood' ? `${d.reason === 'broadcast' ? 'broadcast' : 'neznámý cíl'} → ${d.outPorts.join(', ')}` : d.kind === 'forward' ? `→ jen ${d.outPorts[0]}` : 'zahodit') : '';
   return `<div class="sw3${v.focus?.node === id ? ' act' : ''}${ui.selected === id ? ' sel' : ''}">
     <button type="button" class="devhead" data-node="${id}" aria-label="${esc(`${n.label}, switch (L2)`)}"><svg aria-hidden="true"><use href="#ico-switch"/></svg><span><b>${esc(n.label)}</b><small>L2</small></span></button>
-    <div class="mact3"><table><caption>MAC tabulka</caption><tbody>${rows || '<tr class="empty"><td colspan="2">prázdná</td></tr>'}</tbody></table></div>
+    <div class="mact3" data-target="${id}.mac"><table><caption>MAC tabulka</caption><tbody>${rows || '<tr class="empty"><td colspan="2">prázdná</td></tr>'}</tbody></table></div>
     ${dec ? `<div class="decision">${esc(dec)}</div>` : ''}
     ${ui.selected === id ? `<button type="button" class="btn tiny-txt" data-term="${id}">Konzole</button>` : ''}</div>`;
 }
 
 /** Řádky směrovací tabulky; `pick` = { dst, prefix } zvýrazní vybraný řádek a ukáže sloupec Shoda. */
-export function routeTableHtml(routes, { pick = null, title = '', compact = false, lrows = true } = {}) {
+export function routeTableHtml(routes, { pick = null, title = '', compact = false, lrows = true, target = '' } = {}) {
   const code = { connected: 'C', local: 'L', static: 'S', default: 'S*' };
   const rows = routes.filter((r) => lrows || r.type !== 'local').map((r) => {
     const { len } = parsePrefix(r.prefix);
@@ -73,7 +74,7 @@ export function routeTableHtml(routes, { pick = null, title = '', compact = fals
     const via = r.next_hop ? `přes ${r.next_hop}` : r.type === 'local' ? 'sám router' : `přímo ${r.if}`;
     return `<tr class="${hit ? 'hit' : ''}${r.type === 'local' ? ' lrow' : ''}"><td class="c">${code[r.type]}</td><td class="mono">${esc(r.prefix)}</td><td>${esc(compact ? (r.next_hop ? r.next_hop : r.if) : via)}</td>${pick ? `<td class="m">${hit ? `<span class="hittag">${esc(m)}</span>` : esc(m)}</td>` : ''}</tr>`;
   }).join('');
-  return `<table class="rt3">${title ? `<caption>${title}</caption>` : ''}<thead><tr><th>Typ</th><th>Síť (cíl)</th><th>Kam</th>${pick ? '<th>Shoda</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`;
+  return `<table class="rt3"${target ? ` data-target="${target}"` : ''}>${title ? `<caption>${title}</caption>` : ''}<thead><tr><th>Typ</th><th>Síť (cíl)</th><th>Kam</th>${pick ? '<th>Shoda</th>' : ''}</tr></thead><tbody>${rows}</tbody></table>`;
 }
 
 function routerCard(v, id, ui) {
@@ -90,8 +91,8 @@ function routerCard(v, id, ui) {
     ${v.ignored.includes(id) ? '<span class="pill arpign r3pill">ARP: není pro mě</span>' : ''}
     <div class="r3h">${ifc(n.interfaces[0])}<button type="button" class="devhead r3b" data-node="${id}" aria-label="${esc(`${n.label}, router (L3). Klik: konzole`)}">
       <svg aria-hidden="true"><use href="#ico-router"/></svg><b>${esc(n.label)}</b></button>${ifc(n.interfaces[1])}</div>
-    ${routeTableHtml(n.routing_table, { pick: r ? { dst: r.dst, prefix: r.route.prefix } : null, title: `Směrovací tabulka ${esc(n.label)}`, compact: true })}
-    <table class="arpt3"><caption>ARP tabulka ${esc(n.label)}${Object.keys(fresh).length ? ' <span class="newtag">nový řádek</span>' : ''}</caption><tbody>${arp || '<tr class="empty"><td>prázdná</td></tr>'}</tbody></table>
+    ${routeTableHtml(n.routing_table, { pick: r ? { dst: r.dst, prefix: r.route.prefix } : null, title: `Směrovací tabulka ${esc(n.label)}`, compact: true, target: `${id}.route` })}
+    <table class="arpt3" data-target="${id}.arp"><caption>ARP tabulka ${esc(n.label)}${Object.keys(fresh).length ? ' <span class="newtag">nový řádek</span>' : ''}</caption><tbody>${arp || '<tr class="empty"><td>prázdná</td></tr>'}</tbody></table>
     ${ui.selected === id ? `<button type="button" class="btn tiny-txt" data-term="${id}">Konzole <kbd>F2</kbd></button>` : ''}</div>`;
 }
 
@@ -370,7 +371,7 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
   out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="Úroveň má čtyři části: A ping do jiné sítě, B soused ve stejné síti, C TTL a tracert, D najdi chybu. Klik = skok na začátek části.">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
   out.push(`<h3>${esc(predict ? `Ptám se tebe: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
-  out.push(`<p>${esc(textFor(s.text, model))}</p>`);
+  out.push(`<p>${chipsHtml(textFor(s.text, model), esc)}</p>`);
   if (predict) {
     out.push(`<div class="predict" role="group" aria-label="${esc(predict.q)}">${predict.choices.map((c) => `<button type="button" class="btn small${tips?.has(c) ? ' on' : ''}"
       data-pick="${esc(c)}" aria-pressed="${tips?.has(c) ? 'true' : 'false'}"${tipLocked ? ' disabled' : ''}>${esc(c)}</button>`).join('')}
@@ -384,7 +385,7 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
   }
   if (s.simplifies) out.push(`<p class="simpl"><b>Simulátor zjednodušuje:</b> ${esc(textFor(s.simplifies, model))}</p>`);
   const note = textFor(s.note, model);
-  if (note) out.push(`<p class="note">${esc(note)}</p>`);
+  if (note) out.push(`<p class="note">${chipsHtml(note, esc)}</p>`);
   if (Array.isArray(s.hint)) {
     out.push(`<div class="hints">${s.hint.map((h, i) => `<details><summary>Nápověda ${i + 1}</summary><p class="hint">${esc(h)}</p></details>`).join('')}</div>`);
   } else if (s.hint) out.push(`<p class="hint">${esc(textFor(s.hint, model))}</p>`);
@@ -407,7 +408,7 @@ export function maskCard(v) {
     return `<tr><th>${esc(name)}<small>${esc(ip)}</small>${name.startsWith('maska') ? '' : `<small>síť ${net}</small>`}</th><td class="bits">${html}</td></tr>`;
   };
   const same = (ip) => ((ipToInt(ip) ^ ipToInt(a.ip)) & prefixMask(prefix)) === 0;
-  return `<div class="card3"><h3>Maska: je cíl v mé síti?</h3>
+  return `<div class="card3" data-target="mask"><h3>Maska: je cíl v mé síti?</h3>
     <table class="mask3"><thead><tr><th></th><th>adresa v bitech</th></tr></thead><tbody>
     ${row('Alice', a.ip)}${row('maska /24', '255.255.255.0')}${row('Cyril', v.nodes.PC3.ip)}${row('Bob', v.nodes.PC2.ip)}</tbody></table>
     <p class="m3res">Podbarvené = síťová část (prvních 24 bitů). Cyril: síť ${same(v.nodes.PC3.ip) ? '<b>stejná</b> → přímo' : 'jiná'}. Bob: síť ${same(v.nodes.PC2.ip) ? 'stejná' : '<b>jiná</b> → přes bránu'}.</p></div>`;
@@ -448,9 +449,9 @@ export function tablesCard(v) {
     return `<tr><th>${esc(n.label)}</th><td class="mono">${n.arp_cache.length ? n.arp_cache.map((e) => `<span class="nw">${esc(e.ip)} → ${esc(macWindows(e.mac))}</span>`).join('<br>') : '<span class="dim">prázdná</span>'}</td></tr>`;
   };
   return `<div class="card3"><h3>Tabulky po kroku</h3>
-    ${routeTableHtml(a.routing_table, { pick: r ? { dst: r.dst, prefix: r.route.prefix } : null, title: `Směrovací tabulka Alice${r ? ` (cíl ${esc(r.dst)})` : ''}` })}
+    ${routeTableHtml(a.routing_table, { pick: r ? { dst: r.dst, prefix: r.route.prefix } : null, title: `Směrovací tabulka Alice${r ? ` (cíl ${esc(r.dst)})` : ''}`, target: 'PC1.route' })}
     ${r ? `<p class="m3res">Pasuje-li víc řádků, vyhraje delší prefix: ${esc(r.route.prefix)}.</p>` : ''}
-    <table class="arps3"><caption>ARP tabulky (IP → MAC)</caption><tbody>${['PC1', 'PC3', 'R1', 'PC2'].map(arp).join('')}</tbody></table></div>`;
+    <table class="arps3" data-target="arp"><caption>ARP tabulky (IP → MAC)</caption><tbody>${['PC1', 'PC3', 'R1', 'PC2'].map(arp).join('')}</tbody></table></div>`;
 }
 
 /** Sondy tracertu: jeden řádek = jedna sonda (kreslí se postupně). */

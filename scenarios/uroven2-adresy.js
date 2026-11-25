@@ -10,6 +10,7 @@
 //   summary? = tabulka v panelu ('hub' | 'addresses'), arpHint? = pruh s ARP záznamem pod obálkou.
 const ALICE = '192.168.1.10', BOB = '192.168.1.20';
 
+// text a note smí obsahovat odkazové čipy {{rentgen|topo|term:cíl|popisek}} (rozhodnutí 56c, js/ui/chips.js).
 export default {
   format: 'tcpipsim-scenario/1',
   id: 'uroven2-adresy',
@@ -77,7 +78,7 @@ export default {
       hint: 'Obálka rámce bude mít MAC adresy. MAC můžeš v rentgenu a v terminálu vidět v jiném zápisu (dvojtečky, pomlčky, tečky), je to pořád jedna adresa.',
       socket: true, xray: { tab: 'ipv4', fields: ['ip.src', 'ip.dst', 'ip.proto'] } },
     { num: 4, match: { kind: 'encap', layer: 2 }, title: 'Obálka linkové vrstvy: MAC adresy',
-      text: 'Linková vrstva napsala adresy MAC: svou a Bobovu. Bobovu MAC adresu našla v ARP tabulce.',
+      text: 'Linková vrstva napsala adresy MAC: svou ({{rentgen:eth.src|zdrojová MAC}}) a Bobovu ({{rentgen:eth.dst|cílová MAC}}). Bobovu MAC adresu našla v ARP tabulce ({{term:PC1|arp -a v terminálu}}).',
       note: 'Rámec nese MAC adresy jen pro tuhle síť. Odesílatel a příjemce jsou tu stejní jako Alice a Bob, protože jsou ve stejné síti; za routerem to platit nebude.',
       simplifies: 'Alice Bobovu MAC adresu už zná (počítače spolu dřív mluvily, ARP tabulka je předvyplněná); jak ji zjistí, uvidíš v úrovni 3.',
       terminal: { node: 'PC1', cmd: 'arp -a' }, arpHint: true,
@@ -120,7 +121,7 @@ export default {
       simplifies: 'Switch byl právě zapnut, proto nic nezná; počítače se už dřív znaly (ARP tabulky zůstaly).',
       terminal: { node: 'SW1', cmd: 'show mac address-table' } },
     { num: 11, match: { kind: 'phy.rx', node: 'SW1' }, title: 'Switch se učí zdrojovou MAC',
-      text: 'Rámec dorazil na port Fa0/1. Switch čte zdrojovou MAC a zapíše si: Alice je na portu Fa0/1.',
+      text: 'Rámec dorazil na port Fa0/1. Switch čte {{rentgen:eth.src|zdrojovou MAC}} a zapíše si do {{topo:SW1.mac|MAC tabulky}}: Alice je na portu Fa0/1.',
       note: 'Učí se jen ze zdrojové adresy: tím ví, odkud kdo mluví.',
       xray: { tab: 'ethernet', fields: ['eth.src'] },
       predict: { id: 'sw1', q: 'Na které porty switch rámec pošle?', node: 'SW1',
@@ -138,8 +139,8 @@ export default {
       text: 'Switch Alici zná, takže odpověď pošle jen na port Fa0/1. Cyril nic nedostal.',
       note: 'Switch se naučil Boba až z jeho odpovědi: zapisuje jen to, odkud rámec přišel.' },
     { num: 15, match: { kind: 'mark', id: 'mac-table' }, title: 'MAC tabulka po výměně',
-      text: 'V tabulce jsou Alice a Bob. Cyril v ní chybí: nic neodeslal, a switch se učí jen z odesílatelů.',
-      note: 'Cisco zapisuje MAC s tečkami (0200.0000.0001); je to pořád stejná adresa.',
+      text: 'V {{topo:SW1.mac|MAC tabulce}} jsou Alice a Bob. Cyril v ní chybí: nic neodeslal, a switch se učí jen z odesílatelů.',
+      note: 'Cisco zapisuje MAC s tečkami (0200.0000.0001, {{term:SW1|show mac address-table}}); je to pořád stejná adresa.',
       simplifies: 'Řádek v tabulce po čase vyprší (výchozí 300 s); čas v simulátoru neběží jako ve skutečnosti. Panel ukazuje jen MAC a port; switch má i VLAN a typ (viz terminál).',
       terminal: { node: 'SW1', cmd: 'show mac address-table' } },
     { num: 16, match: { kind: 'app.send', node: 'PC1' }, title: 'Alice posílá druhou zprávu',

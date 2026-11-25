@@ -428,4 +428,28 @@ Zobrazení (`applyFocus()` v `js/main.js`): panel ohniska dostane atribut `data-
 ve všech krocích úrovní 1–3), `tests/browser/interact.html` (žlutá karta, rámeček, štítek, záhlaví na
 jeden řádek, ztlumení při 1280×720).
 
-Odkazové čipy z textu („→ Rentgen: TTL“, bod c) zatím nejsou.
+**Odkazové čipy v textu kroku** (bod c, `js/ui/chips.js` bez DOM, obsluha v `js/main.js`). Text nebo
+poznámka kroku ve scénáři smí obsahovat značku `{{druh:cíl|popisek}}`; vykreslí se jako tlačítko
+„→ popisek“ v barvě role cíle:
+
+| Značka | Barva čipu | Cíl (zvýrazní se) | Klik |
+|---|---|---|---|
+| `{{rentgen:ip.ttl\|TTL}}` | ocelově modrý rámeček | řádek pole v rentgenu (id pole z `wire/fields.js`), jinak celý panel | vybere pole a přepne záložku |
+| `{{rentgen:mask\|…}}`, `arp`, `PC1.route` | ocelově modrý | karta v pravém panelu s `data-target` | ukáže kartu |
+| `{{topo:SW1.mac\|MAC tabulka}}`, `R1.route`, `R1.arp`, `PC1.arp`, `SW1` | ink, tečkovaný rámeček | prvek topologie s `data-target` / uzel | posune k němu |
+| `{{term:PC1\|terminál}}` (cíl smí chybět) | černý | otevřené okno terminálu, jinak karta uzlu | otevře terminál uzlu |
+
+Najetí myší i fokus klávesnicí (čip je `<button>`, Tab + Enter) dá cíli přerušovaný rámeček 3 px
+(`.chip-hl`, `outline`, nic neposune); odjetí ho zruší. Čip má `aria-label` „TTL: ukázat v rentgenu“ /
+„…: ukázat v topologii“ / „…: otevřít terminál“, šipka je `aria-hidden`. Čipy jsou v úrovni 2 v krocích 4,
+11, 15, v úrovni 3 v krocích 2, 9, 12, 13, 14, 15, 17, 19 (i v .md scénářů). Testy:
+`tests/ui/chips.test.js` (syntaxe, HTML, každý čip míří na pole, které v kroku rentgen ukazuje, na
+kartu, kterou krok zobrazí, na existující uzel a tabulku), `tests/browser/interact.html` (v každém
+kroku s čipem: aria-label, zvýraznění při najetí, klik vybere pole / otevře terminál, cíl v DOM existuje).
+
+**720p bez překryvů popisků** (měří `layoutCheck()` v `tests/browser/interact.html` při 1280×720):
+štítek sítě 1 je nad středem sítě (ne nad Alicí, kde je štítek „odesílatel“), štítek „ARP“ má nad
+tabulkou ARP vlastní místo (nepřekryje „brána …“), karty PC se nepřekrývají ani s legendou, řádek L4
+„Transportní / segment“ se vejde do výšky řádku a přeskočená L4 (ICMP) má místo „segment“ text
+„bez portů“. Role sloupce se v úzkém sloupci (úrovně 2 a 3 do 1360 px) a vedle štítku „Teď Bob“
+zkrátí na „odesílatel ↓“ / „příjemce ↑“ místo oříznutí „zdola nah…“.

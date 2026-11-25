@@ -130,7 +130,7 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
   „ARP tabulka Alice: 192.168.1.20 → 02:…:02“ (s vysvětlivkou „IP → MAC, které si počítač pamatuje“).
 - Dělá: klikne na obálku; v rentgenu **najde Cílovou MAC, Zdrojovou MAC a EtherType** (`0x0800`:
   uvnitř je IPv4 paket). Může u Alice spustit `arp -a`.
-- Text: „Linková vrstva napsala adresy MAC: svou a Bobovu. Bobovu MAC adresu našla v ARP tabulce.“
+- Text: „Linková vrstva napsala adresy MAC: svou ({{rentgen:eth.src|zdrojová MAC}}) a Bobovu ({{rentgen:eth.dst|cílová MAC}}). Bobovu MAC adresu našla v ARP tabulce ({{term:PC1|arp -a v terminálu}}).“
 - **Terminál (Alice): `arp -a`.** Výpis: `192.168.1.20   02-00-00-00-00-02   dynamic` a statické
   řádky broadcastu a multicastu (rozhodnutí 26).
 - Simulátor zjednodušuje: „Alice Bobovu MAC adresu už zná (počítače spolu dřív mluvily, ARP tabulka je
@@ -219,7 +219,7 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 
 - Vidí: rámec leží na Fa0/1 (vstup); do tabulky přibude řádek `02:…:01 → Fa0/1` („nový“);
   v rentgenu je vybraná zdrojová MAC. Na výstupech nic.
-- Text: „Rámec dorazil na port Fa0/1. Switch čte zdrojovou MAC a zapíše si: Alice je na portu Fa0/1.“
+- Text: „Rámec dorazil na port Fa0/1. Switch čte {{rentgen:eth.src|zdrojovou MAC}} a zapíše si do {{topo:SW1.mac|MAC tabulky}}: Alice je na portu Fa0/1.“
 - Note: „Učí se jen ze zdrojové adresy: tím ví, odkud kdo mluví.“
 - **Tip:** „Na které porty switch rámec pošle?“ Fa0/2 / Fa0/3 / oba (Fa0/1 je vstup, zamčený).
   Většina studentů zvolí Fa0/2: nejčastější podoba miskoncepce. Důvod při nesouladu: „Bobovu MAC
@@ -256,8 +256,8 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 - Dělá: **`show mac address-table` na switchi.** Výpis (Cisco styl, anglicky):
   `1  0200.0000.0001  DYNAMIC  Fa0/1` a `1  0200.0000.0002  DYNAMIC  Fa0/2`, `Total Mac Addresses… 2`.
   Student odpoví: **proč tam není Cyril?** (Nic neodeslal, switch se učí jen ze zdrojové adresy.)
-- Text: „V tabulce jsou Alice a Bob. Cyril v ní chybí: nic neodeslal, a switch se učí jen z odesílatelů.“
-- Note: „Cisco zapisuje MAC s tečkami (0200.0000.0001); je to pořád stejná adresa.“
+- Text: „V {{topo:SW1.mac|MAC tabulce}} jsou Alice a Bob. Cyril v ní chybí: nic neodeslal, a switch se učí jen z odesílatelů.“
+- Note: „Cisco zapisuje MAC s tečkami (0200.0000.0001, {{term:SW1|show mac address-table}}); je to pořád stejná adresa.“
 - Simulátor zjednodušuje: „Řádek v tabulce po čase vyprší (výchozí 300 s); čas v simulátoru neběží
   jako ve skutečnosti. Panel ukazuje jen MAC a port; switch má i VLAN a typ (viz terminál).“
 

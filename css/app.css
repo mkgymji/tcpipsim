@@ -975,3 +975,50 @@ body.reduce-motion .now-badge { animation: none; }
 .row.has-note .nm { display: none; }
 .row.has-note .xmark, body.lvl3 .row.has-note .xmark { position: static; order: 2; border: 0; padding: 0; background: none;
   font-size: 12.5px; line-height: 1.05; text-align: left; white-space: normal; }
+
+/* ---- Odkazové čipy v textu kroku (rozhodnutí 56c, ui.md kap. 13) ----
+   „→ popisek“ v barvě role cíle; najetí/fokus = přerušovaný rámeček na cíli (nic neposune). */
+.tchip { --cc: var(--ink); display: inline; font: inherit; font-weight: 700; line-height: 1.25; padding: 0 5px; margin: 0 1px;
+  border: 2px solid var(--cc); border-radius: 5px; background: var(--panel); color: var(--cc); cursor: pointer; white-space: nowrap; }
+.tchip.c-rentgen { --cc: var(--role-xray); }
+.tchip.c-topo { --cc: var(--ink); border-style: dotted; }
+.tchip.c-term { --cc: var(--role-term); background: var(--role-term); color: #fff; }
+.tchip:hover, .tchip:focus-visible { background: var(--cc); color: #fff; outline: 3px solid var(--cc); outline-offset: 1px; }
+.chip-hl { --cc: var(--ink); outline: 3px dashed var(--cc) !important; outline-offset: 2px !important; }
+.chip-hl.c-rentgen { --cc: var(--role-xray); }
+.chip-hl.c-term { --cc: var(--role-term); }
+tr.chip-hl { outline-offset: -3px !important; }
+tr.chip-hl > td { background: #E3EAF3; }
+
+/* ---- 720p: bez překryvů popisků (měří tests/browser/interact.html) ---- */
+/* role sloupce: v úzkém sloupci (úroveň 3) nebo vedle štítku „Teď Bob“ jen „příjemce ↑“, nic se nezkracuje */
+.lift h2 small .dira { display: none; }
+.lift h2:has(.now-badge:not([hidden])) small .dir { display: none; }
+.lift h2:has(.now-badge:not([hidden])) small .dira { display: inline; }
+@media (max-width: 1360px) {
+  :is(body.lvl2, body.lvl3) .lift h2 small .dir { display: none; }
+  :is(body.lvl2, body.lvl3) .lift h2 small .dira { display: inline; }
+}
+/* štítek sítě 1 nad středem sítě, ne nad Alicí (štítek „odesílatel“ nad kartou ho překrýval) */
+.net3.n1 .netlab { left: 50%; transform: translateX(-50%); }
+/* štítek „ARP“ nad tabulkou má vlastní místo, nepřekryje řádek „brána …“ */
+.pc3 .arp3:not(.empty) { margin-top: 10px; }
+.arp3 .al { top: -10px; font-size: 13px; line-height: 1.05; }
+@media (max-height: 820px) {
+  /* L4 (dva řádky „Transportní / segment“) se vejde do výšky řádku; přeskočená L4 (ICMP) má místo
+     „segment“ text „bez portů“ (segment nevznikl), samostatný štítek by překryl název */
+  body.lvl3 .row[data-layer="L4"] .pdu, body.lvl3 .row[data-layer="transport"] .pdu { font-size: 13px; line-height: .95; }
+  body.lvl2 .row[data-layer="L4"] .pdu, body.lvl2 .row[data-layer="transport"] .pdu { font-size: 14px; line-height: .85; }
+  body.lvl2 .row[data-layer="L4"] .nm, body.lvl2 .row[data-layer="transport"] .nm { line-height: .9; }
+  body.lvl3 .row.skip .skipmark { display: none; }
+  body.lvl3 .row.skip .pdu { font-size: 0; }
+  body.lvl3 .row.skip .pdu::after { content: 'bez portů'; font-size: 13px; color: var(--ink); }
+  /* karty PC: dvě položky ARP + štítek ARP se vejdou do řádku topologie */
+  .pc3 .ip, .pc3 .gw { line-height: 1.1; }
+  .pc3 .nm { line-height: 1; }
+  .arp3 { line-height: 1.05; }
+  .pc3 .arp3:not(.empty) { margin-top: 9px; }
+  .arp3 .al { top: -9px; font-size: 12px; line-height: 1; }
+  .pc3 { padding-top: 5px; }
+  .pc3 .pchead svg { height: 18px; }
+}

@@ -13,6 +13,10 @@ import { frameFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { isHost } from '../devices/types.js';
 
+// role sloupce; při úzkém sloupci nebo se štítkem „Teď Bob“ CSS ukáže jen šipku (720p)
+const ROLE_S = 'odesílatel<span class="dir">, shora dolů</span><span class="dira" aria-hidden="true"> ↓</span>';
+const ROLE_R = 'příjemce<span class="dir">, zdola nahoru</span><span class="dira" aria-hidden="true"> ↑</span>';
+
 const $ = (id) => document.getElementById(id);
 
 export function createLevel2(host) {
@@ -39,7 +43,9 @@ export function createLevel2(host) {
   const flowKey = (v) => (v.flow ? `${v.flow.sender}|${v.flow.text}|${v.flow.dport}` : '');
   function pairOf(v) {
     const f = v.flow ?? { sender: 'PC1', receiver: 'PC2' };
-    const override = ui.pair && ui.pair.flowKey === flowKey(v) ? ui.pair.receiver : null;
+    // ruční volba příjemce platí jen v kroku, kde ji student udělal (Michal 2026-11-26: po kliknutí na Cyrila
+    // se v dalších krocích „rozbalovalo“ u Cyrila, i když rámec zahodil)
+    const override = ui.pair && ui.pair.flowKey === flowKey(v) && ui.pair.step === v.step ? ui.pair.receiver : null;
     if (override) return { sender: f.sender, receiver: override };
     // rozhodnutí 57: v kroku zahození patří sloupec příjemce uzlu, který rámec zahodil (Cyril)
     return columnPair(v, { sender: f.sender, receiver: f.receiver });
@@ -116,9 +122,9 @@ export function createLevel2(host) {
     const sN = v.nodes[pair.sender], rN = v.nodes[pair.receiver];
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
-    els.sRole.textContent = 'odesílatel, shora dolů';
+    els.sRole.innerHTML = ROLE_S;
     const dropHere = v.dropped?.node === pair.receiver;
-    els.rRole.textContent = dropHere ? '· není cíl' : 'příjemce, zdola nahoru';
+    els.rRole.innerHTML = dropHere ? '· není cíl' : ROLE_R;
     // krok po zahození: sloupec viditelně přepne zpět na příjemce (štítek „Teď Bob“)
     const prevV = cur() > 0 ? timeline.view(cur() - 1) : null;
     const now = prevV && flowKey(prevV) === flowKey(v) ? columnSwitchLabel(pairOf(prevV), pair, v, rN?.label ?? '') : '';
@@ -261,6 +267,8 @@ export function createLevel2(host) {
 
   return {
     scenario: scn, timeline, level,
+    // odkazové čipy z textu kroku (rozhodnutí 56c, main.js)
+    selectField, openTerm: (id) => openTerm(id || (ui.selected && dialectOf(view().nodes[ui.selected] ?? {}) ? ui.selected : 'PC1')),
     render,
     renderPanels,
     onStepChange(prevK, nextK) {
@@ -308,7 +316,7 @@ export function createLevel2(host) {
         ui.selected = id;
         if (isHost(v.nodes[id].type)) {
           const f = v.flow ?? { sender: 'PC1' };
-          ui.pair = id === f.sender ? null : { flowKey: flowKey(v), receiver: id };
+          ui.pair = id === f.sender ? null : { flowKey: flowKey(v), receiver: id, step: v.step };
         }
         rerenderAll();
         return;
@@ -371,7 +379,7 @@ export function createLevel2(host) {
         const tk = timeline.steps.findIndex((s) => s.predict?.id === id);
         if (tk >= 0 && vals) ui.answers.set(tk, vals.split(','));
       }
-      if (p.get('pair')) ui.pair = { flowKey: flowKey(view()), receiver: p.get('pair') };
+      if (p.get('pair')) ui.pair = { flowKey: flowKey(view()), receiver: p.get('pair'), step: view().step };
       if (p.get('sel')) ui.selected = p.get('sel');
     },
     afterStart(p) {

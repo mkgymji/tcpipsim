@@ -136,7 +136,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Vidí: u Alice se objeví výpočet: vedle sebe dvě adresy v bitech (192.168.1.10 a 192.168.2.20), maska
   255.255.255.0 jako 24 jedniček, síťová část podbarvená, hostitelská část šedá.
 - Dělá: **porovná síťovou část** obou adres. U Cyrila (192.168.1.30) stejné porovnání vyjde stejně.
-- Text: „Alice porovná síťovou část své adresy s adresou cíle. Maska 255.255.255.0 říká: prvních 24 bitů je síť.
+- Text: „Alice porovná síťovou část své adresy s adresou cíle. Maska 255.255.255.0 říká: prvních 24 bitů je síť ({{rentgen:mask|výpočet s maskou}}).
   U Cyrila se shodují, u Boba ne (192.168.1.0 ≠ 192.168.2.0): Bob je v jiné síti.“
 - Note: „Adresa sítě = IP adresa AND maska. Zápis 192.168.1.0/24 říká totéž: prvních 24 bitů je síť.“
 - Proč zde: bez tohoto kroku je brána nevysvětlená „třetí adresa“. Student musí vidět, že rozhodnutí
@@ -222,8 +222,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   jako nalezený. Žádná další vrstva nad L3.
 - Dělá: **`show ip route`** na R1: výpis podle IOS (kódy C a L; viz Terminál). Najde řádek, kterým se paket řídí,
   a odpoví, **jaký je další skok** (nic: síť je přímo připojená, cíl je u Gi0/1).
-- Text: „Router rámec rozbalil (cílová MAC byla jeho), přečetl cílovou IP adresu 192.168.2.20 a hledá ji ve
-  směrovací tabulce. Odpovídá síť 192.168.2.0/24 přes rozhraní Gi0/1. Sníží TTL o 1.“
+- Text: „Router rámec rozbalil (cílová MAC byla jeho), přečetl {{rentgen:ip.dst|cílovou IP adresu}} 192.168.2.20 a hledá ji ve {{topo:R1.route|směrovací tabulce}}. Odpovídá síť 192.168.2.0/24 přes rozhraní Gi0/1. Sníží {{rentgen:ip.ttl|TTL}} o 1.“
 - Note: „Router rozhoduje podle cílové IP adresy, ne podle MAC. MAC se použila jen k tomu, aby rámec přijal.“
 - Simulátor zjednodušuje: „Router tu zná jen přímo připojené sítě (C) a své adresy (L). Statické a výchozí cesty (S, S*) přijdou v úrovni 5.“
 - Longest prefix match (jednoduše): tabulka routeru má jen dva řádky, které sedí na tvar `/24`; pravidlo
@@ -262,7 +261,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   **TTL** 128 → 127 (změna). Kontrolní součet hlavičky se přepočítá (označeno, jen v rentgenu).
 - Dělá: v rentgenu **porovná oba rámce** a vyplní si, která pole se změnila.
 - Text: „Tvůj tip: <volba>. Skutečnost: MAC adresy se změnily, adresy IP zůstaly. Router pro každý úsek vytvoří nový
-  rámec: zdrojová MAC je jeho rozhraní, cílová MAC je další zařízení na cestě.“
+  rámec: {{rentgen:eth.src|zdrojová MAC}} je jeho rozhraní, {{rentgen:eth.dst|cílová MAC}} je další zařízení na cestě.“
 - Note: „MAC adresa platí jen v jedné síti, IP adresa v celé cestě. Proto se IP nemění a MAC ano.“
 - Aha chvíle číslo 1 celé úrovně (viz níže).
 - Simulátor zjednodušuje: „Přepočet kontrolního součtu IP hlavičky je v rentgenu vidět, ale nevysvětluje se.“
@@ -272,7 +271,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Vidí: Bob přijal rámec (cíl = jeho MAC), rozbalil do L3 (cílová IP je jeho), ICMP Echo Request
   → aplikace `ping` v OS odpovídá. Vzniká **Echo Reply**: nový paket od Boba s výchozím TTL **128** (Bob má
   Windows, jako Alice; reálný Windows používá 128). Odpověď ještě neodešla.
-- Text: „Bob přijal Echo Request a odpovídá novým paketem. Bobův systém dává novým paketům TTL 128. Jaké TTL uvidí Alice?“
+- Text: „Bob přijal Echo Request a odpovídá novým paketem. Bobův systém dává novým paketům {{rentgen:ip.ttl|TTL}} 128. Jaké TTL uvidí Alice?“
   (rozhodnutí 51: tip nesmí obsahovat výsledek; TTL na kabelu se v kroku tipu nevypisuje)
 - **Tip:** „Jaké TTL uvidí Alice v odpovědi?“ Volby: **128** / **127** / **126**. Správně: 127. Důvod při nesouladu:
   „Odpověď je nový paket, který má TTL 128, a při cestě zpět projde jedním routerem: 127. TTL z cesty tam se nepřičítá ani
@@ -287,8 +286,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   Odpověď má zdrojovou IP 192.168.2.20, cílovou 192.168.1.10; MAC adresy se opět mění na každém úseku.
 - **Terminál (Alice):** dokončí se výpis `ping`: `Reply from 192.168.2.20: bytes=32 time<1ms TTL=127` (4×, viz Terminál),
   statistika 4 odeslané, 4 přijaté.
-- Text: „Tvůj tip: <volba>. Skutečnost: 127. Odpověď je nový paket s TTL 128, router ho cestou sníží o 1. Alice vidí
-  v pingu TTL=127.“
+- Text: „Tvůj tip: <volba>. Skutečnost: 127. Odpověď je nový paket s {{rentgen:ip.ttl|TTL}} 128, router ho cestou sníží o 1. Alice vidí {{term:PC1|v pingu}} TTL=127.“
 - Note: „Přes router se paket vrací stejným způsobem: nový rámec na každém úseku, IP adresy prohozené, TTL −1.“
 - Simulátor zjednodušuje: „Animace ukazuje jen první ze čtyř Echo Request. Zbylé tři proběhnou stejně, jen už s naplněnými
   ARP tabulkami; výpis `ping` je ukáže všechny.“
@@ -299,8 +297,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Dělá: **`arp -a`** na Alici a Bobovi, **`show ip arp`** na R1. Odpoví: **proč Alice nezná MAC adresu Boba?**
 - Výsledky: Alice: jen brána (`192.168.1.1 → 02-00-00-00-01-01`). Bob: jen router Gi0/1 (`192.168.2.1 → 02-00-00-00-01-02`).
   R1: dva záznamy, Alice (Gi0/0) a Bob (Gi0/1).
-- Text: „Alice nezná MAC adresu Boba a nikdy ji nezjistí: MAC adresy jsou platné jen v jedné síti. Každý
-  pozná jen adresy sousedů ve své síti. Router je v obou sítích, a proto zná obě strany.“
+- Text: „Alice nezná MAC adresu Boba a nikdy ji nezjistí: MAC adresy jsou platné jen v jedné síti. Každý pozná jen adresy sousedů ve své síti ({{rentgen:arp|ARP tabulky}}). Router je v obou sítích, a proto zná obě strany ({{topo:R1.arp|ARP tabulka R1}}).“
 - Note: „Z tohoto důvodu nelze přes internet zjistit MAC adresu cizího počítače z jiné sítě.“
 - Hint: „Zkus `arp -a` na Cyrilovi: tabulka je prázdná. ARP dotaz Alice sice dostal, ale neptala se na něj, a tak si ji nezapsal.
   Sám zatím s nikým nemluvil.“
@@ -324,7 +321,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   zvýrazní **řádek tabulky**, který rozhodl.
 - Dělá: **`netstat -nr`** na Alici (výpis Windows, zjednodušený; viz Terminál). Přečte dva řádky:
   `192.168.1.0/24 On-link` a `0.0.0.0/0 → 192.168.1.1`. Odpoví, **který řádek platí pro 192.168.1.30** a **který pro 192.168.2.20**.
-- Text: „Tvůj tip: <volba>. Skutečnost: přímo. Alice se podívala do směrovací tabulky. Pro Cyrila platí řádek
+- Text: „Tvůj tip: <volba>. Skutečnost: přímo. Alice se podívala do {{rentgen:PC1.route|směrovací tabulky}}. Pro Cyrila platí řádek
   `192.168.1.0/24` (cíl je u mě), pro Boba jen výchozí cesta `0.0.0.0/0` (přes bránu). Když pasují oba řádky, vyhraje delší
   prefix.“
 - Note: „Výchozí cesta (0.0.0.0/0) znamená „všechno ostatní“. Alicina výchozí brána je tedy jen řádek v její směrovací tabulce.“
@@ -354,8 +351,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   výpisu první řádek: `1  <1 ms  <1 ms  <1 ms  192.168.1.1`.
 - Dělá: v rentgenu **najde Type 11 a v „datech“ ICMP zprávy IP hlavičku původního paketu**, podle níž Alice pozná, kterou
   sondu router zahodil.
-- Text: „Tvůj tip: <volba>. Skutečnost: router paket zahodil a poslal Alici zprávu Time Exceeded. Ve zprávě je adresa
-  routeru, a tak Alice zná první skok.“
+- Text: „Tvůj tip: <volba>. Skutečnost: router paket zahodil a poslal Alici zprávu {{rentgen:icmp.type|Time Exceeded}}. Ve zprávě je {{rentgen:ip.src|adresa routeru}}, a tak Alice zná první skok.“
 - Note: „TTL chrání síť před nekonečným bloudením paketů (například při smyčce mezi routery). `tracert` toho využívá:
   posílá TTL 1, 2, 3 … a z odpovědí Time Exceeded skládá cestu.“
 - Hint: „Adresa z odpovědi je adresa routeru na straně Alice (Gi0/0): ta, ze které odpověď odešla.“

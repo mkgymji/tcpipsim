@@ -11,6 +11,7 @@ import { createLevel1 } from './ui/app1.js';
 import { createLevel2 } from './ui/app2.js';
 import { createLevel3 } from './ui/app3.js';
 import { stepFocus } from './ui/focus.js';
+import { fieldTab } from './ui/chips.js';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const DWELL_MS = 4200;        // doba jednoho kroku při přehrávání (1x): animace + čtení
@@ -218,8 +219,47 @@ els.motion.addEventListener('click', () => {
   syncMotion();
   renderControls();
 });
+// Odkazové čipy v textu kroku (rozhodnutí 56c, js/ui/chips.js): najetí/fokus zvýrazní cíl, klik
+// vybere pole rentgenu / otevře terminál / ukáže prvek topologie.
+function chipTargets(chip) {
+  const kind = chip.dataset.chip, t = chip.dataset.chipTarget;
+  const q = (s) => [...document.querySelectorAll(s)];
+  const sel = (v) => (window.CSS?.escape ? CSS.escape(v) : v);
+  if (kind === 'rentgen') {
+    const hit = t ? q(`#info [data-field="${sel(t)}"], #info [data-target="${sel(t)}"]`) : [];
+    return hit.length ? hit : [$('info')];
+  }
+  if (kind === 'topo') {
+    const hit = q(`.left .topo [data-target="${sel(t)}"]`);
+    if (hit.length) return hit;
+    const node = document.querySelector(`.left .topo [data-node="${sel(t)}"]`);
+    return [node?.parentElement ?? document.querySelector('.left .topo')].filter(Boolean);
+  }
+  if (!$('termwin').hidden) return [$('termwin')];
+  const node = t && document.querySelector(`.left .topo [data-node="${sel(t)}"]`);
+  return [node ?? $('termwin')].filter(Boolean);
+}
+function chipHover(e, on) {
+  const chip = e.target.closest?.('.tchip');
+  if (!chip) return;
+  document.querySelectorAll('.chip-hl').forEach((x) => x.classList.remove('chip-hl', 'c-rentgen', 'c-topo', 'c-term'));
+  if (on) chipTargets(chip).forEach((x) => x.classList.add('chip-hl', `c-${chip.dataset.chip}`));
+}
+['mouseover', 'focusin'].forEach((ev) => document.addEventListener(ev, (e) => chipHover(e, true)));
+['mouseout', 'focusout'].forEach((ev) => document.addEventListener(ev, (e) => chipHover(e, false)));
+function chipClick(chip) {
+  const kind = chip.dataset.chip, t = chip.dataset.chipTarget;
+  if (kind === 'term') { app.openTerm?.(t); return; }
+  if (kind === 'rentgen' && fieldTab(t)) app.selectField?.(t, fieldTab(t));
+  const el = chipTargets(chip)[0];
+  el?.scrollIntoView?.({ block: 'nearest' });
+  chipHover({ target: chip }, true);
+}
+
 document.addEventListener('click', (e) => {
   if (e.target.closest?.('[data-open-questions]')) { openQuestions(); return; }
+  const chip = e.target.closest?.('.tchip');
+  if (chip) { chipClick(chip); return; }
   app.onClick?.(e);
 });
 

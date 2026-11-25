@@ -7,6 +7,7 @@ import { isHost } from '../devices/types.js';
 import { frameFields, byteRegion } from '../wire/fields.js';
 import { bitString } from '../wire/encode.js';
 import { esc, badge, rowLabel } from './render.js';
+import { chipsHtml } from './chips.js';
 import { liftAnchor } from './lift.js';
 
 const cssVars = (n) => `--c:var(--L${n});--t:var(--L${n}t)`;
@@ -135,7 +136,7 @@ function macTable(v, dev) {
     return `<tr class="${op ? 'new' : ''}${e.mac === found ? ' found' : ''}"><td class="mono">${macHtml(e.mac)}</td><td>${esc(e.port)}</td><td class="tagc">${tag}</td></tr>`;
   }).join('');
   const empty = !n.mac_table.length ? '<tr class="empty"><td colspan="3">prázdná: switch zatím nic nezná</td></tr>' : '';
-  return `<div class="mact"><div class="mact-h">MAC tabulka ${esc(n.label)}</div>
+  return `<div class="mact" data-target="${dev}.mac"><div class="mact-h">MAC tabulka ${esc(n.label)}</div>
     <table><thead><tr><th>MAC adresa</th><th>Port</th><th class="tagc"></th></tr></thead><tbody>${rows}${empty}</tbody></table></div>`;
 }
 
@@ -328,7 +329,7 @@ export function explainHtml2(view, model, total, { predict, tips, evalLines = []
   const out = [`<div class="stepno">Krok ${stepLabel(s)} z ${total}${s.part ? ` (rozbalování ${s.part[0]}/${s.part[1]})` : ''}</div>`];
   out.push(`<h3>${esc(predict ? `Ptám se tebe: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
-  out.push(`<p>${esc(textFor(s.text, model))}</p>`);
+  out.push(`<p>${chipsHtml(textFor(s.text, model), esc)}</p>`);
   if (predict) {
     const opts = predict.choices ? predict.choices.map((c) => ({ port: c, label: c })) : tipOptions(view, predict);
     out.push(`<div class="predict" role="group" aria-label="${esc(predict.q)}">${predict.help ? `<p class="phelp">${esc(predict.help)}</p>` : ''}${opts.map((o) => `<button type="button" class="btn small${tips?.has(o.port) ? ' on' : ''}"
@@ -337,7 +338,7 @@ export function explainHtml2(view, model, total, { predict, tips, evalLines = []
   }
   for (const line of evalLines) out.push(`<p class="evalline">${line}</p>`);
   const note = textFor(s.note, model);
-  if (note) out.push(`<p class="note">${esc(note)}</p>`);
+  if (note) out.push(`<p class="note">${chipsHtml(note, esc)}</p>`);
   if (termHint) {
     out.push(`<p class="termhint"><button type="button" class="btn small" data-run="${esc(termHint.node)}" data-cmd="${esc(termHint.cmd)}">Spustit za mě</button>
       <code>${esc(termHint.cmd)}</code> <small>v terminálu: ${esc(termHint.label)}</small></p>`);
