@@ -17,8 +17,8 @@ maturita z IVT – okruh Počítačové sítě).
 | 1 Barvičky | vrstvy ISO/OSI a TCP/IP, zapouzdření a rozbalení zprávy | hotovo |
 | 2 Adresy | MAC, IP, port; hub vs. switch, MAC tabulka; UDP | hotovo |
 | 3 Směrování | ARP, ping (ICMP), brána, router, směrovací tabulka, TTL, tracert, hledání chyb | hotovo |
-| 4 Transport a aplikace | TCP, DNS, web, NAT | plánováno |
-| 5 Směrem k CCNA | konfigurace IOS, VLAN, STP… | plánováno |
+| 4 Transport a aplikace | DNS (UDP), TCP handshake, HTTP, ukončení spojení, socket a multiplex, retransmise | hotovo |
+| 5 Směrem k CCNA | NAT a internet (seznam.cz), konfigurace IOS, VLAN, STP… | plánováno |
 
 Odkaz na konkrétní krok: `#u=<úroveň>&k=<krok>&m=osi|tcpip`, např.
 https://mkgymji.github.io/tcpipsim/#u=3&k=12

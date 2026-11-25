@@ -10,6 +10,7 @@ import { FLAG, flagsString, TCP_PARAMS, isnOf, seqAdd } from '../proto/tcp.js';
 import { dnsQuery, dnsAnswer, DNS_PARAMS, DNS_PORT } from '../proto/dns.js';
 import { httpRequest, httpResponse, parseHttp } from '../proto/http.js';
 import { isHost } from '../devices/types.js';
+import { sameSubnet } from './addr.js';
 
 const IP_TCP = 6, IP_UDP = 17;
 const EPHEMERAL_FIRST = 49152;
@@ -214,11 +215,11 @@ export function installTransport(c) {
       return;
     }
     tcb.rcvNxt = seqAdd(tcb.rcvNxt, dlen + (fin ? 1 : 0));
+    // záznam: data vystoupají do aplikace dřív, než OS pošle potvrzení (na drátě je pořadí stejné: ACK
+    // odchází hned, odpověď aplikace až po něm); krok scénáře tak může skončit u příjemce zprávy
+    if (dlen > 0) emit('app.recv', { node: node.id, app: tcb.app, port: tcb.lport, layer: 7, pdu: seg.payload, text, from: remote });
     tcpSend(tcb, FLAG.ACK);   // potvrzení hned a samostatně (tcp.md kap. 7.1)
-    if (dlen > 0) {
-      emit('app.recv', { node: node.id, app: tcb.app, port: tcb.lport, layer: 7, pdu: seg.payload, text, from: remote });
-      appEvent(tcb, 'data', { text });
-    }
+    if (dlen > 0) appEvent(tcb, 'data', { text });
     if (fin) {
       if (e.state === 'ESTABLISHED') {
         setState(tcb, 'CLOSE-WAIT', 'ESTABLISHED -> CLOSE-WAIT (druhá strana už nic nepošle)');
@@ -349,7 +350,7 @@ export function installTransport(c) {
     const q = dnsQuery(run.qid, run.name, run.qtype);
     const pdu = encapsulate(nextId(), 'dns', 7, q, null);
     const iface = node.interfaces[0];
-    const remote = run.server !== iface.ip && !run.server.startsWith(iface.ip.split('.').slice(0, 3).join('.') + '.');
+    const remote = !sameSubnet(run.server, iface.ip, iface.prefix);
     emit('app.send', { node: run.node, app: run.app, layer: 7, pdu, dst: run.server, dport: DNS_PORT, sport: run.port });
     emit('udp_send', { node: run.node, app: 'resolver', sport: run.port, dst: run.server, dport: DNS_PORT,
       detail: `resolver: ${run.tries > 1 ? `opakovaný dotaz (pokus ${run.tries})` : `nový UDP socket, dynamický port ${run.port}`}; DNS server ${run.server}${remote ? ' je v jiné síti -> přes bránu' : ''}` });
@@ -439,7 +440,8 @@ export function installTransport(c) {
       tcpSend(e.tcb, FLAG.PSH | FLAG.ACK, httpRequest(run.host, run.path));
       return run;
     }
-    if (a.dst) tcpConnect(run, a.dst, port);
+    if (!a.dst && /^\d{1,3}(\.\d{1,3}){3}$/.test(a.host ?? '')) run.dst = a.host;   // curl na IP adresu: bez DNS
+    if (run.dst) tcpConnect(run, run.dst, port);
     else {
       startResolve(nodeId, a.host, { then: (ip) => { run.dst = ip; after(run.think, () => tcpConnect(run, ip, port)); },
         thenFail: (res) => finish(run, { kind: 'dns_failed', dns: res }) });

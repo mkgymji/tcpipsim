@@ -10,7 +10,7 @@ import { termLinesHtml, termTitle } from './render2.js';
 import { topologyHtml3, nestHtml3, nestCaption3, mediumHtml3, liftAnchor3, laneEnd3, mediumDevices3, explainHtml3,
   maskCard, compareCard, tablesCard, probesCard, summaryCard3, xrayHtml3, xrayTarget, currentMessage } from './render3.js';
 import { tipEvaluator, evalTip } from './tips.js';
-import { placeLane, slideFloat, columnPair, dropNote, columnSwitchLabel } from './lift.js';
+import { placeLane, slideFloat, dropNote, columnSwitchLabel, stepPair } from './lift.js';
 import { pduFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { stepLabel } from '../core/timeline.js';
@@ -50,16 +50,8 @@ export function createLevel3(host, cfg = {}) {
   const parts = timeline.steps.map((s, k) => (s.part3 ? { id: s.part3, k, title: s.title } : null)).filter(Boolean);
   const partOf = (k) => [...parts].reverse().find((p) => p.k <= k)?.id ?? null;
 
-  function pairOf(v) {
-    const f = v.flow;
-    // úroveň 4 (rozhodnutí 57): sloupec příjemce určuje krok (`right`), odesílatel je druhá strana segmentu
-    if (v.step.right && !(f?.seg && f.sender === v.step.right)) {
-      const other = f ? (f.sender !== v.step.right ? f.sender : f.receiver) : null;
-      return { sender: other ?? (v.step.right === 'PC1' ? 'SRV1' : 'PC1'), receiver: v.step.right };
-    }
-    // rozhodnutí 57: v kroku zahození patří sloupec příjemce uzlu, který rámec zahodil (Cyril)
-    return f ? columnPair(v, { sender: f.sender, receiver: f.receiver }) : { sender: 'PC1', receiver: 'PC2' };
-  }
+  // rozhodnutí 57; úroveň 4 podle zobrazené zprávy (lift.stepPair, testuje se v Node)
+  const pairOf = (v) => stepPair(v);
 
   function evalLines(k) {
     return ev.tipsEvaluatedAt(k).map((tk) => {

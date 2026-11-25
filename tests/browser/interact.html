@@ -422,6 +422,17 @@ f.onload = async () => {
     q4('#btn-fwd').click();
     await wait(300);
     check(lab4().startsWith('Krok 14') && q4('#explain .evalline')?.textContent.includes('Sedí'), `krok 14 vyhodnotí tip (${lab4()})`);
+    // karta tipu (student, 720p): volby celé, bez posuvníku; otázka jen jednou; tlačítka částí A–F se vejdou
+    for (const k of ['2', '6', '19', '23', '28']) {
+      w4.location.hash = `#u=4&k=${k}&m=osi`;
+      await wait(250);
+      const ex = q4('#explain'), btns = [...d4.querySelectorAll('#explain .predict .btn')];
+      const cut = btns.filter((b) => rect(b).bottom > rect(ex).bottom + 1 || rect(b).right > rect(ex).right + 1 || rect(b).bottom > w4.innerHeight);
+      check(btns.length && !cut.length && ex.scrollHeight <= ex.clientHeight + 1 && ex.scrollWidth <= ex.clientWidth + 1, `tip ${k}: volby vidět bez posunu (${cut.length} useknuto)`);
+      check((ex.textContent.match(/Otázka:/g) ?? []).length === 1, `tip ${k}: „Otázka:“ jen jednou`);
+      const pb = [...d4.querySelectorAll('#explain .pbtn')].filter((b) => rect(b).right > rect(ex).right - 1);
+      check(!pb.length, `tip ${k}: tlačítka částí se vejdou`);
+    }
     // terminál: netstat -an na Alici, ss -tuln na SRV1 (Linux), ztráta v kroku 27
     w4.location.hash = '#u=4&k=10&m=osi';
     await wait(300);
@@ -436,6 +447,12 @@ f.onload = async () => {
     w4.location.hash = '#u=4&k=27&m=osi';
     await wait(300);
     check(q4('.t4 .ftag3.lost'), 'krok 27: kabel ukazuje ztracený segment');
+    w4.location.hash = '#u=4&k=31a&m=osi';
+    await wait(300);
+    check(q4('.t4 .ftag3.lost'), 'krok 31a: ztracený DNS dotaz má křížek na kabelu');
+    w4.location.hash = '#u=4&k=3&m=osi';
+    await wait(300);
+    check(d4.querySelectorAll('.t4 .ftag3').length === 1, `krok 3: v topologii jen aktuální úsek (${d4.querySelectorAll('.t4 .ftag3').length})`);
     for (const m of ['osi', 'tcpip']) for (const k of ['3', '7', '12', '18', '22a', '24', '29']) { w4.location.hash = `#u=4&k=${k}&m=${m}`; await wait(200); layoutCheck(d4, `úroveň 4, krok ${k}, ${m}`); }
     // topologie: IP adresy v kartách se vejdou (nejsou useknuté)
     const cut = [...d4.querySelectorAll('.t4 .ip, .t4 .if3 .mono')].filter((x) => x.scrollWidth > x.clientWidth + 1 || rect(x).right > rect(x.closest('.pc3, .if3')).right + 1);

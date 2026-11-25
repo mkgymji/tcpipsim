@@ -11,6 +11,7 @@ import { parsePrefix, routeMatches } from '../proto/ipv4.js';
 import { esc, badge, rowLabel } from './render.js';
 import { macHtml, ipHtml } from './render2.js';
 import { chipsHtml } from './chips.js';
+import { shownMessage } from '../core/message.js';
 
 const cssVars = (n) => `--c:var(--L${n});--t:var(--L${n}t)`;
 const label = (v, id) => v.nodes[id]?.label ?? id;
@@ -319,6 +320,13 @@ export function currentMessage(v) {
   let x = v.packet?.pdu;
   if (!x) return null;
   if (x.proto === 'ethernet') x = x.payload;
+  // úroveň 4: zpráva aplikace bez obálek (před zabalením / po rozbalení), R6
+  if (x?.proto === 'data' || x?.proto === 'dns') {
+    const m = shownMessage(v);
+    const name = x.proto === 'dns' ? (x.h.qr ? 'DNS odpověď' : 'DNS dotaz') : /^GET /.test(x.payload) ? 'HTTP GET' : /^HTTP\//.test(x.payload) ? 'HTTP odpověď'
+      : v.flow?.app === 'ping' || v.flow?.app === 'tracert' ? (v.flow.app === 'tracert' ? 'data sondy' : 'data pingu') : 'data';
+    if (m?.from && name !== 'data pingu' && name !== 'data sondy') return { name, from: label(v, m.from), to: label(v, m.to) };
+  }
   if (x?.proto === 'arp') {
     const h = x.h;
     return h.op === 1 ? { name: 'ARP dotaz', from: label(v, byIp(v, h.spa)), to: 'všem' }
@@ -336,7 +344,7 @@ export function currentMessage(v) {
   }
   const icmp = x?.proto === 'icmp' ? x : ip?.payload?.proto === 'icmp' ? ip.payload : null;
   if (ip && icmp) return { name: MSG_NAME[icmp.h.type] ?? 'ICMP', from: label(v, byIp(v, ip.h.src)), to: label(v, byIp(v, ip.h.dst)) };
-  if (v.flow) return { name: v.flow.app === 'tracert' ? 'Echo Request (sonda)' : 'Echo Request', from: label(v, v.flow.sender), to: label(v, byIp(v, v.flow.dst)) };
+  if (v.flow && (v.flow.app === 'ping' || v.flow.app === 'tracert')) return { name: v.flow.app === 'tracert' ? 'Echo Request (sonda)' : 'Echo Request', from: label(v, v.flow.sender), to: label(v, byIp(v, v.flow.dst)) };
   return null;
 }
 
@@ -412,7 +420,7 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
   const out = [];
   out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="${esc(partsHelp)}">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
   out.push(`<h3>${esc(predict ? `Otázka: ${predict.q}` : textFor(s.title, model))}</h3>`);
-  if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
+  // nadpis karty je jen „Otázka: …“ (student: otázka nesmí být dvakrát)
   out.push(`<p>${chipsHtml(textFor(s.text, model), esc)}</p>`);
   if (predict) {
     out.push(`<div class="predict" role="group" aria-label="${esc(predict.q)}">${predict.choices.map((c) => `<button type="button" class="btn small${tips?.has(c) ? ' on' : ''}"

@@ -22,12 +22,23 @@ export function buildSteps(records, stepDefs) {
     from = idx + 1;
   }
   if (starts[0] !== 0) throw new Error('První krok musí začínat prvním záznamem (sim.start)');
-  return stepDefs.map((def, k) => ({
-    ...def,
-    index: k,
-    first: starts[k],
-    last: (k + 1 < starts.length ? starts[k + 1] : records.length) - 1,
-  }));
+  // `until` (vzor záznamu): krok končí svou událostí (včetně). Záznamy po ní až do začátku dalšího
+  // kroku (např. zpráva, kterou jádro vyšle těsně před jeho událostí) patří dalšímu kroku, takže pohled
+  // kroku nikdy neukazuje zprávu, o které krok nemluví (kontrola recenzenta R1–R4, iterace 4).
+  const out = [];
+  let first = 0;
+  stepDefs.forEach((def, k) => {
+    const end = (k + 1 < starts.length ? starts[k + 1] : records.length) - 1;
+    let last = end;
+    if (def.until) {
+      const u = records.findIndex((r, i) => i >= starts[k] && i <= end && matches(r, def.until));
+      if (u < 0) throw new Error(`Krok "${def.title}" nenašel konec until ${JSON.stringify(def.until)}`);
+      last = u;
+    }
+    out.push({ ...def, index: k, first, anchor: starts[k], last });
+    first = last + 1;
+  });
+  return out;
 }
 
 const LAYERS = [1, 2, 3, 4, 5, 6, 7];

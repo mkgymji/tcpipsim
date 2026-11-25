@@ -21,10 +21,10 @@ const tcpOf = (r) => r.pdu?.payload?.payload;
 const firstHop = (label) => inStep(label).filter((r) => r.kind === 'link.tx' && ['PC1', 'PC2', 'SRV1'].includes(r.from));
 const segs = (label) => firstHop(label).map((r) => tcpOf(r));
 
-test('scénář je čistá data, kroky 0–31 (16 a 22 ve dvou částech), části A–F', () => {
+test('scénář je čistá data, kroky 0–31 (16, 22 a 31 ve dvou částech), části A–F', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(scenario)), scenario);
   assert.equal(Math.max(...timeline.steps.map((s) => s.num)), 31);
-  assert.equal(timeline.length, 34);
+  assert.equal(timeline.length, 35);
   assert.deepEqual(timeline.steps.filter((s) => s.part3).map((s) => [s.part3, s.num]),
     [['A', 0], ['B', 6], ['C', 11], ['D', 19], ['E', 25], ['F', 27]]);
 });
@@ -100,8 +100,9 @@ test('HTTP: GET 76 B (seq 1), ACK serveru 77, 200 OK 249 B, ack Alice 250; ukon�
   const get = segs('11').find((s) => s.payload);
   assert.equal(new TextEncoder().encode(get.payload.payload).length, 76);
   assert.equal(get.h.rel.seq, 1);
-  assert.ok(segs('11').some((s) => s.h.flagsText === 'ACK' && s.h.rel.ack === 77), 'ACK serveru hned');
-  const resp = segs('12')[0];
+  assert.ok(segs('12').some((s) => s.h.flagsText === 'ACK' && s.h.rel.ack === 77), 'ACK serveru hned (krok 11 končí u aplikace web)');
+  assert.ok(!segs('11').some((s) => s.h.flagsText === 'ACK'), 'krok 11 neukazuje ACK serveru');
+  const resp = segs('12').find((s) => s.payload);
   assert.equal(new TextEncoder().encode(resp.payload.payload).length, 249);
   assert.match(resp.payload.payload, /^HTTP\/1\.1 200 OK/);
   const fin = [segs('15')[0], segs('16a')[0], segs('16b')[0], segs('17')[0]];
@@ -117,7 +118,7 @@ test('část D: porty 49153/49154, Bob 49152 přes SW2 bez routeru, GET po spoje
   assert.equal(at('21').nodes.SRV1.tcp_connections.filter((c) => c.state === 'ESTABLISHED').length, 3);
   assert.equal(segs('22a').find((s) => s.payload).h.sport, 49153);
   assert.equal(segs('22b').find((s) => s.payload).h.dport, 49153);
-  const syn = segs('23')[0];
+  const syn = segs('23').find((s) => s.h.flagsText === 'SYN');
   assert.deepEqual([syn.h.sport, syn.h.dport], [49155, 8080]);
   const rst = segs('24')[0];
   assert.deepEqual([rst.h.seq, rst.h.rel.ack], [0, 1]);
@@ -131,11 +132,12 @@ test('část F: GET ztracený na L4, retransmise po 1 s; DNS dotaz ztracený, ns
   const orig = R.find((r) => r.kind === 'link.tx' && r.from === 'PC1' && tcpOf(r)?.payload && tcpOf(r).h.seq === tcpOf(lost).h.seq);
   assert.equal(re.t - orig.t, 1_000_000);
   assert.equal(R.filter((r) => r.kind === 'http_request' && r.t > 4e6 && r.t < 7e6).length, 1, 'aplikace web dostala GET jednou');
-  const dnsTx = inStep('31').filter((r) => r.kind === 'link.tx' && r.from === 'PC1');
+  const dnsTx = [...inStep('31a'), ...inStep('31b')].filter((r) => r.kind === 'link.tx' && r.from === 'PC1');
   assert.equal(dnsTx.length, 2);
   assert.equal(dnsTx[1].t - dnsTx[0].t, 2_000_000);
-  assert.ok(inStep('31').some((r) => r.kind === 'dns_timeout'));
-  assert.ok(inStep('31').some((r) => r.kind === 'link.tx' && r.lost && r.link === 'L4'));
+  assert.ok(inStep('31b').some((r) => r.kind === 'dns_timeout'));
+  assert.ok(inStep('31a').some((r) => r.kind === 'link.tx' && r.lost && r.link === 'L4'));
+  assert.ok(at('31a').wires.L4?.lost, 'křížek na kabelu L4');
 });
 
 test('kontrolní součty TCP (pseudohlavička) a IP v rámcích scénáře platí', () => {

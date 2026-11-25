@@ -6,6 +6,7 @@
 // Čisté funkce (liftAnchor, laneEnd, mediumHtml) jsou bez DOM a testují se v Node.
 import { bitString } from '../wire/encode.js';
 import { esc, rowLabel } from './render.js';
+import { shownMessage } from '../core/message.js';
 
 const DEVICE = new Set(['hub', 'switch']);
 
@@ -171,4 +172,20 @@ export function columnSwitchLabel(prev, cur, v, label) {
   if (!prev?.dropCol || cur?.dropCol || prev.receiver === cur?.receiver || !cur?.receiver) return '';
   // štítek jen když krok opravdu mluví o příjemci; jinak by rušil (úroveň 3 krok 7: ARP odpověď Alici)
   return v?.focus?.node === cur.receiver ? `Teď ${label}` : '';
+}
+
+/**
+ * Dvojice sloupců kroku (úrovně 3 a 4): úroveň 4 (krok má `right`) = odesílatel a příjemce zobrazené zprávy
+ * podle hlaviček, bez zprávy uzel `right` a druhá strana toku; úroveň 3 = tok aplikace + rozhodnutí 57.
+ */
+export function stepPair(v) {
+  const f = v.flow;
+  const right = v.step?.right;
+  if (right) {
+    const m = shownMessage(v);
+    if (m?.from && m.to && m.from !== m.to) return { sender: m.from, receiver: m.to };
+    const other = f ? (f.sender !== right ? f.sender : f.receiver) : null;
+    return { sender: other ?? (right === 'PC1' ? 'SRV1' : 'PC1'), receiver: right };
+  }
+  return f ? columnPair(v, { sender: f.sender, receiver: f.receiver }) : { sender: 'PC1', receiver: 'PC2' };
 }

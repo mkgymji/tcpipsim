@@ -114,6 +114,7 @@ export function netViewAt3(records, upto, from = 0) {
         if (r.lost && cur) v.wires[r.link] = { from: r.from, to: r.to, pdu: r.pdu, lost: true };
         if (v.nodes[r.from]?.layers) finish(v.nodes[r.from]);
         if (cur) {
+          v.lastWire = r.link;
           v.wires[r.link] = { from: r.from, to: r.to, pdu: r.pdu };
           if (v.nodes[r.from]?.type === 'switch') setPort(v, r.from, r.fromIf, 'out');
         }
@@ -221,7 +222,7 @@ export function netViewAt3(records, upto, from = 0) {
         move(nv, 7);
         if (nv.layers[4] !== undefined && r.port == null) nv.layers[4] = 'skip';   // ICMP (ping) nemá L4
         v.packet = { form: 'pdu', pdu: r.pdu, at: r.node };
-        v.delivered = { node: r.node, app: r.app, from: r.from, ttl: r.ttl, icmpType: r.icmpType };
+        v.delivered = { node: r.node, app: r.app, from: r.from, ttl: r.ttl, icmpType: r.icmpType, port: r.port };
         if (cur) v.pills[r.node] = 'received';
         v.focus = { node: r.node, layer: 7 };
         break;

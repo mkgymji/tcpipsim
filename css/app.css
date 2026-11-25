@@ -1080,3 +1080,16 @@ body.lvl4 { --topo-h: 290px; }
 }
 /* úroveň 4: vedle štítku „Teď Alice“ se role příjemce nevejde; štítek sám říká, kdo je teď vpravo */
 body.lvl4 .lift h2:has(.now-badge:not([hidden])) #receiver-role { display: none; }
+/* kontrola úrovně 4 (tmp/review4): zvýrazněné řádky terminálu každý na svém řádku (nslookup Name/Address) */
+.termwin div.tl.mark-l2, .termwin div.tl.mark-l3 { display: table; }
+/* karta tipu: volby celé bez vodorovného posuvníku a bez svislého posunu (720p) */
+body.lvl4 .explain.tip { max-height: none; overflow: visible; }
+body.lvl4 .explain.tip .predict .btn { height: auto; min-height: 36px; white-space: normal; text-align: left; line-height: 1.2; padding-top: 3px; padding-bottom: 3px; }
+body.lvl4 .explain.tip .predict small { display: none; }
+/* šest částí A–F se vejde (rozh. 54: popisek „Části:“ zůstává, záhlaví se smí zalomit) */
+body.lvl4 .parts { gap: 2px; }
+body.lvl4 .pbtn { padding: 0 5px; }
+body.lvl4 .explain > .stephead { flex-wrap: wrap; row-gap: 2px; }
+/* štítek věže (R1, SW1) nepřekrývá blok zprávy */
+body.lvl4 .lane .float { position: relative; z-index: 6; }
+.conn4 .ct4 th { white-space: nowrap; }

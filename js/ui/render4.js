@@ -44,6 +44,9 @@ function router4(v, id, ui) {
 export function topologyHtml4(v, ui) {
   const net = (n, lab) => `<div class="net3 ${n}"><span class="netlab">SÍŤ ${esc(lab)} <small>brána .1</small></span></div>`;
   const sw = (id) => switchCard(v, id, ui).replace('<div class="mact3"', '<div class="mact3" hidden');
+  // student k3: v topologii jen aktuální úsek (a ztracené rámce), ne všechny kabely, kudy zpráva v kroku jela
+  const wires = Object.fromEntries(Object.entries(v.wires).filter(([l, w]) => l === v.lastWire || w.lost));
+  v = { ...v, wires };
   return `<div class="t3 t4">${net('n1', '192.168.1.0/24')}${net('n2', '192.168.2.0/24')}
     ${host4(v, 'PC1', ui)}${host4(v, 'PC3', ui)}
     ${wire3(v, 'L1', 'wa', 'PC1', ui.tip)}${wire3(v, 'L2', 'wc', 'PC3', ui.tip)}
@@ -58,6 +61,8 @@ const st = (s) => STATE_WIN[s] ?? s;
 
 /** Karta „Spojení“: tabulka spojení Alice a SRV1 (a Boba, má-li nějaké), stavy obou stran. */
 export function connsCard(v) {
+  // tip 19 (rozhodnutí 31, 51): porty klienta by prozradily odpověď, na kroku tipu jen počet spojení
+  const hidePorts = Boolean(v.step?.predict?.id === 'demux');
   const ids = ['PC1', 'SRV1', 'PC2'].filter((id) => id !== 'PC2' || (v.nodes[id].tcp_connections ?? []).some((c) => c.state !== 'LISTEN'));
   const ce = v.connEvent;
   const rows = (id) => {
@@ -65,14 +70,14 @@ export function connsCard(v) {
     if (!t.length) return `<tr><td colspan="3" class="dim">žádné spojení</td></tr>`;
     return t.map((c) => {
       const fresh = ce && ce.node === id && ce.local === c.local && ce.remote === c.remote;
-      return `<tr class="${fresh ? 'new' : ''}${c.state === 'LISTEN' ? ' lrow' : ''}"><td class="mono" title="${esc(c.local)}">:${esc(c.local.split(':')[1])}</td><td class="mono">${c.state === 'LISTEN' ? '<span class="dim">čeká na klienty</span>' : esc(c.remote)}</td><td><b>${esc(st(c.state))}</b></td></tr>`;
+      return `<tr class="${fresh ? 'new' : ''}${c.state === 'LISTEN' ? ' lrow' : ''}"><td class="mono" title="${esc(c.local)}">${hidePorts ? '?' : `:${esc(c.local.split(':')[1])}`}</td><td class="mono">${hidePorts ? `${esc(c.remote.split(':')[0])}:?` : esc(c.remote)}</td><td><b>${esc(st(c.state))}</b></td></tr>`;
     }).join('');
   };
   const chg = ce ? `<p class="m3res key">${esc(label(v, ce.node))}: ${esc(st(ce.from))} → <b>${esc(st(ce.to))}</b></p>` : '';
   return `<div class="card3 conn4" data-target="conns"><h3>Spojení <small>(záznam v paměti obou stran, router o něm neví)</small></h3>${chg}
     ${ids.map((id) => {
     const lis = (v.nodes[id].tcp_connections ?? []).filter((c) => c.state === 'LISTEN').map((c) => c.local.split(':')[1]);
-    return `<table class="ct4"><caption>${esc(label(v, id))} <span class="mono">${esc(v.nodes[id].ip)}</span>${lis.length ? ` <small>· naslouchá (LISTENING) na TCP ${esc(lis.join(', '))}</small>` : ''}</caption><colgroup><col class="cp"><col><col class="cs"></colgroup><thead><tr><th>Místní port</th><th>Vzdálený socket</th><th>Stav</th></tr></thead><tbody>${rows(id)}</tbody></table>`;
+    return `<table class="ct4"><caption>${esc(label(v, id))} <span class="mono">${esc(v.nodes[id].ip)}</span>${lis.length ? ` <small>· naslouchá (LISTENING) na TCP ${esc(lis.join(', '))}</small>` : ''}</caption><colgroup><col class="cp"><col><col class="cs"></colgroup><thead><tr><th>Port</th><th>Vzdálený socket</th><th>Stav</th></tr></thead><tbody>${rows(id)}</tbody></table>`;
   }).join('')}</div>`;
 }
 
@@ -118,7 +123,8 @@ export function compareCard4() {
 /** Co dělá transportní vrstva: L4 a) a b) podle Michalovy prezentace (rozhodnutí 49). */
 export function l4Card() {
   return `<div class="card3" data-target="l4" style="${cssVars(4)}"><h3>${badge(4, 'L4')} Transportní vrstva</h3>
-    <p><b>a) spolehlivé doručení dat</b> (TCP; UDP ne): příjem se potvrzuje, ztracená data se pošlou znovu, velká data rozdělí na části a u příjemce je složí ve správném pořadí. <small>Kroky 7–17, 27–30.</small></p>
+    <p><b>a) spolehlivé doručení dat</b> (TCP; UDP ne): příjem se potvrzuje, ztracená data se pošlou znovu, velká data rozdělí na části a u příjemce je složí ve správném pořadí. <small>Potvrzování kroky 7–17, opakování 27–30.</small></p>
+    <p class="xnote">Simulátor zjednodušuje: dělení na části a skládání v pořadí se tu neukazuje (stránka se vejde do jednoho segmentu).</p>
     <p><b>b) doručení dat správné aplikaci</b> na cílovém uzlu (podle portu): multiplex / demultiplex. <small>Kroky 3, 4, 20, 22.</small></p>
     <p class="xnote">Kdo se stará: operační systém.</p></div>`;
 }
@@ -132,7 +138,7 @@ export function demuxCard(v) {
   const key = h ? (toSrv ? `${v.pkt?.h.src ?? ''}:${h.sport}` : null) : null;
   return `<div class="card3" data-target="demux"><h3>Demultiplex na SRV1</h3>
     <p class="m3res">${h ? (toSrv ? `Cílový port <b>${h.dport}</b> → aplikace <b>web</b>. Zdrojový socket <b>${esc(key)}</b> → spojení:` : `Odpověď jde po stejném spojení na port <b>${h.dport}</b> u Alice.`) : ''}</p>
-    <table class="ct4"><thead><tr><th>Místní</th><th>Vzdálený</th><th>Stav</th></tr></thead><tbody>${t.map((c) => `<tr class="${key && c.remote === key ? 'hit' : ''}"><td class="mono">${esc(c.local)}</td><td class="mono">${esc(c.remote)}</td><td>${esc(st(c.state))}</td></tr>`).join('')}</tbody></table></div>`;
+    <table class="ct4"><colgroup><col style="width:18%"><col><col style="width:32%"></colgroup><thead><tr><th>Port</th><th>Vzdálený socket</th><th>Stav</th></tr></thead><tbody>${t.map((c) => `<tr class="${key && c.remote === key ? 'hit' : ''}"><td class="mono">:${esc(c.local.split(':')[1])}</td><td class="mono">${esc(c.remote)}</td><td>${esc(st(c.state))}</td></tr>`).join('')}</tbody></table></div>`;
 }
 
 export const CARDS4 = { conns: connsCard, listen: listenCard, timeline: timelineCard, compare: compareCard4, l4: l4Card, demux: demuxCard };

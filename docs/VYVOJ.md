@@ -548,6 +548,14 @@ rámce; `tools/vectors/gen5.py` je tak opravený (FIN-WAIT-1 v kroku zavření, 
 `ip_forward` v kroku příchodu do R1). Pískoviště terminálu: `scenario/level4.js` `whatIf4` (stav kroku:
 ARP, MAC, LISTEN/ESTABLISHED/TIME-WAIT, DNS cache). Odkaz: `index.html#u=4&k=16a&t=PC1&c=netstat%20-an`.
 
+**Krok končí svou událostí (`until`) a hlídá ho `expect`:** krok bez `until` trvá až do začátku dalšího
+kroku, a tak by zahrnul i zprávu, kterou jádro vyšle těsně před událostí dalšího kroku (recenze úrovně 4,
+R1–R4). `until` (vzor záznamu) ukončí krok jeho událostí; záznamy po ní patří dalšímu kroku (`buildSteps`).
+`expect: { from, to, proto, flags, seq, ack, type, op }` říká, jakou zprávu má pohled kroku ukazovat
+(`core/message.js` `shownMessage`); `tests/core/expect.test.js` to ověřuje pro úrovně 2–4 a v úrovni 4 i to,
+že sloupec příjemce = `right` kroku (`ui/lift.js` `stepPair`). Nový krok, který mluví o konkrétní zprávě,
+má mít `expect`.
+
 **Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
 kap. 5.3 (texty kroků doslova z .md; úroveň 2 navíc `initial_state`, akce `udp_send`/`mark`/`swap`
 a u kroku `predict`, `evaluates`, `terminal`, `xray`, `socket`, `summary`, `arpHint`, viz hlavička
