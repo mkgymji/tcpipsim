@@ -1,6 +1,6 @@
-# Příkazy terminálu (úroveň 2 a 3)
+# Příkazy terminálu (úroveň 2–4)
 
-Stav: návrh, iterace 2; úroveň 3 doplněna v iteraci 3 (kap. 7–12). Autor: projektant. Rozhodnutí 10: výstupy Windows **anglicky**
+Stav: návrh, iterace 2; úroveň 3 doplněna v iteraci 3 (kap. 7–12), úroveň 4 v iteraci 4 (kap. 14–18). Autor: projektant. Rozhodnutí 10: výstupy Windows **anglicky**
 (Windows 10/11 v angličtině = shoda s návody a CCNA), s českou poznámkou simulátoru; jazyk Windows
 ve škole ověřit. Hodnoty ve výstupech jsou vždy ze stavu simulace (topologie, ARP tabulka,
 MAC tabulka), nic se nevymýšlí.
@@ -617,3 +617,135 @@ R1#
    u Destination host unreachable (kap. 8.4); (c) `tracert` bez brány (kap. 9); (d) Packet Tracer:
    `show ip route`, `show ip interface brief`, syslog po `no shutdown`, `traceroute` (kap. 12).
 5. `enable` na routeru: rozhodnuto ano (rozhodnutí 45).
+6. Úroveň 4 (kap. 14–18): celé **ověřit při pilotu** (rozhodnutí 46). Jeden průchod na školním PC
+   s Wiresharkem: `nslookup www.<školní doména>`, `curl -v http://…`, `netstat -an` během a po
+   spojení; na Linuxu `ss -tuln`. Zvlášť: zda Windows `nslookup` varuje u serveru bez rekurze (RA=0).
+
+## 14. Úroveň 4: výběr příkazů
+
+| Příkaz | Kde | Úroveň 4? | Proč |
+|---|---|---|---|
+| `nslookup www.skola.lan` | PC | **ano** | DNS dotaz na jméno z URL; Michalova prezentace „4. aplikační vrstva“. |
+| `curl -v http://www.skola.lan` | PC | **ano, hlavní akce** | Vyvolá celý děj (DNS → TCP → HTTP → FIN) a vypíše požadavek i odpověď (`http.md` kap. 1). |
+| `netstat -an` | PC | **ano** | Sockety: LISTENING, ESTABLISHED, TIME_WAIT; UDP bez stavu. |
+| `ss -tuln` | SRV1 (Linux) | **ano** | Na čem server naslouchá: UDP 53, TCP 53, TCP 80. |
+| `ipconfig /all` | PC | ano | Řádek `DNS Servers . . . : 192.168.2.10` (doplnit do výstupu kap. 3 v úrovni 4). |
+| `ipconfig /displaydns` | PC | volitelně | DNS cache po `curl` (ne po `nslookup`, `dns.md` kap. 6). Nízká priorita. |
+| `ping www.skola.lan` | PC | ano | Funguje se jménem (resolver), výstup `Pinging www.skola.lan [192.168.2.10] with 32 bytes of data:`, TTL=63 (Linux 64 − 1). Ověřit. |
+| Prohlížeč (tlačítko scénáře) | PC | volitelně | Stejný děj jako curl, `http.md` kap. 1. |
+
+Na serveru SRV1 terminál Linuxu: prompt `student@srv1:~$` (ověřit, jaké jméno chce didaktik), další
+příkazy (`ip a`, `ip route`) nejsou v rozsahu úrovně 4; neznámý příkaz → `bash: X: command not found`.
+
+## 15. Windows `nslookup`
+
+SRV1 je pro `skola.lan` **autoritativní** (AA=1), proto výstup **nemá** řádek `Non-authoritative answer:`
+(ten Windows vypíše, jen když AA=0 — typicky odpověď z cache poskytovatele, např. `nslookup www.seznam.cz`
+doma). Ověřit při pilotu.
+
+```
+C:\Users\alice>nslookup www.skola.lan
+Server:  UnKnown
+Address:  192.168.2.10
+
+Name:    www.skola.lan
+Address:  192.168.2.10
+
+```
+
+- `Server:  UnKnown`: nslookup se nejdřív zeptá na jméno DNS serveru (PTR dotaz na
+  `10.2.168.192.in-addr.arpa`); SRV1 reverzní zónu nemá → „UnKnown“ (sic, s velkým K). Ověřit.
+- Mezery: dvě mezery za `Server:` a `Address:`, čtyři za `Name:` (ověřit).
+- **Simulátor zjednodušuje:** `nslookup` pošle jen dotaz A (stejné pakety jako vektor `dns-dotaz`).
+  Skutečný Windows `nslookup` pošle i PTR dotaz na server (viz výše) a po A ještě dotaz AAAA;
+  ve Wiresharku proto student uvidí 3 dotazy. Simulace výsledný text nemění.
+- Neexistující jméno (`nslookup neni.skola.lan`, NXDOMAIN): `*** UnKnown can't find neni.skola.lan: Non-existent domain` (ověřit).
+- Jméno mimo zónu (REFUSED, `dns.md` kap. 5): `*** UnKnown can't find www.seznam.cz: Query refused` (ověřit).
+
+## 16. Windows `netstat -an`
+
+Formát řádku (ověřit): dvě mezery, Proto zarovnané na 7 znaků, místní a vzdálená adresa po 23 znacích, stav.
+
+Během spojení (Alice, po handshaku, před FIN):
+```
+C:\Users\alice>netstat -an
+
+Active Connections
+
+  Proto  Local Address          Foreign Address        State
+  TCP    192.168.1.10:49152     192.168.2.10:80        ESTABLISHED
+```
+
+Po skončení `curl` (2 minuty TIME_WAIT, `tcp.md` kap. 9):
+```
+  Proto  Local Address          Foreign Address        State
+  TCP    192.168.1.10:49152     192.168.2.10:80        TIME_WAIT
+```
+
+UDP řádek (např. Bob, aplikace „zprávy“ z úrovně 2) nemá stav, vzdálená adresa `*:*`:
+```
+  UDP    0.0.0.0:5000           *:*
+```
+
+- Naslouchající TCP socket: `TCP    0.0.0.0:80             0.0.0.0:0              LISTENING`.
+- Názvy stavů Windows: `tcp.md` kap. 9 (podtržítka: `TIME_WAIT`, `FIN_WAIT_2`, `CLOSE_WAIT`).
+- **Simulátor zjednodušuje:** jen sockety simulovaných aplikací. Skutečný Windows ukáže desítky řádků
+  (LISTENING na 135, 445, 139, 5040, 49664–49669…, IPv6 `[::]`); pořadí: nejdřív TCP podle místní
+  adresy a portu, pak TCPv6, UDP, UDPv6 (ověřit). DNS socket resolveru je vidět jen během dotazu.
+- `netstat -ano` (sloupec PID) a `netstat -b` mimo rozsah.
+
+## 17. `curl -v` (Windows `curl.exe`, od Windows 10 1803)
+
+Pozor: ve **Windows PowerShell 5.1** je `curl` alias na `Invoke-WebRequest` (jiný výstup). Simulátor
+napodobuje `cmd.exe`, kde `curl` = `curl.exe`; poznámka pro studenty: „v PowerShellu piš `curl.exe`“.
+
+```
+C:\Users\alice>curl -v http://www.skola.lan
+* Host www.skola.lan:80 was resolved.
+* IPv6: (none)
+* IPv4: 192.168.2.10
+*   Trying 192.168.2.10:80...
+* Connected to www.skola.lan (192.168.2.10) port 80
+> GET / HTTP/1.1
+> Host: www.skola.lan
+> User-Agent: curl/8.9.1
+> Accept: */*
+>
+* Request completely sent off
+< HTTP/1.1 200 OK
+< Date: Wed, 25 Nov 2026 08:00:00 GMT
+< Content-Type: text/html; charset=utf-8
+< Content-Length: 132
+<
+<!DOCTYPE html>
+<html><head><meta charset="utf-8"><title>Škola</title></head>
+<body><h1>Vítej na www.skola.lan</h1></body></html>
+* Connection #0 to host www.skola.lan left intact
+```
+
+- `*` = informace curl, `>` = odeslané hlavičky, `<` = přijaté hlavičky (formát curl 8.x, ověřit
+  verzí na školním PC; starší curl 7.x píše `Connected to … port 80 (#0)` a nemá řádky `IPv6:`/`IPv4:`).
+- „left intact“ znamená, že curl spojení sám neukončil chybou; při skončení procesu ho OS zavře (FIN).
+- Bez `-v` curl vypíše jen tělo (HTML). Řádek `Connected to` odpovídá okamžiku po SYN, ACK;
+  simulátor může krokovat výstup podle děje.
+- Konzole Windows může diakritiku těla zobrazit špatně (kódová stránka 852 vs. UTF-8); simulátor
+  zobrazí správně (Simulátor zjednodušuje).
+
+## 18. Linux `ss -tuln` (SRV1)
+
+```
+student@srv1:~$ ss -tuln
+Netid State  Recv-Q Send-Q Local Address:Port Peer Address:Port Process
+udp   UNCONN 0      0            0.0.0.0:53        0.0.0.0:*
+tcp   LISTEN 0      10           0.0.0.0:53        0.0.0.0:*
+tcp   LISTEN 0      511          0.0.0.0:80        0.0.0.0:*
+```
+
+- Přepínače: `-t` TCP, `-u` UDP, `-l` jen naslouchající, `-n` čísla místo jmen (bez `-n` by stálo
+  `0.0.0.0:http`, `0.0.0.0:domain`).
+- UDP socket nemá spojení, `ss` ho ukazuje jako `UNCONN`. U `LISTEN` je `Send-Q` velikost fronty
+  nových spojení (backlog: BIND 10, nginx 511 — ověřit). Šířky sloupců `ss` počítá podle obsahu (ověřit).
+- Starší ekvivalent `netstat -tuln` (balík net-tools, na nových distribucích často chybí).
+- Volitelně `ss -tan` (všechna TCP spojení): během spojení řádek
+  `ESTAB 0 0 192.168.2.10:80 192.168.1.10:49152`; TIME-WAIT na serveru v úrovni 4 nevznikne
+  (zavírá klient, `tcp.md` kap. 8).

@@ -188,3 +188,38 @@ výchozí — obě formy z CCNA. Adresy R1 zůstávají stejné jako v základn�
 - Doporučené další vektory, až jádro umí ICMP chyby: `ping-bez-cesty` (R1 bez cesty do
   192.168.3.0/24 → ICMP 3/0, Windows `Destination net unreachable.`), `ping-router-arp-fail`
   (cíl v síti 2 neexistuje → R1 3× ARP, pak ICMP 3/1), `traceroute-ios` (UDP sondy, cmd.md kap. 11).
+
+## 9. Topologie úrovně 4 „Transport a aplikace“ (rozhodnutí 59)
+
+Síť 1 beze změny proti úrovni 3. V síti 2 přibude **SRV1** (server, Linux, TTL 64) a protože v ní jsou
+teď dvě koncová zařízení, přibude přepínač **SW2** (Bob už není na R1 přímým kabelem). Adresy, MAC
+a brány se nemění (rozhodnutí 25, 39).
+
+```
+                192.168.1.0/24                              192.168.2.0/24
+ Alice  .10 ─ Fa0/1 ┐                                   ┌ Fa0/2 ─ Bob  .20
+        (volný) Fa0/2 ├ SW1 ─ Fa0/4 ── Gi0/0 [R1] Gi0/1 ── Fa0/1 SW2
+ Cyril  .30 ─ Fa0/3 ┘                .1        .1        └ Fa0/3 ─ SRV1 .10  (DNS, web)
+```
+
+| Uzel | Typ | Rozhraní | MAC | IP / prefix | Brána | DNS server | TTL |
+|---|---|---|---|---|---|---|---|
+| PC1 Alice | pc | eth0 → SW1 Fa0/1 | 02:00:00:00:00:01 | 192.168.1.10/24 | 192.168.1.1 | 192.168.2.10 | 128 |
+| PC3 Cyril | pc | eth0 → SW1 Fa0/3 | 02:00:00:00:00:03 | 192.168.1.30/24 | 192.168.1.1 | 192.168.2.10 | 128 |
+| SW1 | switch | Fa0/1–Fa0/4 (Fa0/2 volný) | — | — | — | — | — |
+| R1 | router | Gi0/0 → SW1 Fa0/4 | 02:00:00:00:01:01 | 192.168.1.1/24 | — | — | 255 |
+| | | Gi0/1 → SW2 Fa0/1 | 02:00:00:00:01:02 | 192.168.2.1/24 | | | |
+| SW2 | switch | Fa0/1–Fa0/4 (Fa0/4 volný) | — | — | — | — | — |
+| PC2 Bob | pc | eth0 → SW2 Fa0/2 | 02:00:00:00:00:02 | 192.168.2.20/24 | 192.168.2.1 | 192.168.2.10 | 128 |
+| SRV1 | server | eth0 → SW2 Fa0/3 | 02:00:00:00:00:04 | 192.168.2.10/24 | 192.168.2.1 | — | 64 |
+
+- Linky ve vektorech: L1 Alice–SW1, L2 Cyril–SW1, L3 R1 Gi0/0–SW1 Fa0/4, L4 R1 Gi0/1–SW2 Fa0/1,
+  L5 Bob–SW2, L6 SRV1–SW2. Cesta Alice → SRV1 = L1, L3, L4, L6 (4 přenosy na jeden segment).
+- Aplikace: SRV1 `dns` UDP 53 a TCP 53, `web` TCP 80, zóna `skola.lan` (`www` a `srv1` → 192.168.2.10,
+  TTL 3600); Alice `curl` (klient, dynamický port); Bob „zprávy“ UDP 5000 a „poznámky“ UDP 6000 z úrovně 2.
+- `www.skola.lan` je interní školní server, proto komunikace bez NAT je pravdivá (rozhodnutí 5).
+- Ping Alice → SRV1: `TTL=63` (Linux 64 − 1) — kontrast s Bobem (`TTL=127`).
+- Vektory úrovně 4 (`dns-dotaz`, `tcp-handshake-http`, `tcp-ztrata-retransmise`) začínají s ARP cache
+  a MAC tabulkami po předchozím provozu: Alice zná 192.168.1.1, R1 zná Alici a SRV1, SRV1 zná
+  192.168.2.1; SW1 zná Alici (Fa0/1) a R1 (Fa0/4), SW2 zná R1 (Fa0/1) a SRV1 (Fa0/3). Scénář to má
+  říct (obdoba rozhodnutí 26), nebo začít pingem na SRV1, který tabulky naplní.

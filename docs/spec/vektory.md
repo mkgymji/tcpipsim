@@ -191,3 +191,41 @@ Iterace 3 (úroveň 3 „Směrování“, `"level": 3`, ARP a ICMP se opravdu po
 | `ping-spatna-brana.json` | brána 192.168.1.254 neexistuje: 3 ARP requesty po 1 s (flooding na Fa0/3, Fa0/4), router neodpoví (není jeho IP), `arp_failed` od vlastní IP; router si Alici neuloží | 9 |
 | `tracert-alice-bob.json` | `tracert -d` přes jeden router (rozhodnutí 44): TTL 1 → Time Exceeded od 192.168.1.1 (adresa odchozího rozhraní), TTL 2 → sonda s TTL 1 doručená Bobovi, Echo Reply TTL 127; `skip`, dokud jádro neumí tracert | 30 |
 | `tracert-dva-routery.json` | (pozdější rozšíření, `skip`) `tracert -d` přes R1, R2 se statickou i výchozí cestou, server 192.168.3.10 | 36 |
+
+## 10. Doplňky úrovně 4 (iterace 4, TCP, DNS, HTTP)
+
+Zpětně kompatibilní, jen nové nepovinné klíče. Generátor `tools/vectors/gen5.py`
+(`python3 tools/vectors/gen5.py tests/vectors`), topologie `routing.md` kap. 9.
+
+- **Kořen:** `seed` (číslo, výchozí 1) — seed scénáře; určuje ISN (`tcp.md` kap. 4).
+- **Uzel:** `dns_servers` (pole IP, = konfigurace „DNS Servers“); `dns_zone`
+  `{ "zone", "records": [{ "name", "type": "A", "ttl", "data" }] }` (autoritativní zóna serveru);
+  `apps[].proto` smí být `"tcp"` (`port` číslo = naslouchá, `null` = klient).
+- **`initial_state` / `final_state`:** `tcp_connections` `{ "local": "IP:port", "remote": "IP:port", "state" }`
+  (stavy podle RFC 9293: `LISTEN`, `ESTABLISHED`, `TIME-WAIT`…; naslouchající socket má `remote`
+  `0.0.0.0:0`); `dns_cache` `{ "name", "type", "data", "ttl" }` (ttl = původní hodnota, nekontroluje se odpočet).
+- **Akce:** `dns_resolve` `{ "name", "type": "A" }` (resolver OS: dotaz na první DNS server uzlu);
+  `http_get` `{ "dst", "host", "path", "port", "client": "curl" }` (TCP spojení, GET, příjem podle
+  Content-Length, zavření klientem; IP je už známá, překlad jména ukazuje `dns_resolve`);
+  `link_loss` `{ "link", "from", "count", "match": { "proto": "tcp", "payload": true } }` (`node: null`)
+  — prvních `count` rámců, které uzel `from` pošle po lince `link` a odpovídají `match`, se na lince
+  ztratí (`payload: true` = TCP segment s daty).
+- **Přenos:** `lost: true` = rámec byl na lince vyslán, ale druhý konec ho nepřijal (dál se nešíří).
+- **`pdu.tcp`:** `sport`, `dport`, `seq`, `ack`, `rel_seq`, `rel_ack`, `flags` (řetězec v pořadí
+  Wiresharku, `tcp.md` kap. 10), `hdr_len` (B), `window`, `payload_len`, `options` (`[{ "kind": 2, "name": "MSS", "value": 1460 }]`, jen SYN).
+- **`pdu.dns`:** `id`, `flags` (hex řetězec), `qr`, `opcode`, `aa`, `tc`, `rd`, `ra`, `rcode`,
+  `qdcount`, `ancount`, `nscount`, `arcount`, `question` `{ name, type, class }`, `answers[]`
+  `{ name, type, class, ttl, rdlength, data }`.
+- **`pdu.http`:** požadavek `{ "kind": "request", "method", "target", "version", "host" }`, odpověď
+  `{ "kind": "response", "version", "status", "reason", "content_length" }`; celý text zprávy je v `pdu.data`.
+- **`app_result`:** `dns_resolve`: `name`, `server`, `authoritative`, `rcode`, `answers[]`;
+  `http_get`: `status`, `reason`, `content_length`, `body_len`, `local`, `remote`, `retransmissions`.
+- **Události:** `tcp_state`, `tcp_retransmit`, `link_loss`, `http_request`, `http_response`, `dns_answer`.
+- **Čas:** 1 s = 1000 kroků (stejně jako opakování ARP v `ping-spatna-brana`); RTO 1 s → retransmise
+  o 1000 kroků po původním odeslání.
+
+| Soubor | Co ověřuje | Přenosů |
+|---|---|---|
+| `dns-dotaz.json` | resolver: UDP 49152 → 53 přes router, dotaz A (31 B, flags 0x0100), autoritativní odpověď (47 B, 0x8500, komprese 0xC00C, TTL 3600), TTL IP 128/127 a 64/63, záznam v DNS cache; `skip` | 8 |
+| `tcp-handshake-http.json` | SYN (MSS 1460) / SYN, ACK / ACK, absolutní i relativní seq a ack z ISN (seed 1), GET 76 B s PSH, ACK serveru, 200 OK 249 B, ACK, ukončení FIN, ACK / ACK / FIN, ACK / ACK; Alice v TIME-WAIT, server zpět jen LISTEN; fronta rozhraní (dva segmenty po sobě); `skip` | 44 |
+| `tcp-ztrata-retransmise.json` | totéž, ale GET se ztratí na L4 (R1 → SW2, `lost`); server nic nepotvrdí; Alice po RTO 1 s pošle stejný segment (stejné seq); zbytek o 1000 kroků později; `retransmissions: 1`; `skip` | 47 |

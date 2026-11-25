@@ -12,18 +12,22 @@ proti vektorům v `tests/vectors/`. Zjednodušení jsou vždy označena „Simul
 | `arp.md` | ARP zpráva (pole), algoritmus příjmu podle RFC 826, ARP cache, fronta a neúspěch |
 | `ipv4.md` | adresa a maska, IP hlavička (pole), TTL a výchozí hodnoty, rozhodování hostitele, router, longest prefix match |
 | `icmp.md` | Echo Request/Reply (ping, časování, chyby pro UI), Destination Unreachable, Time Exceeded (zdrojová adresa), tracert (Windows ICMP vs. IOS UDP) |
-| `routing.md` | směrovací tabulka (C, L, S, S*), vznik cest z `ip address` + `no shutdown` a `ip route`, longest prefix match, AD/metrika jen zobrazit, typické chyby konfigurace, **topologie úrovně 3** |
+| `routing.md` | směrovací tabulka (C, L, S, S*), vznik cest z `ip address` + `no shutdown` a `ip route`, longest prefix match, AD/metrika jen zobrazit, typické chyby konfigurace, **topologie úrovně 3** (kap. 7) a **úrovně 4** (kap. 9) |
 | `udp.md` | UDP hlavička, pseudohlavička a kontrolní součet, rozsahy portů (IANA, Windows), socket a demultiplexing, aplikace „zprávy“ (úroveň 2) |
 | `rentgen.md` | rentgen úrovně 2: pole Ethernet II, IPv4, UDP v pořadí na drátě, názvy česky i z Wiresharku, formáty, zvýraznění, hexdump s mapováním bajtů |
-| `cmd.md` | příkazy terminálu: úroveň 2 (`ipconfig`, `ipconfig /all`, `arp -a`, switch `show mac address-table`), úroveň 3 (`ping`, `tracert`, `arp -d`, `route print`/`netstat -nr`, IOS `show ip interface brief`, `show ip route`, `show ip arp`, `ping`, `traceroute`, konfigurace); vzory výstupů |
+| `cmd.md` | příkazy terminálu: úroveň 2 (`ipconfig`, `ipconfig /all`, `arp -a`, switch `show mac address-table`), úroveň 3 (`ping`, `tracert`, `arp -d`, `route print`/`netstat -nr`, IOS `show ip interface brief`, `show ip route`, `show ip arp`, `ping`, `traceroute`, konfigurace), úroveň 4 (`nslookup`, `netstat -an`, `curl -v`, Linux `ss -tuln`); vzory výstupů |
+| `tcp.md` | TCP hlavička (pole pro rentgen, MSS), pseudohlavička, ISN ze seedu a relativní čísla, potvrzení a retransmise (RTO), stavy, průběh spojení úrovně 4, TIME-WAIT |
+| `dns.md` | DNS zpráva (hlavička, flags, otázka, A záznam s TTL), kódování a komprese jména, autoritativní odpověď, chování resolveru a serveru |
+| `http.md` | HTTP/1.1 GET a 200 OK (curl), hlavičky, Content-Length, kdo zavírá spojení |
 | `vektory.md` | formát testovacích vektorů a pravidla porovnání |
 
 Vektory: `tests/vectors/ping-switch.json`, `ping-hub.json`, `ping-router.json`; úroveň 2:
 `udp-switch.json`, `udp-hub.json`, `udp-switch-naucene.json`, `udp-switch-port6000.json`; úroveň 3:
 `ping-arp-prvni.json`, `ping-bez-brany.json`, `ping-spatna-brana.json`, `tracert-alice-bob.json`,
-`tracert-dva-routery.json` (skip, pozdější rozšíření).
+`tracert-dva-routery.json` (skip, pozdější rozšíření); úroveň 4 (zatím skip): `dns-dotaz.json`,
+`tcp-handshake-http.json`, `tcp-ztrata-retransmise.json` (generátor `tools/vectors/gen5.py`).
 
-Další iterace: TCP, DNS, HTTP (zmíněno v `model.md` kap. 9), později DHCP, NAT, filtrace.
+Další iterace: DHCP, NAT, filtrace (úroveň 5).
 
 ## Otevřené otázky
 
@@ -67,3 +71,10 @@ Další iterace: TCP, DNS, HTTP (zmíněno v `model.md` kap. 9), později DHCP, 
     (kontroluje jen „žádný přenos“ a `kind: no_route`).
 17. **Data sondy Windows `tracert` 64 B nul** podle jediného záznamu provozu; ověřit Wiresharkem
     (vektor `tracert-dva-routery` délky kontroluje: IP 92 B, rámec 106 B).
+18. **Úroveň 4, SW2 v síti 2:** rozhodnutí 59 dává SRV1 do sítě 2, kde je Bob přímo na R1 Gi0/1;
+    projektant přidal přepínač SW2 (`routing.md` kap. 9). Alternativa: SRV1 do nové sítě 192.168.3.0/24
+    na R1 Gi0/2 (bez SW2, ale proti rozhodnutí 59). Potvrdit.
+19. **Ukončení TCP ve 4 segmentech** (ACK a FIN serveru zvlášť, jak kreslí CCNA) vs. reálně častější
+    3 segmenty (FIN, ACK přibalený) — zvoleny 4 s označeným zjednodušením (`tcp.md` kap. 8).
+20. **SRV1 bez rekurze (RA=0, flags 0x8500):** konzistentní s odpovědí REFUSED na jména mimo zónu.
+    Ověřit, že Windows `nslookup` nevypisuje varování u serveru bez rekurze.

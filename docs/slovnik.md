@@ -111,6 +111,19 @@ Nově navrhuji:
 | directly connected | přímo připojená síť | „connected“, „přímo připojená“ | přímo připojená síť (C) | Už je pod „connected route“; připomínám, že v `netstat -nr` Windows tomu odpovídá `On-link`. |
 | On-link | přímo na lince | „on-link“ | On-link (výpis `netstat -nr`) | Windows píše do sloupce Gateway, když je cíl v téže síti: bez routeru. Česky se neříká. |
 | broadcast domain (rozšíření) | všesměrová doména | broadcastová doména | broadcastová doména | Už ve slovníku; v úrovni 3 se poprvé ukáže, že jejím okrajem je router (ARP dotaz končí na routeru). |
+| TCP | | TCP | TCP | Nepřekládá se. Spojovaný, spolehlivý protokol L4 (RFC 9293, dříve RFC 793). | návrh (úroveň 4) |
+| UDP | | UDP | UDP | Nepřekládá se. Nespojovaný, nespolehlivý protokol L4 (RFC 768). | návrh (úroveň 4) |
+| connection-oriented / connectionless | spojovaný / nespojovaný | „spojovaný“, „nespojovaný“ (v české literatuře i „connection-oriented“) | spojovaný (TCP) / nespojovaný (UDP) | Michalova formulace: spojovaný a spolehlivý × nespojovaný a nespolehlivý. „Nespolehlivý“ není hanlivé: UDP nepotvrzuje, spolehlivost případně řeší aplikace. | návrh (úroveň 4) |
+| SYN / SYN-ACK / FIN / RST | | SYN, SYN-ACK, FIN, RST (příznaky, „flagy“) | SYN, SYN-ACK, ACK, FIN, RST | Příznaky v hlavičce TCP. SYN = žádost o navázání, FIN = ukončení směru, RST = odmítnutí / zrušení spojení. Nepřekládají se. | návrh (úroveň 4) |
+| sequence number / ISN | pořadové (sekvenční) číslo, počáteční číslo | „sekvenční číslo“, „seq“, „ack“, ISN | sekvenční číslo (seq), potvrzovací číslo (ack) | Číslo prvního bajtu dat segmentu; ack = číslo bajtu, který příjemce čeká dál. Zkratka „ISN“ jen v rentgenu a v poznámce. Rentgen ukazuje relativní i absolutní hodnotu (jako Wireshark). | návrh (úroveň 4) |
+| well-known port / ephemeral port | známý port / dynamický (náhodný) port | „známý port“, „náhodný zdrojový port“, „ephemeral“ | známý port (server), náhodný zdrojový port (klient) | Servery naslouchají na známých portech (53, 80, 443…), klient dostane volný port z vysokého rozsahu od operačního systému (typicky 49152 a výš). | návrh (úroveň 4) |
+| multiplexing / demultiplexing | | multiplex, demultiplex (u L4) | multiplex / demultiplex | Michalova formulace L4 b): doručení dat správné aplikaci podle portu. Slovo „multiplex“ se používá i jinde (jiný význam), proto vždy „na L4“. | návrh (úroveň 4) |
+| LISTEN / ESTABLISHED / TIME_WAIT | naslouchá / spojeno / čekání | „listening“, „established“, „time wait“ (výpis `netstat`) | LISTENING, ESTABLISHED, TIME_WAIT (výpis Windows `netstat -an`) | Stavy TCP z výpisu. Windows píše LISTENING, Linux `ss`/`netstat` LISTEN; simulátor Windows. Česky se neříká jinak než „naslouchá“. | návrh (úroveň 4) |
+| HTTP (GET, request / response) | | HTTP, „GET“, požadavek / odpověď | HTTP, GET, požadavek, odpověď | Textový aplikační protokol nad TCP, port 80. Stavový řádek `HTTP/1.1 200 OK`. | návrh (úroveň 4) |
+| hostname / URL | jméno počítače, adresa stránky | „doména“, „jméno“, „URL“ | jméno (`www.skola.lan`) | Pro studenta ve scénáři „jméno“; URL jen u `http://…`. | návrh (úroveň 4) |
+| nslookup | | `nslookup` | `nslookup` | Příkaz na zjištění IP podle jména; ukáže i DNS server, který odpověděl. | návrh (úroveň 4) |
+| netstat | | `netstat`, `netstat -an` | `netstat -an` | Spojení a naslouchající porty. `-a` všechna, `-n` číselně. Windows: `-p tcp` jen TCP, `-o` ukáže PID. | návrh (úroveň 4) |
+| RTO / retransmission timeout | | „timeout“, „RTO“ | timeout (časovač čekání na ACK) | Zkratka RTO jen v rentgenu. Hodnota v simulátoru zjednodušená (1 s). | návrh (úroveň 4) |
 
 ## Poznámky
 

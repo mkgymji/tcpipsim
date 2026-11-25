@@ -1,0 +1,1001 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "dns-dotaz",
+  "title": "Úroveň 4: DNS dotaz Alice na A záznam www.skola.lan (UDP 53) a autoritativní odpověď SRV1",
+  "description": "Topologie úrovně 4 (rozhodnutí 59, routing.md kap. 9): síť 1 jako v úrovni 3 (Alice Fa0/1, Cyril Fa0/3 na SW1, R1 Gi0/0 na Fa0/4); v síti 2 je nově přepínač SW2 (Fa0/1 R1 Gi0/1, Fa0/2 Bob, Fa0/3 SRV1 192.168.2.10, Linux TTL 64). ARP cache a MAC tabulky jsou předvyplněné stavem po předchozí komunikaci (Alice zná bránu, R1 zná Alici a SRV1, SRV1 zná bránu), aby vektor ukazoval jen L4 a L7; ARP přes router už ukazují vektory úrovně 3. Alice (resolver operačního systému, stejně jako před otevřením stránky v prohlížeči nebo curl) pošle DNS dotaz typu A z dynamického portu 49152 na port 53 DNS serveru 192.168.2.10 (nastaveného v konfiguraci Alice). SRV1 je pro zónu skola.lan autoritativní: odpověď má QR=1, AA=1, RD=1, RA=0 (flags 0x8500; server rekurzi nenabízí), stejné ID 1, zopakovanou otázku a jednu odpověď A s TTL 3600 (jméno v odpovědi komprimované ukazatelem 0xC00C, dns.md kap. 3). Simulátor zjednodušuje: resolver se ptá jen na A (bez AAAA, IPv6 simulace nemá), ID dotazu je čítač od 1, odpověď nemá záznamy v sekcích Authority/Additional.",
+  "level": 4,
+  "seed": 1,
+  "skip": "jádro zatím neumí DNS (akce dns_resolve, aplikace dns na serveru) ani úroveň 4",
+  "spec_refs": [
+    "docs/spec/dns.md",
+    "docs/spec/udp.md kap. 4",
+    "docs/spec/vektory.md kap. 10",
+    "docs/rozhodnuti.md bod 59"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "curl",
+            "proto": "tcp",
+            "port": null
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ]
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "SW2",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000,
+            "auto_reply": "Ahoj, Alice!"
+          },
+          {
+            "name": "poznamky",
+            "proto": "udp",
+            "port": 6000
+          }
+        ]
+      },
+      {
+        "id": "SRV1",
+        "type": "server",
+        "label": "Server",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:04",
+            "ip": "192.168.2.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "apps": [
+          {
+            "name": "dns",
+            "proto": "udp",
+            "port": 53
+          },
+          {
+            "name": "dns",
+            "proto": "tcp",
+            "port": 53
+          },
+          {
+            "name": "web",
+            "proto": "tcp",
+            "port": 80
+          }
+        ],
+        "dns_zone": {
+          "zone": "skola.lan",
+          "records": [
+            {
+              "name": "www.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            },
+            {
+              "name": "srv1.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            }
+          ]
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/4"
+        }
+      },
+      {
+        "id": "L4",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L5",
+        "a": {
+          "node": "PC2",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/2"
+        }
+      },
+      {
+        "id": "L6",
+        "a": {
+          "node": "SRV1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/3"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [
+        {
+          "ip": "192.168.1.1",
+          "mac": "02:00:00:00:01:01",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "PC2": [],
+      "PC3": [],
+      "SRV1": [
+        {
+          "ip": "192.168.2.1",
+          "mac": "02:00:00:00:01:02",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "R1": [
+        {
+          "ip": "192.168.1.10",
+          "mac": "02:00:00:00:00:01",
+          "if": "Gi0/0",
+          "type": "dynamic"
+        },
+        {
+          "ip": "192.168.2.10",
+          "mac": "02:00:00:00:00:04",
+          "if": "Gi0/1",
+          "type": "dynamic"
+        }
+      ]
+    },
+    "mac_table": {
+      "SW1": [
+        {
+          "mac": "02:00:00:00:00:01",
+          "port": "Fa0/1",
+          "vlan": 1,
+          "type": "dynamic"
+        },
+        {
+          "mac": "02:00:00:00:01:01",
+          "port": "Fa0/4",
+          "vlan": 1,
+          "type": "dynamic"
+        }
+      ],
+      "SW2": [
+        {
+          "mac": "02:00:00:00:01:02",
+          "port": "Fa0/1",
+          "vlan": 1,
+          "type": "dynamic"
+        },
+        {
+          "mac": "02:00:00:00:00:04",
+          "port": "Fa0/3",
+          "vlan": 1,
+          "type": "dynamic"
+        }
+      ]
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "SRV1": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    },
+    "udp_sockets": {
+      "SRV1": [
+        {
+          "app": "dns",
+          "port": 53
+        }
+      ],
+      "PC2": [
+        {
+          "app": "zpravy",
+          "port": 5000
+        },
+        {
+          "app": "poznamky",
+          "port": 6000
+        }
+      ]
+    },
+    "tcp_connections": {
+      "SRV1": [
+        {
+          "local": "0.0.0.0:53",
+          "remote": "0.0.0.0:0",
+          "state": "LISTEN"
+        },
+        {
+          "local": "0.0.0.0:80",
+          "remote": "0.0.0.0:0",
+          "state": "LISTEN"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "dns_resolve",
+      "args": {
+        "name": "www.skola.lan",
+        "type": "A"
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [
+      {
+        "n": 1,
+        "step": 1,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "DNS dotaz: A www.skola.lan? (ID 1, UDP 49152 -> 53)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 59
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 53,
+            "length": 39
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x0100",
+            "qr": 0,
+            "opcode": 0,
+            "aa": 0,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 0,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            }
+          },
+          "frame_len": 73
+        }
+      },
+      {
+        "n": 2,
+        "step": 2,
+        "link": "L3",
+        "from": "SW1",
+        "to": "R1",
+        "summary": "DNS dotaz: A www.skola.lan? (ID 1, UDP 49152 -> 53) (SW1 -> R1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 128,
+            "protocol": 17,
+            "total_length": 59
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 53,
+            "length": 39
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x0100",
+            "qr": 0,
+            "opcode": 0,
+            "aa": 0,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 0,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            }
+          },
+          "frame_len": 73
+        }
+      },
+      {
+        "n": 3,
+        "step": 3,
+        "link": "L4",
+        "from": "R1",
+        "to": "SW2",
+        "summary": "DNS dotaz: A www.skola.lan? (ID 1, UDP 49152 -> 53) (R1 -> SW2)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 127,
+            "protocol": 17,
+            "total_length": 59
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 53,
+            "length": 39
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x0100",
+            "qr": 0,
+            "opcode": 0,
+            "aa": 0,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 0,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            }
+          },
+          "frame_len": 73
+        }
+      },
+      {
+        "n": 4,
+        "step": 4,
+        "link": "L6",
+        "from": "SW2",
+        "to": "SRV1",
+        "summary": "DNS dotaz: A www.skola.lan? (ID 1, UDP 49152 -> 53) (SW2 -> SRV1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 127,
+            "protocol": 17,
+            "total_length": 59
+          },
+          "udp": {
+            "sport": 49152,
+            "dport": 53,
+            "length": 39
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x0100",
+            "qr": 0,
+            "opcode": 0,
+            "aa": 0,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 0,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            }
+          },
+          "frame_len": 73
+        }
+      },
+      {
+        "n": 5,
+        "step": 5,
+        "link": "L6",
+        "from": "SRV1",
+        "to": "SW2",
+        "summary": "DNS odpověď: www.skola.lan A 192.168.2.10, TTL 3600, AA=1",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 17,
+            "total_length": 75
+          },
+          "udp": {
+            "sport": 53,
+            "dport": 49152,
+            "length": 55
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x8500",
+            "qr": 1,
+            "opcode": 0,
+            "aa": 1,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 1,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            },
+            "answers": [
+              {
+                "name": "www.skola.lan",
+                "type": "A",
+                "class": "IN",
+                "ttl": 3600,
+                "rdlength": 4,
+                "data": "192.168.2.10"
+              }
+            ]
+          },
+          "frame_len": 89
+        }
+      },
+      {
+        "n": 6,
+        "step": 6,
+        "link": "L4",
+        "from": "SW2",
+        "to": "R1",
+        "summary": "DNS odpověď: www.skola.lan A 192.168.2.10, TTL 3600, AA=1 (SW2 -> R1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 17,
+            "total_length": 75
+          },
+          "udp": {
+            "sport": 53,
+            "dport": 49152,
+            "length": 55
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x8500",
+            "qr": 1,
+            "opcode": 0,
+            "aa": 1,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 1,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            },
+            "answers": [
+              {
+                "name": "www.skola.lan",
+                "type": "A",
+                "class": "IN",
+                "ttl": 3600,
+                "rdlength": 4,
+                "data": "192.168.2.10"
+              }
+            ]
+          },
+          "frame_len": 89
+        }
+      },
+      {
+        "n": 7,
+        "step": 7,
+        "link": "L3",
+        "from": "R1",
+        "to": "SW1",
+        "summary": "DNS odpověď: www.skola.lan A 192.168.2.10, TTL 3600, AA=1 (R1 -> SW1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 17,
+            "total_length": 75
+          },
+          "udp": {
+            "sport": 53,
+            "dport": 49152,
+            "length": 55
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x8500",
+            "qr": 1,
+            "opcode": 0,
+            "aa": 1,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 1,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            },
+            "answers": [
+              {
+                "name": "www.skola.lan",
+                "type": "A",
+                "class": "IN",
+                "ttl": 3600,
+                "rdlength": 4,
+                "data": "192.168.2.10"
+              }
+            ]
+          },
+          "frame_len": 89
+        }
+      },
+      {
+        "n": 8,
+        "step": 8,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "DNS odpověď: www.skola.lan A 192.168.2.10, TTL 3600, AA=1 (SW1 -> PC1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 17,
+            "total_length": 75
+          },
+          "udp": {
+            "sport": 53,
+            "dport": 49152,
+            "length": 55
+          },
+          "dns": {
+            "id": 1,
+            "flags": "0x8500",
+            "qr": 1,
+            "opcode": 0,
+            "aa": 1,
+            "tc": 0,
+            "rd": 1,
+            "ra": 0,
+            "rcode": 0,
+            "qdcount": 1,
+            "ancount": 1,
+            "nscount": 0,
+            "arcount": 0,
+            "question": {
+              "name": "www.skola.lan",
+              "type": "A",
+              "class": "IN"
+            },
+            "answers": [
+              {
+                "name": "www.skola.lan",
+                "type": "A",
+                "class": "IN",
+                "ttl": 3600,
+                "rdlength": 4,
+                "data": "192.168.2.10"
+              }
+            ]
+          },
+          "frame_len": 89
+        }
+      }
+    ],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "udp_send",
+        "detail": "resolver: nový UDP socket, dynamický port 49152; DNS server 192.168.2.10 je v jiné síti -> přes bránu"
+      },
+      {
+        "step": 3,
+        "node": "R1",
+        "event": "ip_forward",
+        "detail": "TTL 128 -> 127; 192.168.2.0/24 connected Gi0/1"
+      },
+      {
+        "step": 4,
+        "node": "SRV1",
+        "event": "udp_deliver",
+        "detail": "cílový port 53 -> aplikace dns"
+      },
+      {
+        "step": 4,
+        "node": "SRV1",
+        "event": "dns_answer",
+        "detail": "skola.lan je moje zóna: www.skola.lan A 192.168.2.10 (autoritativní odpověď, AA=1)"
+      },
+      {
+        "step": 7,
+        "node": "R1",
+        "event": "ip_forward",
+        "detail": "TTL 64 -> 63"
+      },
+      {
+        "step": 8,
+        "node": "PC1",
+        "event": "udp_deliver",
+        "detail": "cílový port 49152 -> resolver; ID 1 sedí s dotazem; záznam do DNS cache na 3600 s; socket se zavře"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [
+          {
+            "ip": "192.168.1.1",
+            "mac": "02:00:00:00:01:01",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "PC2": [],
+        "PC3": [],
+        "SRV1": [
+          {
+            "ip": "192.168.2.1",
+            "mac": "02:00:00:00:01:02",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "R1": [
+          {
+            "ip": "192.168.1.10",
+            "mac": "02:00:00:00:00:01",
+            "if": "Gi0/0",
+            "type": "dynamic"
+          },
+          {
+            "ip": "192.168.2.10",
+            "mac": "02:00:00:00:00:04",
+            "if": "Gi0/1",
+            "type": "dynamic"
+          }
+        ]
+      },
+      "mac_table": {
+        "SW1": [
+          {
+            "mac": "02:00:00:00:00:01",
+            "port": "Fa0/1",
+            "vlan": 1,
+            "type": "dynamic"
+          },
+          {
+            "mac": "02:00:00:00:01:01",
+            "port": "Fa0/4",
+            "vlan": 1,
+            "type": "dynamic"
+          }
+        ],
+        "SW2": [
+          {
+            "mac": "02:00:00:00:01:02",
+            "port": "Fa0/1",
+            "vlan": 1,
+            "type": "dynamic"
+          },
+          {
+            "mac": "02:00:00:00:00:04",
+            "port": "Fa0/3",
+            "vlan": 1,
+            "type": "dynamic"
+          }
+        ]
+      },
+      "dns_cache": {
+        "PC1": [
+          {
+            "name": "www.skola.lan",
+            "type": "A",
+            "data": "192.168.2.10",
+            "ttl": 3600
+          }
+        ]
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "dns_resolve",
+      "name": "www.skola.lan",
+      "server": "192.168.2.10",
+      "authoritative": true,
+      "rcode": 0,
+      "answers": [
+        {
+          "name": "www.skola.lan",
+          "type": "A",
+          "data": "192.168.2.10",
+          "ttl": 3600
+        }
+      ]
+    }
+  }
+}

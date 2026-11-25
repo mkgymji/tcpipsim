@@ -247,3 +247,15 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     akce scénáře; na Bobovi zůstávají aplikace z úrovně 2. Ztráta segmentu a retransmise jako
     volitelná část (ukazuje „spolehlivost“ z L4 a)). NAT a seznam.cz až v úrovni 5. Specifikace:
     projektant + didaktik; UI pokračuje vzory úrovní 2–3 (bez samostatného kreativce, šetří tokeny).
+
+60. **Úroveň 4 — sjednocení** (scénář didaktika × specifikace projektanta; výchozí volby schválil Michal:
+    všechny části A–F, web na TCP 80 s HTTP odpovědí, `www.skola.lan`, termíny podle slovníku):
+    - Síť 2 má **switch SW2** (Fa0/1 → R1 Gi0/1, Fa0/2 Bob, Fa0/3 SRV1); Bob se „přepojí“, adresy beze změny.
+    - **Čísla podle projektanta** (ISN FNV-1a ze seedu, klientské porty deterministicky od 49152 dle rozh. 28);
+      scénář přebírá hodnoty z jádra, ne vlastní návrhy.
+    - **Ukončení spojení ve 4 segmentech** (FIN, ACK, FIN, ACK), jak ho kreslí CCNA; ukončuje klient → TIME_WAIT u Alice.
+      Spojení FIN+ACK do jednoho segmentu jen poznámka „v praxi často 3 segmenty“.
+    - HTTP odpověď v jednom segmentu (O6); skládání dat v pořadí se ukáže v části F (retransmise).
+    - RST na zavřený port 8080 (O4) s poznámkou, že firewall by segment zahodil mlčky.
+    - ARP cache a MAC tabulky předvyplněné (úroveň 3 je ukázala), označit „Simulátor zjednodušuje“.
+    - Klient = `curl` (v terminálu `curl -v`, poznámka o aliasu v PowerShellu); SRV1 autoritativní DNS bez rekurze.
