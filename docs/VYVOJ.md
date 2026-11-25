@@ -10,6 +10,13 @@ Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), síťová simul
 testovacích vektorů (všechny kromě `tracert-dva-routery`, který je `skip` podle rozhodnutí 44, ale
 jádro ho už přehraje), kódování rámce do bajtů a pole pro rentgen, terminál nad pohledem (`cli/`),
 UI úrovní 1–3.
+Iterace 4: úroveň 4 „Transport a aplikace“ (rozhodnutí 59, 60; kroky 0–31 v částech A–F podle
+`scenarios/uroven4-transport.md`): `core/transport.js` (TCP se stavy RFC 9293, handshake, data, potvrzení,
+ukončení ve 4 segmentech, TIME-WAIT, RST, retransmise po RTO; resolver a autoritativní server DNS na UDP 53;
+curl a webový server HTTP/1.1), `proto/tcp.js`, `proto/dns.js`, `proto/http.js`, rentgen TCP/UDP/DNS/HTTP
+(`wire/fields.js`), terminál `nslookup`, `netstat -an`, `curl -v` (`cli/wincmd4.js`) a `ss` na SRV1
+(`cli/linux.js`), UI `ui/app4.js` + `ui/render4.js` (adaptér úrovně 3 s konfigurací). Všechny vektory
+projektanta kromě `tracert-dva-routery` procházejí bez `skip`.
 Rozhodnutí jsou psaná s důvodem, aby šla zpětně zvrátit.
 
 ## 0. Rychlý start
@@ -527,6 +534,19 @@ Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
 **Protokol:** (1) spec v `docs/spec/<proto>.md` od projektanta, (2) `js/proto/<proto>.js` podle
 kap. 4.1, (3) kódování a pole pro rentgen ve `js/wire/encode.js`, (4) zápis do `registry.js`
 a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + vektor od projektanta.
+
+**Úroveň 4 (TCP, DNS, HTTP):** jádro `core/transport.js` se instaluje do `runNetwork`, jen když je
+v `protocols` zapnuté `tcp` (`LEVEL4_PROTOCOLS`). Tabulka spojení uzlu je `state.tcp_connections` ve tvaru
+vektorů `{ local, remote, state }`; řídicí blok (TCB) visí na záznamu jako neenumerovatelná vlastnost `tcb`,
+takže se do kopií tabulek ani do porovnání s vektory nedostane. Akce: `dns_resolve`, `nslookup` (bez cache,
+timeout 2 s), `http_get` (`dst` nebo jen `host` = nejdřív DNS; `think` = čas aplikace v s, `keep` = nezavírat,
+`via` = poslat po existujícím spojení), `tcp_open`, `tcp_close`, `tcp_expire` (konec TIME-WAIT), `link_loss`.
+Aplikace serveru mají `delay` (s). Ve vektorech jsou zpoždění 0; ve scénáři 20 ms, aby segmenty šly po krocích.
+Fronta rozhraní (tcp.md kap. 10): koncový uzel pošle po jedné lince nejvýš jeden rámec za krok; časovač RTO
+startuje, až rámec opravdu odejde (`onTx`). Kroky událostí ve vektorech = čas v uzlu (`r.t / 1000`), ne příchod
+rámce; `tools/vectors/gen5.py` je tak opravený (FIN-WAIT-1 v kroku zavření, `tcp_retransmit` v čase RTO,
+`ip_forward` v kroku příchodu do R1). Pískoviště terminálu: `scenario/level4.js` `whatIf4` (stav kroku:
+ARP, MAC, LISTEN/ESTABLISHED/TIME-WAIT, DNS cache). Odkaz: `index.html#u=4&k=16a&t=PC1&c=netstat%20-an`.
 
 **Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
 kap. 5.3 (texty kroků doslova z .md; úroveň 2 navíc `initial_state`, akce `udp_send`/`mark`/`swap`

@@ -3,7 +3,10 @@
 // compareVector: pravidla vektory.md kap. 5–7 (pořadí na (linka, směr) přesně, step, částečná
 // shoda polí, MAC bez ohledu na velikost písmen, tabulky jako množiny bez `age`).
 // Bez DOM.
-import { runNetwork, DEFAULT_DELAY, LEVEL3_PROTOCOLS } from './netsim.js';
+import { runNetwork, DEFAULT_DELAY, LEVEL3_PROTOCOLS, LEVEL4_PROTOCOLS } from './netsim.js';
+import { flagsString } from '../proto/tcp.js';
+import { dnsVectorFields } from '../proto/dns.js';
+import { parseHttp } from '../proto/http.js';
 import { buildWorld } from './netsim.js';
 import { normMac } from './addr.js';
 
@@ -12,11 +15,12 @@ const UNSUPPORTED = {};
 
 export const EVENT_KINDS = ['nic_drop', 'arp_learn', 'arp_ignore', 'arp_queue', 'mac_learn', 'flood', 'forward',
   'filter', 'repeat', 'ip_forward', 'ip_deliver', 'ip_drop', 'udp_send', 'udp_deliver', 'udp_no_listener',
-  'arp_fail', 'arp_expire'];
+  'arp_fail', 'arp_expire', 'tcp_state', 'tcp_retransmit', 'link_loss', 'http_request', 'http_response', 'dns_answer'];
 
 // Protokoly pro přehrání vektoru: úroveň 3 a vektory s ping/tracert mají ARP a ICMP (ARP se
 // opravdu posílá), starší vektory úrovně 2 jen předvyplněnou ARP tabulku (rozhodnutí 14).
 export function vectorProtocols(vector) {
+  if ((vector.level ?? 0) >= 4) return LEVEL4_PROTOCOLS;
   const l3 = (vector.level ?? 0) >= 3 || vector.actions.some((a) => a.command === 'ping' || a.command === 'tracert');
   return l3 ? LEVEL3_PROTOCOLS : null;
 }
@@ -38,6 +42,13 @@ export function vectorPdu(frame, bytes) {
     else if (p.proto === 'ipv4') {
       out.ip = { src: p.h.src, dst: p.h.dst, ttl: p.h.ttl, protocol: p.h.protocol, id: p.h.id };
     } else if (p.proto === 'udp') out.udp = { sport: p.h.sport, dport: p.h.dport };
+    else if (p.proto === 'tcp') {
+      const h = p.h;
+      out.tcp = { sport: h.sport, dport: h.dport, seq: h.seq, ack: h.ack, rel_seq: h.rel?.seq, rel_ack: h.rel?.ack,
+        flags: flagsString(h.flags), hdr_len: h.hdrLen, window: h.window,
+        payload_len: p.payload ? new TextEncoder().encode(p.payload.payload).length : 0 };
+      if (h.options) out.tcp.options = h.options.map((o) => ({ ...o }));
+    } else if (p.proto === 'dns') out.dns = dnsVectorFields(p.h);
     else if (p.proto === 'arp') {
       out.arp = { op: p.h.op === 1 ? 'request' : 'reply', sha: p.h.sha, spa: p.h.spa, tha: p.h.tha, tpa: p.h.tpa };
     } else if (p.proto === 'icmp') {
@@ -48,6 +59,9 @@ export function vectorPdu(frame, bytes) {
     } else if (p.proto === 'data') {
       const len = new TextEncoder().encode(p.payload).length;
       out.data = { text: p.payload, len };
+      const ht = parseHttp(p.payload);
+      if (ht?.kind === 'request') out.http = { kind: 'request', method: ht.method, target: ht.target, version: ht.version, host: ht.host };
+      else if (ht?.kind === 'response') out.http = { kind: 'response', version: ht.version, status: ht.status, reason: ht.reason, content_length: ht.content_length };
     }
   }
   // délky z bajtů (vektor tak testuje i kódování, VYVOJ.md kap. 8)
@@ -60,16 +74,17 @@ export function vectorPdu(frame, bytes) {
 export function runVector(vector) {
   const { records, world } = runNetwork({
     topology: vector.topology, initialState: vector.initial_state ?? {}, actions: vector.actions,
-    protocols: vectorProtocols(vector),
+    protocols: vectorProtocols(vector), seed: vector.seed ?? 1,
   });
   const transmissions = records.filter((r) => r.kind === 'link.tx').map((r) => ({
     step: (r.t + (r.delay ?? DEFAULT_DELAY)) / 1000, link: r.link, from: r.from, to: r.to, pdu: vectorPdu(r.pdu, r.bytes),
+    ...(r.lost ? { lost: true } : {}),
   }));
   const events = records.filter((r) => EVENT_KINDS.includes(r.kind))
     .map((r) => ({ step: r.t / 1000, node: r.node, event: r.kind, detail: r.detail }));
   const final = {};
   for (const n of Object.values(world.nodes)) {
-    for (const t of ['arp_cache', 'mac_table', 'udp_sockets', 'routing_table']) {
+    for (const t of ['arp_cache', 'mac_table', 'udp_sockets', 'routing_table', 'tcp_connections', 'dns_cache']) {
       if (n.state?.[t]) (final[t] ??= {})[n.id] = n.state[t];
     }
   }
@@ -87,6 +102,20 @@ export function runVector(vector) {
 export function appResults(records) {
   const out = [];
   for (const st of records.filter((r) => r.kind === 'app.start')) {
+    if (st.command) {
+      // úroveň 4 (transport.js): dns_resolve, http_get, tcp_open -> výsledek z app.result
+      const res = records.find((r) => r.kind === 'app.result' && r.run === st.run && r.command === st.command);
+      if (!res) { out.push({ node: st.node, command: st.command, done: false }); continue; }
+      const r = res.result;
+      if (st.command === 'dns_resolve') {
+        out.push({ node: st.node, command: st.command, name: r.name, server: r.server, authoritative: r.authoritative,
+          rcode: r.rcode, answers: r.answers ?? [], kind: r.kind });
+      } else {
+        out.push({ node: st.node, command: st.command, kind: r.kind, status: r.status, reason: r.reason,
+          content_length: r.content_length, body_len: r.body_len, local: r.local, remote: r.remote, retransmissions: r.retransmissions });
+      }
+      continue;
+    }
     const evs = records.filter((r) => r.kind === 'app.event' && r.run === st.run);
     if (st.app === 'ping') {
       const replies = evs.filter((e) => e.result.kind === 'reply')
@@ -168,6 +197,7 @@ export function compareVector(vector, run) {
     }
     g.exp.forEach((e, i) => {
       const a = g.act[i];
+      if (Boolean(e.lost) !== Boolean(a.lost)) out.push(`přenos ${e.n ?? i + 1} (${link} ${from}): lost čekáno ${Boolean(e.lost)}`);
       const where = `přenos ${e.n ?? i + 1} (${link} ${from}->${e.to})`;
       if (a.to !== e.to) out.push(`${where}: cíl ${a.to}`);
       if (a.step !== e.step) out.push(`${where}: step čekán ${e.step}, je ${a.step}`);
@@ -193,7 +223,7 @@ export function compareVector(vector, run) {
     const a = run.appResult.received.map(key).sort(), e = ar.received.map(key).sort();
     if (JSON.stringify(a) !== JSON.stringify(e)) out.push(`app_result.received: čekáno ${e.join(' ')} | je ${a.join(' ')}`);
   }
-  if (ar?.command === 'ping' || ar?.command === 'tracert') {
+  if (['ping', 'tracert', 'dns_resolve', 'http_get'].includes(ar?.command)) {
     const act = run.appResult.apps.find((a) => a.node === ar.node && a.command === ar.command);
     if (!act) out.push(`app_result: ${ar.command} na ${ar.node} neproběhl`);
     else {

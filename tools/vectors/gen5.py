@@ -137,10 +137,10 @@ def dns_dotaz():
     end = send_path(t, 1, True, f"DNS dotaz: A {NAME}? (ID 1, UDP {CPORT} -> 53)", bq)
     send_path(t, end + 1, False, f"DNS odpověď: {NAME} A {S_IP}, TTL 3600, AA=1", ba)
     ev = [{"step": 0, "node": "PC1", "event": "udp_send", "detail": f"resolver: nový UDP socket, dynamický port {CPORT}; DNS server 192.168.2.10 je v jiné síti -> přes bránu"},
-          {"step": 3, "node": "R1", "event": "ip_forward", "detail": "TTL 128 -> 127; 192.168.2.0/24 connected Gi0/1"},
+          {"step": 2, "node": "R1", "event": "ip_forward", "detail": "TTL 128 -> 127; 192.168.2.0/24 connected Gi0/1"},
           {"step": 4, "node": "SRV1", "event": "udp_deliver", "detail": "cílový port 53 -> aplikace dns"},
           {"step": 4, "node": "SRV1", "event": "dns_answer", "detail": "skola.lan je moje zóna: www.skola.lan A 192.168.2.10 (autoritativní odpověď, AA=1)"},
-          {"step": 7, "node": "R1", "event": "ip_forward", "detail": "TTL 64 -> 63"},
+          {"step": 6, "node": "R1", "event": "ip_forward", "detail": "TTL 64 -> 63"},
           {"step": 8, "node": "PC1", "event": "udp_deliver", "detail": f"cílový port {CPORT} -> resolver; ID 1 sedí s dotazem; záznam do DNS cache na 3600 s; socket se zavře"}]
     v = {"format": "tcpipsim-vector/1", "id": "dns-dotaz",
          "title": "Úroveň 4: DNS dotaz Alice na A záznam www.skola.lan (UDP 53) a autoritativní odpověď SRV1",
@@ -150,7 +150,6 @@ def dns_dotaz():
                         "(jméno v odpovědi komprimované ukazatelem 0xC00C, dns.md kap. 3). Simulátor zjednodušuje: resolver se ptá jen na A (bez AAAA, IPv6 "
                         "simulace nemá), ID dotazu je čítač od 1, odpověď nemá záznamy v sekcích Authority/Additional.",
          "level": 4, "seed": SEED,
-         "skip": "jádro zatím neumí DNS (akce dns_resolve, aplikace dns na serveru) ani úroveň 4",
          "spec_refs": ["docs/spec/dns.md", "docs/spec/udp.md kap. 4", "docs/spec/vektory.md kap. 10", "docs/rozhodnuti.md bod 59"],
          "topology": topo(), "initial_state": init_state(),
          "actions": [{"time": 0, "node": "PC1", "command": "dns_resolve", "args": {"name": NAME, "type": "A"}}],
@@ -205,7 +204,7 @@ def tcp_conv(t, lost=False):
     if lost:
         send_path(t, 10, True, f"HTTP GET / ({LQ} B dat, rel. seq 1)", get, lost_on="L4")
         ev += [{"step": 12, "node": "SW2", "event": "link_loss", "detail": "rámec s HTTP GET se na lince L4 ztratil (akce link_loss)"},
-               {"step": 1010, "node": "PC1", "event": "tcp_retransmit", "detail": "RTO 1 s vypršel, rel. seq 1 nepotvrzen -> stejný segment znovu (Wireshark: [TCP Retransmission]); další RTO by byl 2 s"}]
+               {"step": 1009, "node": "PC1", "event": "tcp_retransmit", "detail": "RTO 1 s vypršel, rel. seq 1 nepotvrzen -> stejný segment znovu (Wireshark: [TCP Retransmission]); další RTO by byl 2 s"}]
         g0 = 1010
     else:
         g0 = 10
@@ -219,7 +218,9 @@ def tcp_conv(t, lost=False):
     ev.append({"step": r, "node": "PC1", "event": "http_response", "detail": f"200 OK, tělo {BLEN} B = Content-Length -> stránka je celá, curl zavírá spojení"})
     send_path(t, r + 1, True, f"TCP ACK: Alice potvrzuje {LR} B (ack {1 + LR})", seg(True, "ACK", 1 + LQ, 1 + LR))
     send_path(t, r + 2, True, "TCP FIN, ACK: Alice končí (FIN zabere 1 číslo sekvence)", seg(True, "FIN, ACK", 1 + LQ, 1 + LR))
-    ev.append({"step": r + 2, "node": "PC1", "event": "tcp_state", "detail": "ESTABLISHED -> FIN-WAIT-1"})
+    # událost v čase, kdy curl zavře socket (hned po přijetí odpovědi); FIN počká ve frontě za ACK
+    # (přenos FIN na první lince má step r + 2 = příchod). Kroky událostí = čas v uzlu, ne příchod rámce.
+    ev.append({"step": r, "node": "PC1", "event": "tcp_state", "detail": "ESTABLISHED -> FIN-WAIT-1"})
     f = r + 2 + 3
     ev.append({"step": f, "node": "SRV1", "event": "tcp_state", "detail": "ESTABLISHED -> CLOSE-WAIT; aplikace web dostane konec dat a zavře socket -> LAST-ACK"})
     send_path(t, f + 1, False, f"TCP ACK: server potvrzuje FIN (ack {2 + LQ})", seg(False, "ACK", 1 + LR, 2 + LQ))
@@ -260,7 +261,6 @@ def http_vector(vid, lost):
         refs = ["docs/spec/tcp.md", "docs/spec/http.md", "docs/spec/vektory.md kap. 10", "docs/rozhodnuti.md bod 59"]
     v = {"format": "tcpipsim-vector/1", "id": vid, "title": title, "description": desc,
          "level": 4, "seed": SEED,
-         "skip": "jádro zatím neumí TCP, HTTP ani akce http_get" + (" a link_loss" if lost else "") + " (úroveň 4)",
          "spec_refs": refs, "topology": topo(), "initial_state": init_state(), "actions": actions,
          "expected": {"transmissions": t.l, "events": ev, "final_state": final,
                       "app_result": {"node": "PC1", "command": "http_get", "status": 200, "reason": "OK",

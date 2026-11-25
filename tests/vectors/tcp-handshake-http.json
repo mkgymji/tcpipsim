@@ -5,7 +5,6 @@
   "description": "Topologie úrovně 4 (rozhodnutí 59, routing.md kap. 9): síť 1 jako v úrovni 3 (Alice Fa0/1, Cyril Fa0/3 na SW1, R1 Gi0/0 na Fa0/4); v síti 2 je nově přepínač SW2 (Fa0/1 R1 Gi0/1, Fa0/2 Bob, Fa0/3 SRV1 192.168.2.10, Linux TTL 64). ARP cache a MAC tabulky jsou předvyplněné stavem po předchozí komunikaci (Alice zná bránu, R1 zná Alici a SRV1, SRV1 zná bránu), aby vektor ukazoval jen L4 a L7; ARP přes router už ukazují vektory úrovně 3. Adresa serveru je už známá (DNS ukazuje vektor dns-dotaz; akce http_get dostane IP i jméno pro hlavičku Host). Seed 1: ISN Alice 4108129950, ISN SRV1 3681155042 (FNV-1a, tcp.md kap. 4); rentgen ukazuje relativní i absolutní čísla. Průběh (tcp.md kap. 8): SYN (MSS 1460) -> SYN, ACK -> ACK; HTTP GET (76 B, PSH) -> ACK serveru -> 200 OK (249 B) -> ACK Alice; curl po přijetí celého těla (Content-Length) zavře spojení: FIN, ACK -> ACK -> FIN, ACK -> ACK. Alice končí v TIME-WAIT, server v CLOSED (zůstává LISTEN na 80). Simulátor zjednodušuje: ACK se posílá hned (bez delayed ACK), proto je ukončení ve 4 segmentech (reálně často 3: server pošle ACK a FIN v jednom segmentu); SYN nese jen volbu MSS; okno 64240 bez škálování. Rámce, které uzel posílá po sobě, jdou po lince v po sobě jdoucích krocích (tcp.md kap. 10).",
   "level": 4,
   "seed": 1,
-  "skip": "jádro zatím neumí TCP, HTTP ani akce http_get (úroveň 4)",
   "spec_refs": [
     "docs/spec/tcp.md",
     "docs/spec/http.md",
@@ -2168,7 +2167,7 @@
         "detail": "200 OK, tělo 132 B = Content-Length -> stránka je celá, curl zavírá spojení"
       },
       {
-        "step": 20,
+        "step": 18,
         "node": "PC1",
         "event": "tcp_state",
         "detail": "ESTABLISHED -> FIN-WAIT-1"

@@ -15,7 +15,7 @@ const files = readdirSync(dir).filter((f) => f.endsWith('.json')).sort();
 for (const f of files) {
   const v = load(f);
   const skip = v.skip ?? vectorSkipReason(v);   // `skip` ve vektoru: vektory.md kap. 1
-  test(`vektor ${f}`, { skip: skip ? `úroveň 3: ${skip}` : false }, () => {
+  test(`vektor ${f}`, { skip: skip ? `úroveň ${v.level ?? '?'}: ${skip}` : false }, () => {
     const run = runVector(v);
     const diff = compareVector(v, run);
     assert.deepEqual(diff, [], diff.join('\n'));

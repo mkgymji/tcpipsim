@@ -11,7 +11,8 @@ test('moduly bez DOM nesahají na document/window/localStorage ani do ui/', () =
   for (const dir of DIRS) {
     for (const f of readdirSync(join(ROOT, dir)).filter((x) => x.endsWith('.js'))) {
       const src = readFileSync(join(ROOT, dir, f), 'utf8').replace(/\/\/.*$/gm, '');
-      assert.doesNotMatch(src, /\b(document|window|localStorage)\b/, `${dir}/${f}`);
+      // `window` jako pole hlavičky TCP (Window) je v pořádku; zakázaný je globální objekt prohlížeče
+      assert.doesNotMatch(src, /\b(document|localStorage)\b|(?<![.\w])window\s*[.[]|typeof window|\bwindow\b(?!\s*:)(?<!\.window)/, `${dir}/${f}`);
       assert.doesNotMatch(src, /from '\.\.\/ui\//, `${dir}/${f}`);
       assert.doesNotMatch(src, /\bimport\(/, `${dir}/${f}: dynamický import`);
     }

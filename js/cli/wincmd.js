@@ -4,6 +4,7 @@
 // Vstup: node = uzel z pohledu (label, ip, prefix, mac, gateway, arp_cache, routing_table);
 // opts = { level, sim(command, args) -> { events, done } (ping/tracert z jádra), arpDelete(ip | null) }.
 import { macWindows, maskString, broadcastOf, multicastMac } from '../core/addr.js';
+import { winExec4 } from './wincmd4.js';
 
 // Popisky s tečkovým vodítkem přesně jako Windows 10/11 (cmd.md kap. 2 a 3).
 const LABELS = {
@@ -13,7 +14,7 @@ const LABELS = {
   desc: 'Description . . . . . . . . . . .', phys: 'Physical Address. . . . . . . . .',
   dhcp: 'DHCP Enabled. . . . . . . . . . .', auto: 'Autoconfiguration Enabled . . . .',
   ipv4: 'IPv4 Address. . . . . . . . . . .', mask: 'Subnet Mask . . . . . . . . . . .',
-  gw: 'Default Gateway . . . . . . . . .', netbios: 'NetBIOS over Tcpip. . . . . . . .',
+  gw: 'Default Gateway . . . . . . . . .', dns: 'DNS Servers . . . . . . . . . . .', netbios: 'NetBIOS over Tcpip. . . . . . . .',
 };
 const dots = (key) => `   ${LABELS[key]} : `;
 
@@ -42,6 +43,8 @@ function ipconfig(node, all, level = 2) {
   out.push({ text: `${dots('ipv4')}${node.ip}${all ? '(Preferred)' : ''}`, mark: 'l3' },
     `${dots('mask')}${maskString(node.prefix)}`,
     `${dots('gw')}${node.gateway ?? ''}`);
+  // úroveň 4 (cmd.md kap. 14): adresa DNS serveru z konfigurace
+  if (all && level >= 4 && node.dns_servers?.length) out.push({ text: `${dots('dns')}${node.dns_servers[0]}`, mark: 'l3' });
   if (all) out.push(`${dots('netbios')}Enabled`);
   out.push('');
   const note = ['Na školním PC uvidíš navíc řádek s adresou IPv6, tu simulátor nemá.'];
@@ -222,6 +225,10 @@ export function winExec(node, line, opts = {}) {
   }
   if (lc === 'arp -a' || lc === 'arp -g' || lc === 'arp /a') return arpA(node, level);
   if (lc === 'cls') return { lines: [], clear: true };
+  if (level >= 4) {
+    const r = winExec4(node, cmd, lc, opts);
+    if (r) return r;
+  }
   if (level >= 3) {
     const r = winExec3(node, cmd, lc, opts);
     if (r) return r;

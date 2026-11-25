@@ -4,4 +4,5 @@ export const LEVELS = {
   1: { id: 1, title: 'Barvičky', protocols: ['ethernet', 'ipv4', 'udp'], showAddresses: false, xray: false, terminal: false },
   2: { id: 2, title: 'Adresy', protocols: ['ethernet', 'ipv4', 'udp'], showAddresses: true, xray: true, terminal: true },
   3: { id: 3, title: 'Směrování', protocols: ['ethernet', 'arp', 'ipv4', 'icmp', 'udp'], showAddresses: true, xray: true, terminal: true },
+  4: { id: 4, title: 'Transport a aplikace', protocols: ['ethernet', 'arp', 'ipv4', 'icmp', 'udp', 'tcp', 'dns', 'http'], showAddresses: true, xray: true, terminal: true },
 };

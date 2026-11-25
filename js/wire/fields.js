@@ -125,6 +125,12 @@ const ICMP_CODES = { 3: { 0: 'network unreachable', 1: 'host unreachable', 3: 'p
  */
 export function pduFields(top) {
   const b = encode(top);
+  if (top.proto === 'tcp' || top.proto === 'udp') {
+    // segment před zabalením do IP paketu (úroveň 4): jen L4 a data, součet zatím 0
+    const blocks = [];
+    const sum = l4Blocks(b, 0, b.length, top, blocks);
+    return { bytes: b, blocks, padOff: b.length, padLen: 0, summary: `${top.proto === 'tcp' ? 'TCP segment' : 'UDP datagram'} (paket ještě nevznikl)${sum}` };
+  }
   const F = (id, n, name, ws, bits, off, len, value, key, explain) => ({ id, n, name, ws, bits, off, len, value, key, explain });
   const blocks = [];
   let ip0 = 0, padOff = b.length, padLen = 0;
@@ -212,7 +218,120 @@ export function pduFields(top) {
       'ICMP jede přímo v IP paketu, nemá obálku transportní vrstvy, a tedy ani porty (rozhodnutí 47).'));
     blocks.push({ id: 'icmp', title: 'ICMP (uvnitř paketu)', tab: 'ICMP', layer: 3, start: c, end: o + total, fields });
   }
+  const l4sum = l4Blocks(b, o + ihl, o + total, inner.payload, blocks);
   const sum = `${top.proto === 'ethernet' ? `Rámec: ${b.length} B · Ethernet II · ` : ''}IPv4 ${ipAt(b, o + 12)} → ${ipAt(b, o + 16)} · TTL ${b[o + 8]}`
-    + (proto === 1 ? ` · ICMP typ ${b[o + ihl]}` : '');
+    + (proto === 1 ? ` · ICMP typ ${b[o + ihl]}` : '') + l4sum;
   return { bytes: b, blocks, padOff, padLen, summary: sum };
+}
+
+// ---- úroveň 4: UDP, TCP, DNS, HTTP (udp.md, tcp.md kap. 2, dns.md kap. 2, http.md kap. 3) ----
+
+const TCP_FLAGS = ['CWR', 'ECE', 'URG', 'ACK', 'PSH', 'RST', 'SYN', 'FIN'];
+const flagNames = (f) => ['CWR', 'ECE', 'URG', 'PSH', 'RST', 'SYN', 'FIN', 'ACK'].filter((n) => f & (1 << (7 - TCP_FLAGS.indexOf(n)))).join(', ');
+const u32 = (b, i) => ((b[i] << 24) | (b[i + 1] << 16) | (b[i + 2] << 8) | b[i + 3]) >>> 0;
+const DNS_TYPES = { 1: 'A', 28: 'AAAA', 5: 'CNAME', 12: 'PTR', 15: 'MX', 2: 'NS' };
+
+// Přidá do `blocks` bloky L4 (UDP/TCP) a L7 (DNS/HTTP/data) od bajtu c do end; vrací dovětek souhrnu.
+function l4Blocks(b, c, end, l4, blocks) {
+  const F = (id, n, name, ws, bits, off, len, value, key, explain) => ({ id, n, name, ws, bits, off, len, value, key, explain });
+  if (!l4 || (l4.proto !== 'udp' && l4.proto !== 'tcp')) return '';
+  const sport = u16(b, c), dport = u16(b, c + 2);
+  let d0;
+  if (l4.proto === 'udp') {
+    d0 = c + 8;
+    blocks.push({ id: 'udp', title: 'UDP datagram', tab: 'UDP', layer: 4, start: c, end: d0, fields: [
+      F('udp.sport', 1, 'Zdrojový port', 'Source Port · udp.srcport', 16, c, 2, `${sport} (${portRange(sport)})`, true,
+        'Port aplikace, která datagram poslala; u klienta ho vybral operační systém z dynamického rozsahu (od 49152).'),
+      F('udp.dport', 2, 'Cílový port', 'Destination Port · udp.dstport', 16, c + 2, 2, `${dport} (${portRange(dport)})`, true,
+        'Podle něj operační systém příjemce předá data správné aplikaci (53 = DNS).'),
+      F('udp.len', 3, 'Délka', 'Length · udp.length', 16, c + 4, 2, `${u16(b, c + 4)} B`, true, 'Délka datagramu: 8 B hlavičky a data. Víc UDP hlavička nemá.'),
+      F('udp.checksum', 4, 'Kontrolní součet', 'Checksum · udp.checksum', 16, c + 6, 2, h4(u16(b, c + 6)), false,
+        'Součet z hlavičky, dat a obou IP adres (pseudohlavička).'),
+    ] });
+  } else {
+    const h = l4.h;
+    const hl = (b[c + 12] >> 4) * 4;
+    d0 = c + hl;
+    const f = b[c + 13];
+    const seq = u32(b, c + 4), ack = u32(b, c + 8);
+    const fields = [
+      F('tcp.sport', 1, 'Zdrojový port', 'Source Port · tcp.srcport', 16, c, 2, `${sport} (${portRange(sport)})`, true,
+        'Port aplikace, která segment posílá. Klient ho dostal od operačního systému (od 49152), server má dobře známý port.'),
+      F('tcp.dport', 2, 'Cílový port', 'Destination Port · tcp.dstport', 16, c + 2, 2, `${dport} (${portRange(dport)})`, true,
+        'Podle něj OS předá data aplikaci (80 = web). Spojení určuje až celá čtveřice: obě IP a oba porty.'),
+      F('tcp.seq', 3, 'Číslo sekvence', 'Sequence Number · tcp.seq (raw: tcp.seq_raw)', 32, c + 4, 4,
+        `${h?.rel?.seq ?? seq} (relativně; na drátě ${seq})`, true,
+        'Pořadové číslo prvního bajtu dat v segmentu. SYN a FIN zaberou každý jedno číslo. Relativní číslo = skutečné − počáteční číslo (ISN) této strany, jak ho ukazuje Wireshark.'),
+      F('tcp.ack', 4, 'Číslo potvrzení', 'Acknowledgment Number · tcp.ack (raw: tcp.ack_raw)', 32, c + 8, 4,
+        f & 0x10 ? `${h?.rel?.ack ?? ack} (relativně; na drátě ${ack})` : '0 (bez příznaku ACK neplatí)', true,
+        'Číslo dalšího bajtu, který odesílatel čeká: „všechno před tímto číslem mám“. Platí jen s příznakem ACK.'),
+      F('tcp.hdr_len', 5, 'Délka hlavičky', 'Header Length · tcp.hdr_len', 4, c + 12, 1, `${b[c + 12] >> 4} → ${hl} B`, false,
+        'Počet čtyřbajtových slov hlavičky (RFC: Data Offset): 20 B, se SYN i volba MSS (24 B).'),
+      F('tcp.flags', 6, 'Příznaky', 'Flags · tcp.flags', 8, c + 13, 1, `${bin(f, 8)} = ${flagNames(f) || '—'}`, true,
+        'SYN = chci spojení, ACK = číslo potvrzení platí, PSH = předej data hned, FIN = už nic nepošlu, RST = zrušit spojení.'),
+      F('tcp.window', 7, 'Okno', 'Window · tcp.window_size_value', 16, c + 14, 2, `${u16(b, c + 14)} B`, false,
+        'Kolik bajtů je příjemce ochoten přijmout bez potvrzení. Úroveň 4 jen zobrazuje.'),
+      F('tcp.checksum', 8, 'Kontrolní součet', 'Checksum · tcp.checksum', 16, c + 16, 2, h4(u16(b, c + 16)), false,
+        'Jako u UDP včetně pseudohlavičky s IP adresami; u TCP povinný.'),
+      F('tcp.urgent', 9, 'Urgentní ukazatel', 'Urgent Pointer · tcp.urgent_pointer', 16, c + 18, 2, String(u16(b, c + 18)), false, 'Jen s příznakem URG (dnes prakticky nikdy).'),
+    ];
+    if (hl > 20) fields.push(F('tcp.options', 10, 'Volby', 'Options · tcp.options', (hl - 20) * 8, c + 20, hl - 20, `MSS ${u16(b, c + 22)} B`, false,
+      'Volby domluvené při navázání spojení; tady největší velikost dat v segmentu (MSS = 1500 − 20 − 20).'));
+    if (h?.retransmit) fields.push(F('tcp.retrans', 0, 'Retransmise', '[TCP Retransmission]', 0, c, 0, 'ano: stejné seq a data jako ztracený segment', true,
+      'Wireshark tak označí segment, který odesílatel poslal znovu po vypršení času (RTO).'));
+    blocks.push({ id: 'tcp', title: 'TCP segment', tab: 'TCP', layer: 4, start: c, end: d0, fields });
+  }
+  const app = l4.payload;
+  const dlen = end - d0;
+  if (app?.proto === 'dns') {
+    const q = app.h, o = d0;
+    const flags = u16(b, o + 2);
+    const qn = q.question.name;
+    const qEnd = o + 12 + qn.length + 2 + 4;
+    const fields = [
+      F('dns.id', 1, 'Identifikátor', 'Transaction ID · dns.id', 16, o, 2, String(u16(b, o)), true, 'Podle něj klient pozná, ke kterému dotazu odpověď patří.'),
+      F('dns.flags', 2, 'Příznaky', 'Flags · dns.flags', 16, o + 2, 2, `${h4(flags)} = ${q.qr ? `odpověď${q.aa ? ', autoritativní (AA)' : ''}${q.rcode ? `, chyba ${q.rcode}` : ', bez chyby'}` : 'standardní dotaz, rekurze vyžádána (RD)'}`, true,
+        'QR (dotaz/odpověď), AA (odpovídá server, který zónu spravuje), RD, RA, RCODE (3 = jméno neexistuje).'),
+      F('dns.count', 3, 'Počty záznamů', 'Questions / Answer RRs · dns.count.*', 64, o + 4, 8, `otázky ${u16(b, o + 4)}, odpovědi ${u16(b, o + 6)}`, false, 'Kolik je ve zprávě otázek a odpovědí (a dalších sekcí).'),
+      F('dns.qname', 4, 'Otázka: jméno', 'Queries · dns.qry.name', (qn.length + 2) * 8, o + 12, qn.length + 2, qn, true,
+        'Jméno se posílá po částech: délka + znaky (3www5skola3lan0), tečky se neposílají.'),
+      F('dns.qtype', 5, 'Otázka: typ a třída', 'Type / Class · dns.qry.type', 32, qEnd - 4, 4, `${DNS_TYPES[u16(b, qEnd - 4)] ?? u16(b, qEnd - 4)}, IN`, false, 'A = IPv4 adresa, IN = internet.'),
+    ];
+    if (q.answers.length) {
+      const a = q.answers[0];
+      fields.push(F('dns.answer', 6, 'Odpověď', 'Answers · dns.a, dns.resp.ttl', (end - qEnd) * 8, qEnd, end - qEnd,
+        `${a.name} ${a.type} ${a.data}, TTL ${a.ttl} s`, true,
+        'Jméno (ukazatel 0xC00C na jméno v otázce), typ A, doba platnosti v cache (TTL v sekundách, jiné TTL než v IP hlavičce) a IP adresa.'));
+    }
+    blocks.push({ id: 'dns', title: 'DNS zpráva (data UDP)', tab: 'DNS', layer: 7, start: d0, end, fields });
+    return ` · ${l4.proto.toUpperCase()} ${sport} → ${dport} · DNS ${q.qr ? 'odpověď' : 'dotaz'} ${qn}`;
+  }
+  if (app?.proto === 'data' && dlen > 0) {
+    const text = DECODE.decode(b.subarray(d0, end));
+    const sep = text.indexOf('\r\n\r\n');
+    const first = text.split('\r\n')[0];
+    const isHttp = /^(GET|POST|HEAD) |^HTTP\//.test(first);
+    const fields = [];
+    if (isHttp) {
+      const enc = (s) => new TextEncoder().encode(s).length;
+      fields.push(F('http.start', 1, first.startsWith('HTTP/') ? 'Stavový řádek' : 'Řádek požadavku', 'Hypertext Transfer Protocol', enc(first) * 8, d0, enc(first) + 2, first, true,
+        first.startsWith('HTTP/') ? 'Verze, stavový kód a text: 200 OK = stránka je tady.' : 'Metoda GET („pošli mi“), cesta / a verze HTTP/1.1.'));
+      let off = d0 + enc(first) + 2, n = 2;
+      for (const line of text.slice(0, sep).split('\r\n').slice(1)) {
+        const name = line.split(':')[0];
+        const id = name === 'Host' ? 'http.host' : name === 'Content-Length' ? 'http.clen' : `http.h${n}`;
+        fields.push(F(id, n++, `Hlavička ${name}`, `http.${name.toLowerCase()}`, enc(line) * 8, off, enc(line) + 2, line.slice(name.length + 2), id !== `http.h${n - 1}`,
+          name === 'Host' ? 'Jméno serveru z adresy; v HTTP/1.1 povinné (na jedné IP může být víc webů).' : name === 'Content-Length' ? 'Délka těla v bajtech; podle ní klient pozná, že má celou stránku.' : 'Další hlavička zprávy.'));
+        off += enc(line) + 2;
+      }
+      fields.push(F('http.end', n++, 'Prázdný řádek', '\\r\\n', 16, off, 2, 'konec hlaviček', false, 'Prázdný řádek odděluje hlavičky od těla.'));
+      const body = text.slice(sep + 4);
+      if (body) fields.push(F('http.body', n, 'Tělo', 'Line-based text data', enc(body) * 8, off + 2, enc(body), `${[...body].length} znaků, ${enc(body)} B`, false, 'Obsah stránky (HTML).'));
+    } else {
+      fields.push(F('data.text', 1, 'Data', 'data', dlen * 8, d0, dlen, `${dlen} B`, true, 'Data aplikace.'));
+    }
+    blocks.push({ id: 'http', title: isHttp ? 'HTTP zpráva (data TCP)' : 'Data', tab: isHttp ? 'HTTP' : 'data', layer: 7, start: d0, end, fields });
+    return ` · ${l4.proto.toUpperCase()} ${sport} → ${dport} · ${dlen} B dat${isHttp ? ` (HTTP: ${first})` : ''}`;
+  }
+  return ` · ${l4.proto.toUpperCase()} ${sport} → ${dport}${l4.proto === 'tcp' ? ` · ${flagNames(b[c + 13])}` : ''}`;
 }

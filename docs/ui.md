@@ -453,3 +453,27 @@ tabulkou ARP vlastní místo (nepřekryje „brána …“), karty PC se nepřek
 „Transportní / segment“ se vejde do výšky řádku a přeskočená L4 (ICMP) má místo „segment“ text
 „bez portů“. Role sloupce se v úzkém sloupci (úrovně 2 a 3 do 1360 px) a vedle štítku „Teď Bob“
 zkrátí na „odesílatel ↓“ / „příjemce ↑“ místo oříznutí „zdola nah…“.
+
+## 14. Úroveň 4: Transport a aplikace (rozhodnutí 59, 60)
+
+- **Rozvržení** jako úroveň 3 (`body.lvl3.lvl4`, „U“ s věžemi switchů a routeru, tipy, části, ohnisko).
+  Části A–F (A DNS přes UDP, B handshake, C HTTP a ukončení, D sockety a zavřený port, E UDP × TCP, F ztráta).
+- **Topologie** (`render4.topologyHtml4`): síť 1 (Alice, Cyril ztlumený, SW1), R1 („o spojeních nic neví“),
+  síť 2 (SW2, Bob, SRV1). Karty PC jen se jménem a IP, SRV1 navíc „DNS 53 · web 80“, u uzlu odznak „spojení: N“.
+  Tabulky MAC a ARP se neukazují (téma úrovní 2–3, předvyplněné: Simulátor zjednodušuje). Ztracený rámec:
+  červený štítek „✕ ztracen“ na kabelu a v prostředním sloupci věta „Segment se ztratil na kabelu …“.
+- **Sloupce:** příjemce = uzel `right` z kroku (rozhodnutí 57); posílá-li ten uzel právě segment sám,
+  platí skutečná dvojice segmentu (sloupec nesmí tvrdit „příjemce“ o odesílateli).
+- **Obálka L4** (`render3.l4Box`, barva L4): zdrojový → cílový port s popiskem (klient, web, DNS), čipy
+  příznaků (`SYN, ACK`), `seq` a `ack` relativně (absolutní v rentgenu), „retransmise“. L7: DNS dotaz/odpověď
+  jednou větou, HTTP první řádek a délka.
+- **Karty nad rentgenem:** Spojení (místní port, vzdálený socket, stav Windows; řádek změněný v kroku
+  podbarvený, nahoře „Alice: SYN_SENT → ESTABLISHED“, LISTENING jako jedna věta), Na čem SRV1 naslouchá,
+  Segmenty na cestě (časová osa, barevný pruh: UDP/DNS L7, řízení spojení L4, data L3), UDP × TCP,
+  Transportní vrstva a) b) (rozhodnutí 49), Demultiplex na SRV1.
+- **Rentgen:** záložky Rámec, Paket, UDP/TCP (L4), DNS/HTTP (L7); TCP pole podle tcp.md kap. 2 (seq/ack
+  „relativně; na drátě …“), HTTP po řádcích, DNS s otázkou a odpovědí (TTL v DNS ≠ TTL v IP).
+- **Terminál:** Alice/Bob Windows (`nslookup`, `netstat -an`, `curl -v`, `ipconfig /all` s DNS Servers,
+  `ipconfig /displaydns`), SRV1 Linux (`student@srv1:~$`, `ss -tuln`, `ss -tan`; tmavě šedé záhlaví).
+- **Kontrola rozvržení:** `tests/browser/interact.html` měří při 1280×720 překryvy štítků, useknuté IP adresy
+  v topologii a vodorovné přetečení tabulek karet.

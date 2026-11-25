@@ -3,7 +3,7 @@
 // enable). Stav UI nemění simulaci; pohled je vždy z timeline. Příkazy ping/tracert v terminálu:
 // běží-li stejný příkaz ve scénáři, výpis se doplňuje podle kroku („živý“), jinak se spustí
 // samostatná simulace ze stavu kroku (level3.whatIf, pískoviště terminálu).
-import scn from '../../scenarios/uroven3-smerovani.js';
+import scn3 from '../../scenarios/uroven3-smerovani.js';
 import { buildLevel3, whatIf } from '../scenario/level3.js';
 import { renderStack, esc } from './render.js';
 import { termLinesHtml, termTitle } from './render2.js';
@@ -21,8 +21,11 @@ const ROLE_R = 'příjemce<span class="dir">, zdola nahoru</span><span class="di
 
 const $ = (id) => document.getElementById(id);
 
-export function createLevel3(host) {
-  const { timeline, level } = buildLevel3(scn);
+// cfg (úroveň 4, app4.js): { scenario, build, topology, cards, partsHelp, termOpts(node, v, opts) }
+export function createLevel3(host, cfg = {}) {
+  const scn = cfg.scenario ?? scn3;
+  const { timeline, level } = (cfg.build ?? buildLevel3)(scn);
+  const topologyHtml = cfg.topology ?? topologyHtml3;
   const cur = () => timeline.cursor;
   const view = () => timeline.view(cur());
   const ui = {
@@ -49,6 +52,11 @@ export function createLevel3(host) {
 
   function pairOf(v) {
     const f = v.flow;
+    // úroveň 4 (rozhodnutí 57): sloupec příjemce určuje krok (`right`), odesílatel je druhá strana segmentu
+    if (v.step.right && !(f?.seg && f.sender === v.step.right)) {
+      const other = f ? (f.sender !== v.step.right ? f.sender : f.receiver) : null;
+      return { sender: other ?? (v.step.right === 'PC1' ? 'SRV1' : 'PC1'), receiver: v.step.right };
+    }
     // rozhodnutí 57: v kroku zahození patří sloupec příjemce uzlu, který rámec zahodil (Cyril)
     return f ? columnPair(v, { sender: f.sender, receiver: f.receiver }) : { sender: 'PC1', receiver: 'PC2' };
   }
@@ -62,7 +70,7 @@ export function createLevel3(host) {
 
   function renderXray(v = view()) {
     const s = v.step;
-    const card = { mask: maskCard, compare: compareCard, tables: tablesCard, probes: probesCard }[s.panel]?.(v)
+    const card = (cfg.cards ?? { mask: maskCard, compare: compareCard, tables: tablesCard, probes: probesCard })[s.panel]?.(v)
       ?? (s.summary === 'routing' ? summaryCard3() : '');
     // na kroku tipu karta nic neprozradí (rozhodnutí 31): sondy a tabulky jsou stav PŘED událostí
     els.info.innerHTML = (card ? `<div class="stepsum">${card}</div>` : '') + xrayHtml3(v, ui.xray);
@@ -80,14 +88,14 @@ export function createLevel3(host) {
     const pred = predictAt(k);
     const termHint = s.terminal && v.nodes[s.terminal.node] ? { ...s.terminal, label: v.nodes[s.terminal.node].label } : null;
     els.explain.innerHTML = explainHtml3(v, model, total, { predict: pred, tips: tipsAt(k), evalLines: evalLines(k), termHint,
-      parts, curPart: partOf(k) });
+      parts, curPart: partOf(k), ...(cfg.partsHelp ? { partsHelp: cfg.partsHelp } : {}) });
     renderXray(v);
   }
 
   function render(v, { animate, model }) {
     const pair = pairOf(v);
     const tip = Boolean(predictAt(cur()));
-    els.topo.innerHTML = topologyHtml3(v, { pair, selected: ui.selected, hideGw: Boolean(v.step.hideGw), tip });
+    els.topo.innerHTML = topologyHtml(v, { pair, selected: ui.selected, hideGw: Boolean(v.step.hideGw), tip });
     const sN = v.nodes[pair.sender], rN = v.nodes[pair.receiver];
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
@@ -95,7 +103,7 @@ export function createLevel3(host) {
     const dropHere = v.dropped?.node === pair.receiver && Boolean(pair.dropCol);
     els.rRole.innerHTML = dropHere ? '· není cíl' : ROLE_R;
     const prevV = cur() > 0 ? timeline.view(cur() - 1) : null;
-    const now = prevV ? columnSwitchLabel(pairOf(prevV), pair, v, rN?.label ?? '') : '';
+    const now = prevV ? (cfg.switchLabel ?? columnSwitchLabel)(pairOf(prevV), pair, v, rN?.label ?? '') : '';
     els.rNow.textContent = now;
     els.rNow.hidden = !now;
     renderStack(els.stackS, sN, model);   // rozhodnutí 49: ve sloupci vrstev „segment“
@@ -140,8 +148,8 @@ export function createLevel3(host) {
 
   function optsFor(node, liveRunId = null) {
     const v = view();
-    return {
-      level: 3, mode: modeOf(node.id),
+    const base = {
+      level: level.id, mode: modeOf(node.id),
       highlight: v.route?.node === node.id ? v.route.route.prefix : null,
       sim(command, args) {
         if (liveRunId != null) {
@@ -161,6 +169,7 @@ export function createLevel3(host) {
       },
       arpClear() { overlay().arp[node.id] = []; },
     };
+    return cfg.termOpts ? cfg.termOpts(node, v, base, timeline) : base;
   }
 
   // Řádky logu; živé příkazy se přepočítají podle aktuálního kroku.
@@ -184,7 +193,7 @@ export function createLevel3(host) {
     els.term.className = `termwin ${d}`;
     els.term.hidden = false;
     const prompt = promptOf(node, modeOf(node.id));
-    els.term.innerHTML = `<div class="term-h"><b>${esc(termTitle(node))}</b><span class="kind">${d === 'ios' ? 'Cisco IOS' : 'Windows'}</span>
+    els.term.innerHTML = `<div class="term-h"><b>${esc(termTitle(node))}</b><span class="kind">${{ ios: 'Cisco IOS', linux: 'Linux (bash)' }[d] ?? 'Windows'}</span>
       <small class="tstep">stav v kroku ${esc(stepLabel(view().step))}</small>
       <button type="button" class="btn small" data-term-close>Zavřít <kbd>Esc</kbd></button></div>
       <div class="term-b" id="term-body">${termLinesHtml(logLines(node))}<label class="tl inputline"><span class="prompt">${esc(prompt)}</span><input id="term-input" type="text" spellcheck="false" autocomplete="off" aria-label="Příkaz pro ${esc(node.label)}"></label></div>`;

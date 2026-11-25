@@ -20,6 +20,7 @@ import { BROADCAST_MAC, isGroupMac, normMac, sameSubnet, broadcastOf } from './a
 import { hostTypes, isHost } from '../devices/types.js';
 import { hubReceive } from '../devices/hub.js';
 import { switchReceive } from '../devices/switch.js';
+import { installTransport } from './transport.js';
 
 export const DEFAULT_DELAY = 1000;   // µs
 export const EPHEMERAL_FIRST = 49152; // udp.md kap. 4.2
@@ -27,7 +28,9 @@ const ETH_IPV4 = PROTOCOLS.ipv4.binds.ethertype;
 const ETH_ARP = PROTOCOLS.arp.binds.ethertype;
 const IP_UDP = PROTOCOLS.udp.binds.protocol;
 const IP_ICMP = PROTOCOLS.icmp.binds.protocol;
+const IP_TCP = PROTOCOLS.tcp.binds.protocol;
 export const LEVEL3_PROTOCOLS = ['ethernet', 'arp', 'ipv4', 'icmp', 'udp'];
+export const LEVEL4_PROTOCOLS = [...LEVEL3_PROTOCOLS, 'tcp', 'dns', 'http'];
 
 const clone = (x) => (x === undefined ? undefined : JSON.parse(JSON.stringify(x)));
 const isL3 = (type) => isHost(type) || type === 'router';
@@ -73,8 +76,9 @@ function peerOf(world, node, ifName) {
  * @param {string[]} [p.protocols] zapnuté protokoly (bez 'arp' = chování úrovně 2)
  * @returns {{ records: object[], world: object }}
  */
-export function runNetwork({ topology, initialState = {}, actions = [], maxEvents = 20_000, protocols = null }) {
+export function runNetwork({ topology, initialState = {}, actions = [], maxEvents = 20_000, protocols = null, seed = 1 }) {
   const arpOn = Boolean(protocols?.includes('arp'));
+  const tcpOn = Boolean(protocols?.includes('tcp'));
   const icmpOn = Boolean(protocols?.includes('icmp'));
   const sched = new Scheduler();
   const trace = new Trace();
@@ -91,13 +95,44 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     const pl = peerOf(world, nodeId, ifName);
     if (!pl) { emit('tx_no_link', { node: nodeId, if: ifName }); return; }
     const delay = pl.link.delay ?? DEFAULT_DELAY;
+    if (transport?.lossCheck(nodeId, pl.link.id, frame)) {
+      // ztráta na lince (akce link_loss): rámec vyslán, druhý konec ho nepřijme
+      emit('link.tx', { link: pl.link.id, from: nodeId, fromIf: ifName, to: pl.peer.node, toIf: pl.peer.if,
+        pdu: frame, bytes, delay, lost: true });
+      sched.schedule({ type: 'link.lost', delay, payload: { node: pl.peer.node, link: pl.link.id, frame } });
+      return;
+    }
     emit('link.tx', { link: pl.link.id, from: nodeId, fromIf: ifName, to: pl.peer.node, toIf: pl.peer.if,
       pdu: frame, bytes, delay });
     sched.schedule({ type: 'link.arrive', delay, payload: { node: pl.peer.node, if: pl.peer.if, frame, bytes, link: pl.link.id } });
   }
 
+  // Fronta rozhraní (úroveň 4, tcp.md kap. 10): koncový uzel pošle po jedné lince nejvýš jeden rámec
+  // za krok; další rámec téhož uzlu jde v následujícím kroku. `txHooks`: co udělat, až paket odejde (RTO).
+  const txFree = {};
+  const txHooks = new Map();
+  const onTx = (pktId, fn) => txHooks.set(pktId, fn);
+  sched.on('frame.send', (ev) => sendFrame(...ev.payload));
+
   // Rámec kolem PDU (paket nebo ARP) a odeslání: encap L2, phy.tx, link.tx.
   function frameAndSend(nodeId, iface, dstMac, pdu, ethertype, extra = {}) {
+    if (tcpOn && isHost(world.nodes[nodeId].type)) {
+      const key = `${nodeId}|${iface.name}`;
+      const free = txFree[key] ?? -1;
+      if (sched.now < free) {
+        txFree[key] = free + DEFAULT_DELAY;
+        emit('tx_queue', { node: nodeId, if: iface.name, pdu, at: free, detail: 'rozhraní právě vysílá: rámec počká na další krok' });
+        sched.schedule({ type: 'frame.send', at: free, payload: [nodeId, iface, dstMac, pdu, ethertype, extra] });
+        return;
+      }
+      txFree[key] = sched.now + DEFAULT_DELAY;
+    }
+    sendFrame(nodeId, iface, dstMac, pdu, ethertype, extra);
+  }
+
+  function sendFrame(nodeId, iface, dstMac, pdu, ethertype, extra) {
+    const hook = txHooks.get(pdu.id);
+    if (hook) { txHooks.delete(pdu.id); hook(); }
     const frame = encapsulate(++pduSeq, 'ethernet', 2, { dst: normMac(dstMac), src: normMac(iface.mac), ethertype }, pdu);
     emit('encap', { node: nodeId, layer: 2, proto: 'ethernet', pdu: frame, ...extra });
     const bytes = encode(frame);
@@ -466,6 +501,10 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
       hostIcmp(node, pkt);
       return;
     }
+    if (tcpOn && pkt.h.protocol === IP_TCP && pkt.payload?.proto === 'tcp') {
+      transport.tcpReceive(node, pkt);
+      return;
+    }
     if (pkt.h.protocol !== IP_UDP || pkt.payload.proto !== 'udp') {
       emit('ip_drop', { node: id, layer: 3, pdu: pkt, detail: 'protokol není v této úrovni' });
       return;
@@ -482,6 +521,11 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     emit('udp_deliver', { node: id, app: sock.app, port: sock.port,
       detail: `cílový port ${sock.port} -> aplikace ${sock.app}${others.length ? ` (ne ${others.join(', ')})` : ''}` });
     decap(dgram, 4);
+    if (tcpOn && dgram.payload?.proto === 'dns') {
+      emit('app.recv', { node: id, app: sock.app, port: sock.port, layer: 7, pdu: dgram.payload, from: `${pkt.h.src}:${dgram.h.sport}` });
+      transport.dnsReceive(node, pkt, dgram, sock);
+      return;
+    }
     const text = dgram.payload.payload;
     const from = `${pkt.h.src}:${dgram.h.sport}`;
     emit('app.recv', { node: id, app: sock.app, port: sock.port, layer: 7, pdu: dgram.payload, text, from });
@@ -623,9 +667,17 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
         break;
       }
       default:
+        if (transport?.onAction(a)) break;
         throw new Error(`Příkaz "${a.command}" simulace na této úrovni neumí`);
     }
   });
+  sched.on('link.lost', (ev) => {
+    const { node, link, frame } = ev.payload;
+    emit('link_loss', { node, link, pdu: frame, detail: `rámec se na lince ${link} ztratil (akce link_loss)` });
+  });
+
+  const transport = tcpOn ? installTransport({ sched, emit, world, initialState, seed, nextId: () => ++pduSeq,
+    ipOutput, newIpPacket, ttlOf, onTx }) : null;
 
   emit('sim.start', { topology: clone(topology), tables: tablesOf(world) });
   actions.forEach((a) => sched.schedule({ type: 'action', at: Math.round((a.time ?? 0) * 1e6), payload: a }));
@@ -636,7 +688,7 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
 
 // Kopie tabulek všech uzlů (pro záznam a pro porovnání s vektory).
 export function tablesOf(world) {
-  const out = { arp_cache: {}, mac_table: {}, udp_sockets: {}, routing_table: {} };
+  const out = { arp_cache: {}, mac_table: {}, udp_sockets: {}, routing_table: {}, tcp_connections: {}, dns_cache: {} };
   for (const n of Object.values(world.nodes)) {
     for (const t of Object.keys(out)) if (n.state?.[t]) out[t][n.id] = clone(n.state[t]);
   }

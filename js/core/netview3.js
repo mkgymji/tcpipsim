@@ -13,6 +13,17 @@ export function netViewAt3(records, upto, from = 0) {
     delivered: null, dropped: null, ended: false, decision: null, route: null, portState: {},
     newEntries: {}, wires: {}, pills: {}, mark: null, frame: null, pkt: null, hop: null,
     arpWait: null, arpFail: null, apps: {}, config: null, ignored: [], dropsInStep: [], routeOf: {}, probe: null,
+    // úroveň 4: segmenty na první lince od odesílatele (časová osa), výsledky aplikací, ztráty, RST
+    segs: [], results: {}, lost: null, retx: null, rst: null, seg: null, connEvent: null, http: null, dnsEvent: null,
+  };
+  const reset4 = (sender) => {
+    for (const id of v.order) if (v.nodes[id].layers) Object.assign(v.nodes[id], emptyNode(id === sender ? 'sender' : 'idle'));
+    v.pills = { [sender]: 'sender' };
+    v.delivered = null; v.dropped = null; v.hop = null; v.frame = null; v.pkt = null; v.lost = null;
+  };
+  const flowTo = (sender, ip) => {
+    const recv = v.order.find((id) => ipsOf(v.nodes[id]).includes(ip)) ?? null;
+    v.flow = { ...(v.flow ?? {}), sender, receiver: recv, dst: ip, seg: true };
   };
   const mark = (node, key, op) => { (v.newEntries[node] ??= {})[key] = op; };
   for (let i = 0; i <= upto && i < records.length; i++) {
@@ -52,6 +63,8 @@ export function netViewAt3(records, upto, from = 0) {
         break;
       }
       case 'app.send':
+        // úroveň 4: zpráva aplikace (DNS, HTTP) = nový segment, dvojice podle cílové IP
+        if (r.sport != null && r.dst) flowTo(r.node, r.dst);
         // další dotaz pingu / sonda tracertu: vrstvy znovu od L7 (L4 se u ICMP přeskočí)
         for (const id of v.order) if (v.nodes[id].layers) Object.assign(v.nodes[id], emptyNode(id === r.node ? 'sender' : 'idle'));
         move(nv, 7);
@@ -97,6 +110,8 @@ export function netViewAt3(records, upto, from = 0) {
         v.frame = r.pdu;
         break;
       case 'link.tx':
+        if (isHost(v.nodes[r.from]?.type) && r.pdu.payload?.proto === 'ipv4') v.segs.push(segInfo(r, i));
+        if (r.lost && cur) v.wires[r.link] = { from: r.from, to: r.to, pdu: r.pdu, lost: true };
         if (v.nodes[r.from]?.layers) finish(v.nodes[r.from]);
         if (cur) {
           v.wires[r.link] = { from: r.from, to: r.to, pdu: r.pdu };
@@ -204,7 +219,7 @@ export function netViewAt3(records, upto, from = 0) {
         break;
       case 'app.recv':
         move(nv, 7);
-        if (nv.layers[4] !== undefined) nv.layers[4] = 'skip';
+        if (nv.layers[4] !== undefined && r.port == null) nv.layers[4] = 'skip';   // ICMP (ping) nemá L4
         v.packet = { form: 'pdu', pdu: r.pdu, at: r.node };
         v.delivered = { node: r.node, app: r.app, from: r.from, ttl: r.ttl, icmpType: r.icmpType };
         if (cur) v.pills[r.node] = 'received';
@@ -222,6 +237,49 @@ export function netViewAt3(records, upto, from = 0) {
       case 'filter':
         if (cur) v.decision = { node: r.node, kind: r.kind, dst: r.dst, reason: r.reason, inPort: r.inPort, outPorts: r.outPorts ?? [] };
         break;
+      // ---- úroveň 4 (core/transport.js) ----
+      case 'tcp_send':
+        v.seg = r.pdu;
+        if (!r.len) { flowTo(r.node, r.remote.split(':')[0]); reset4(r.node); }
+        move(nv, 4);
+        v.packet = { form: 'pdu', pdu: r.pdu };
+        v.focus = { node: r.node, layer: 4 };
+        break;
+      case 'tcp_state':
+        nv.tcp_connections = clone(r.conns);
+        if (cur) { mark(r.node, `${r.local}|${r.remote}`, 'update'); v.connEvent = { node: r.node, from: r.from, to: r.to, local: r.local, remote: r.remote }; }
+        break;
+      case 'tcp_deliver':
+      case 'udp_deliver':
+        if (nv?.layers) { move(nv, 4); v.focus = { node: r.node, layer: 4 }; }
+        if (r.pdu) { v.packet = { form: 'pdu', pdu: r.pdu, at: r.node }; v.seg = r.pdu; }
+        break;
+      case 'tcp_rst':
+        v.rst = { node: r.node, port: r.port };
+        break;
+      case 'tcp_retransmit':
+        v.retx = { node: r.node, rel: r.rel, try: r.try };
+        break;
+      case 'link_loss':
+        v.lost = { link: r.link, node: r.node };
+        if (cur && v.wires[r.link]) v.wires[r.link].lost = true;
+        v.packet = null;
+        v.focus = { link: r.link, from: v.wires[r.link]?.from, to: r.node };
+        break;
+      case 'http_response':
+        v.http = { node: r.node, text: r.text };
+        break;
+      case 'dns_result':
+        nv.dns_cache = clone(r.answers.length && r.app !== 'nslookup' ? [...(nv.dns_cache ?? []).filter((e) => !r.answers.some((a) => a.name === e.name)), ...r.answers] : nv.dns_cache ?? []);
+        v.dnsEvent = { node: r.node, answers: r.answers, rcode: r.rcode, app: r.app };
+        break;
+      case 'dns_timeout':
+        v.dnsEvent = { node: r.node, timeout: true, tries: r.tries, app: r.app };
+        break;
+      case 'app.result':
+        v.results[r.run] = { ...r.result, node: r.node, app: r.app, command: r.command };
+        if (v.apps[r.run]) v.apps[r.run].done = true;
+        break;
       case 'sim.end':
         for (const id of v.order) if (v.nodes[id].layers) finish(v.nodes[id]);
         v.ended = true;
@@ -234,11 +292,29 @@ export function netViewAt3(records, upto, from = 0) {
   return v;
 }
 
+// Řádek časové osy úrovně 4: kdo komu, protokol, příznaky, relativní čísla, délka dat.
+function segInfo(r, i) {
+  const ip = r.pdu.payload, l4 = ip.payload;
+  const o = { i, t: r.t, from: r.from, src: ip.h.src, dst: ip.h.dst, proto: l4?.proto ?? 'ip' };
+  if (l4?.proto === 'tcp') {
+    Object.assign(o, { sport: l4.h.sport, dport: l4.h.dport, flags: l4.h.flagsText, rel: l4.h.rel, retransmit: l4.h.retransmit,
+      len: l4.payload ? new TextEncoder().encode(l4.payload.payload).length : 0,
+      http: l4.payload ? l4.payload.payload.split('\r\n')[0] : null });
+  } else if (l4?.proto === 'udp') {
+    Object.assign(o, { sport: l4.h.sport, dport: l4.h.dport, dns: l4.payload?.proto === 'dns' ? (l4.payload.h.qr ? 'DNS odpověď' : 'DNS dotaz') : null });
+  }
+  return o;
+}
+
 export const ipsOf = (n) => (n?.interfaces ?? []).map((i) => i.ip).filter(Boolean);
 
 function addNode(v, n, tables) {
   const node = { id: n.id, type: n.type, label: n.label ?? n.id };
   if (isHost(n.type) || n.type === 'router') {
+    if (tables?.tcp_connections?.[n.id]) node.tcp_connections = clone(tables.tcp_connections[n.id]);
+    if (tables?.dns_cache?.[n.id]) node.dns_cache = clone(tables.dns_cache[n.id]);
+    if (n.dns_servers) node.dns_servers = [...n.dns_servers];
+    if (n.apps) node.apps = clone(n.apps);
     Object.assign(node, { interfaces: clone(n.interfaces), arp_cache: clone(tables?.arp_cache?.[n.id] ?? []),
       routing_table: clone(tables?.routing_table?.[n.id] ?? []), ...emptyNode('idle') });
     if (isHost(n.type)) {

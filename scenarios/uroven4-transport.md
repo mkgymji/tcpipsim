@@ -1,6 +1,6 @@
 # Scénář úrovně 4: Transport a aplikace
 
-Text pro implementaci. Stav: návrh didaktika (iterace 4), čeká na sjednocení s projektantem. Platí `docs/rozhodnuti.md`
+Text pro implementaci. Stav: sjednoceno (rozhodnutí 60); čísla (porty, ISN, délky, ack) převzata z jádra a vektorů projektanta, implementace `scenarios/uroven4-transport.js`. Platí `docs/rozhodnuti.md`
 (hlavně 5, 31, 37, 38, 49–59) a `docs/spec/` (budoucí `tcp.md`, `udp.md`, `dns.md`, `http.md`). Texty v uvozovkách jsou
 texty simulátoru (oslovení „ty“). Terminál vypisuje anglicky (rozh. 10). Číslování kroků je návrhové.
 
@@ -31,8 +31,7 @@ aplikační protokoly (DNS, HTTP) jsou jen „co se po tom spojení posílá“.
 
 ## Parametry scénáře (měnit na jednom místě)
 
-Topologie úrovně 3 (Alice, Cyril, SW1, R1, Bob) plus SRV1 v síti 2 (rozh. 59). Hodnoty absolutních sekvenčních čísel
-a portů potvrdí projektant (návrh níže).
+Topologie úrovně 3 (Alice, Cyril, SW1, R1, Bob) plus SRV1 v síti 2 (rozh. 59). Hodnoty portů a sekvenčních čísel jsou z jádra (rozhodnutí 60).
 
 | Uzel | MAC | IP / prefix | Služby, poznámka |
 |---|---|---|---|
@@ -41,18 +40,19 @@ a portů potvrdí projektant (návrh níže).
 | Bob (PC) | `02:00:00:00:00:02` | 192.168.2.20/24, brána 192.168.2.1 | druhý klient (krok 21); aplikace z úrovně 2 |
 | R1, SW1, Cyril | jako v úrovni 3 | | Cyril je ve scénáři statista (viz krok 0) |
 
-- Síť 2 má teď dva uzly (Bob, SRV1); **spojení mezi R1 a oběma uzly zajišťuje SW2** (otevřená otázka O1).
+- Síť 2 má teď dva uzly (Bob, SRV1); **spojení mezi R1 a oběma uzly zajišťuje SW2** (Fa0/1 R1, Fa0/2 Bob, Fa0/3 SRV1; rozhodnutí 60).
 - **ARP tabulky jsou předvyplněné** (Alice zná MAC brány, R1 zná MAC SRV1 a Boba, SRV1 zná MAC brány). ARP je téma
   úrovně 3; tady by jen odváděl pozornost. Simulátor zjednodušuje: „ARP už proběhl (úroveň 3), tabulky jsou plné.“
 - **Cesta přes R1** (Alice → R1 → SRV1) se animuje jako v úrovni 3, ale bez zastavení u R1 (paket projde); rentgen u každého
   segmentu ukazuje, že IP adresy zůstávají a MAC se mění. Student ji má v živé paměti, tady není nová. Každý segment
   nese štítek „zdroj → cíl“ jako **socket** (`192.168.1.10:49731 → 192.168.2.10:80`).
-- Porty (návrh): DNS dotaz Alice zdrojový UDP 52114 → 53. První spojení Alice zdrojový TCP 49731 → 80; po uzavření
-  nová spojení 49732 a 49733; Bob 51200 → 80.
-- Sekvenční čísla (návrh): Alice ISN `2 837 411 906`, SRV1 ISN `905 112 337`. **Rentgen ukazuje relativní hodnoty** (0, 1, 1 + délka),
+- Porty (jádro, deterministicky od 49152, čítač zvlášť pro TCP a UDP, rozh. 28 a 60): DNS dotaz Alice UDP 49152 → 53. První spojení
+  Alice TCP 49152 → 80 (po uzavření ho drží TIME_WAIT); dva taby 49153 a 49154; Bob 49152 → 80 (vlastní čítač); port 8080: 49155;
+  část F: 49156; nslookup v kroku 31: UDP 49153.
+- Sekvenční čísla (jádro, FNV-1a ze seedu 1, tcp.md kap. 4): Alice ISN `4 108 129 950`, SRV1 ISN `3 681 155 042`. **Rentgen ukazuje relativní hodnoty** (0, 1, 1 + délka),
   absolutní jsou za přepínačem „skutečná čísla“ (jako Wireshark). Student počítá s relativními.
-- Data: požadavek `GET / HTTP/1.1` + `Host: www.skola.lan` (zhruba 80 bajtů, v rentgenu přesná délka); odpověď
-  `HTTP/1.1 200 OK` + krátká stránka (jeden segment, délka v rentgenu). Simulátor zjednodušuje: „Stránka se vejde do jednoho segmentu; velké stránky se dělí na víc segmentů.“
+- Data: požadavek curl `GET / HTTP/1.1` + `Host`, `User-Agent`, `Accept` (76 B); odpověď `HTTP/1.1 200 OK` + stránka
+  (249 B = 117 B hlavičky + 132 B tělo, jeden segment; http.md kap. 2). Simulátor zjednodušuje: „Stránka se vejde do jednoho segmentu; velké stránky se dělí na víc segmentů.“
 
 ## Kroky
 
@@ -85,7 +85,7 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 #### Krok 1: Co Alice ví a co na SRV1 naslouchá
 - Ohnisko: terminál. Vpravo: SRV1.
 - Vidí: Alice zadá `http://www.skola.lan`. Jen jméno, žádná IP adresa. U SRV1 se tabulka „Naslouchající služby“ (zatím schovaná).
-- Dělá (terminál): na Alici `ipconfig /all` (vidí DNS server 192.168.2.10); na SRV1 `netstat -an`: `UDP 0.0.0.0:53`, `TCP 0.0.0.0:80 LISTENING`.
+- Dělá (terminál): na Alici `ipconfig /all` (vidí DNS server 192.168.2.10); na SRV1 (Linux) `ss -tuln`: `udp UNCONN 0.0.0.0:53`, `tcp LISTEN 0.0.0.0:80` (cmd.md kap. 18).
 - Text: „Alice zná jen jméno `www.skola.lan`. Pakety ale putují podle IP adres. Nejdřív se musí zeptat DNS serveru: ten je na SRV1. Mezitím u SRV1: web naslouchá na portu 80, DNS na portu 53.“
 - Note: „`LISTENING` znamená: na tomhle portu čeká nějaký program na klienty. Port je číslo v hlavičce L4. Server a jeho aplikace na portu čekají, klient se připojí.“
 
@@ -98,16 +98,16 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 3: DNS dotaz letí po UDP (vyhodnotí tip z kroku 2)
 - Ohnisko: rentgen. Vpravo: SRV1.
-- Vidí: jedna zpráva od Alice k SRV1: rámec → paket → **UDP datagram** (zdrojový port 52114, cílový 53) → DNS dotaz „kdo je `www.skola.lan`, typ A“. Štítek socketů `192.168.1.10:52114 → 192.168.2.10:53`. Cestou přes R1 (paket projde, MAC se mění).
+- Vidí: jedna zpráva od Alice k SRV1: rámec → paket → **UDP datagram** (zdrojový port 49152, cílový 53) → DNS dotaz „kdo je `www.skola.lan`, typ A“. Štítek socketů `192.168.1.10:49152 → 192.168.2.10:53`. Cestou přes R1 (paket projde, MAC se mění).
 - Dělá: v rentgenu najde porty a velikost UDP hlavičky (8 B).
-- Text: „Tvůj tip: <volba>. Skutečnost: Alice poslala dotaz rovnou, UDP spojení nenavazuje. Zdrojový port 52114 si vybral operační systém, cílový je 53 (DNS). Mezitím u SRV1: aplikace DNS dotaz přečte.“
+- Text: „Tvůj tip: <volba>. Skutečnost: Alice poslala dotaz rovnou, UDP spojení nenavazuje. Zdrojový port 49152 si vybral operační systém, cílový je 53 (DNS). Mezitím u SRV1: aplikace DNS dotaz přečte.“
 - Note: „Zdrojový port je náhodný, cílový port říká, kterému programu zprávu předat. Dvojice IP adresa + port je **socket**.“
 - Aha 1 (viz níže).
 
 #### Krok 4: SRV1 odpoví
 - Ohnisko: vrstvy. Vpravo: SRV1 → Alice (nadpis sloupce se změní na „Teď Alice“, rozh. 57b).
-- Vidí: SRV1 složí odpověď: UDP datagram 53 → 52114, v datech `www.skola.lan A 192.168.2.10`. Porty se prohodily. Blok dojede do Alice, v L4 se podle cílového portu 52114 najde, **který program** se ptal.
-- Text: „SRV1 pošle odpověď zpátky: porty se prohodily. Mezitím u Alice: operační systém podle cílového portu 52114 ví, že odpověď patří prohlížeči (programu, který se ptal).“
+- Vidí: SRV1 složí odpověď: UDP datagram 53 → 49152, v datech `www.skola.lan A 192.168.2.10`. Porty se prohodily. Blok dojede do Alice, v L4 se podle cílového portu 52114 najde, **který program** se ptal.
+- Text: „SRV1 pošle odpověď zpátky: porty se prohodily. Mezitím u Alice: operační systém podle cílového portu 49152 ví, že odpověď patří prohlížeči (programu, který se ptal).“
 - Note: „Tomu se říká demultiplexování: přijatá data jsou předána správné aplikaci podle portu (Michalovo L4 b).“
 
 #### Krok 5: Alice zná IP adresu
@@ -127,14 +127,14 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 7: SYN: Alice žádá o spojení (vyhodnotí tip až v kroku 10)
 - Ohnisko: rentgen. Vpravo: SRV1.
-- Vidí: první segment: příznak **SYN**, zdrojový port 49731, cílový 80, sekvenční číslo (relativní 0, absolutní 2 837 411 906), bez dat. U SRV1 (v tabulce Spojení) stav LISTEN → **SYN_RECEIVED**.
+- Vidí: první segment: příznak **SYN**, zdrojový port 49152, cílový 80, sekvenční číslo (relativní 0, absolutní 4 108 129 950), bez dat. U SRV1 (v tabulce Spojení) stav LISTEN → **SYN_RECEIVED**.
 - Text: „Alice posílá SYN: ‚chci se spojit, moje čísla začínají od …‘. Mezitím u SRV1: na portu 80 ji někdo čeká (LISTEN), vznikne rozdělané spojení.“
 - Note: „SYN znamená ‚synchronizuj sekvenční čísla‘. Nese číslo, od kterého bude Alice počítat své bajty.“
 - Simulátor zjednodušuje: „Další pole hlavičky TCP (velikost okna, volby) se tu nevysvětlují.“
 
 #### Krok 8: SYN-ACK: SRV1 souhlasí
 - Ohnisko: rentgen. Vpravo: SRV1 → Alice (nadpis „Teď Alice“).
-- Vidí: SRV1 odpoví **SYN + ACK**: vlastní sekvenční číslo (relativní 0, absolutní 905 112 337) a potvrzovací číslo Alice + 1 (relativní 1). Porty prohozené.
+- Vidí: SRV1 odpoví **SYN + ACK**: vlastní sekvenční číslo (relativní 0, absolutní 3 681 155 042) a potvrzovací číslo Alice + 1 (relativní 1). Porty prohozené.
 - Text: „SRV1 souhlasí a posílá své číslo. Zároveň potvrzuje Aliciino: ‚čekám bajt číslo 1‘. Mezitím u Alice: stav SYN_SENT.“
 - Note: „SYN spotřebuje jedno číslo, proto je potvrzovací číslo o 1 větší.“
 
@@ -145,7 +145,7 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 10: Spojení existuje (vyhodnotí tip z kroku 6)
 - Ohnisko: terminál. Vpravo: Alice (obě strany v terminálu).
-- Dělá (terminál): na Alici `netstat -an`: `TCP 192.168.1.10:49731  192.168.2.10:80  ESTABLISHED`; na SRV1 `netstat -an`: `TCP 192.168.2.10:80  192.168.1.10:49731  ESTABLISHED` a stále `0.0.0.0:80 LISTENING`.
+- Dělá (terminál): na Alici `netstat -an`: `TCP 192.168.1.10:49152  192.168.2.10:80  ESTABLISHED`; na SRV1 `ss -tan`: `ESTAB 192.168.2.10:80 192.168.1.10:49152` a stále `LISTEN 0.0.0.0:80`.
 - Text: „Tvůj tip: <volba>. Skutečnost: tři segmenty. Bez nich by Alice neměla jistotu, že SRV1 slyší, ani domluvená čísla. Stav ESTABLISHED: spojení existuje.“
 - Note: „Spojení nemá nic fyzického. Je to jen záznam v paměti obou počítačů: dvojice socketů a čísla. Cestou přes R1 o něm router nic neví.“
 - Aha 2.
@@ -154,44 +154,44 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 11: HTTP GET
 - Ohnisko: rentgen. Vpravo: SRV1.
-- Vidí: segment **PSH, ACK**, seq 1, ack 1, **data** = text `GET / HTTP/1.1` + `Host: www.skola.lan`. V rentgenu je část „Data (HTTP)“ pod hlavičkou TCP; délka dat se vypíše.
+- Vidí: segment **PSH, ACK**, seq 1, ack 1, **data** = text `GET / HTTP/1.1` + hlavičky (76 B). V rentgenu je záložka HTTP pod hlavičkou TCP. SRV1 hned potvrdí samostatným ACK (ack 77; tcp.md kap. 7.1).
 - Text: „Teď Alice posílá webový požadavek. HTTP zpráva je jen text, který TCP veze jako data. Mezitím u SRV1: web přečte požadavek.“
 - Note: „HTTP není vedle TCP. Je to obsah TCP segmentu. TCP nezná, co v něm je (dostane data a doručí je).“
 
 #### Krok 12: HTTP odpověď
 - Ohnisko: vrstvy. Vpravo: SRV1 → Alice („Teď Alice“).
-- Vidí: SRV1 odpoví segmentem **PSH, ACK**: seq 1, ack 1 + délka požadavku (potvrzuje požadavek), data `HTTP/1.1 200 OK` + stránka. Blok vystoupá u Alice až do L7 (prohlížeč).
+- Vidí: SRV1 odpoví segmentem **PSH, ACK**: seq 1, ack 77, data `HTTP/1.1 200 OK` + stránka (249 B). Blok dojede u Alice do L4 (stav před tipem 13); do L7 (curl) vystoupá v kroku 14.
 - Text: „SRV1 posílá stránku. Je to jeden segment, který zároveň potvrzuje Alicin požadavek (ack). Mezitím u Alice: segment vystoupá přes L4 do prohlížeče.“
 - Simulátor zjednodušuje: „Stránka se vejde do jednoho segmentu.“
 
 #### Krok 13: Otázka: co potvrdí Alice? (tip)
 - Ohnisko: tip. Vpravo: Alice.
-- Vidí: stav před událostí: odpověď (délka např. 200 bajtů, v rentgenu) je v Alici, ještě nepotvrzená. Přehledová tabulka čísel: Alice seq 1 + délka požadavku; SRV1 seq 1, odeslal 200 B.
-- Text: „Alice přijala 200 bajtů stránky. TCP potvrzuje číslem bajtu, který **čeká dál**.“
-- **Tip:** „Jaké potvrzovací číslo (ack) pošle Alice?“ Volby: **1** / **200** / **201**. Správně: 201 (první nepřijatý bajt). Důvod při nesouladu: „Ack neříká ‚kolik jsem dostala‘, ale ‚od kterého bajtu čekám dál‘. Dostala bajty 1 až 200, čeká 201.“
+- Vidí: stav před událostí: odpověď (249 B) je v L4 Alice, ještě nepotvrzená. Karta Spojení.
+- Text: „Alice přijala 249 bajtů dat (relativní seq 1). TCP potvrzuje číslem bajtu, který **čeká dál**.“
+- **Tip:** „Jaké potvrzovací číslo (ack) pošle Alice?“ Volby: **1** / **249** / **250**. Správně: 250 (první nepřijatý bajt). Důvod při nesouladu: „Ack neříká ‚kolik jsem dostala‘, ale ‚od kterého bajtu čekám dál‘. Dostala bajty 1 až 249, čeká 250.“
 
 #### Krok 14: ACK (vyhodnotí tip z kroku 13)
 - Ohnisko: rentgen. Vpravo: SRV1.
-- Vidí: segment ACK: seq (Alice) 1 + délka požadavku, ack = 201. Text vyhodnotí tip jednou větou.
-- Text: „Tvůj tip: <volba>. Skutečnost: ack 201. Mezitím u SRV1: potvrzení přijato, data jsou ‚doručena‘ a SRV1 je může zapomenout.“
+- Vidí: segment ACK: seq 77, ack 250. Text vyhodnotí tip jednou větou.
+- Text: „Tvůj tip: <volba>. Skutečnost: ack 250. Mezitím u SRV1: potvrzení přijato, data jsou ‚doručena‘ a SRV1 je může zapomenout.“
 - Note: „Potvrzování je to, co dělá TCP spolehlivým. Nepotvrzená data pošle odesílatel znovu (volitelná část F).“
 
 #### Krok 15: Ukončení: Alice posílá FIN
 - Ohnisko: rentgen. Vpravo: SRV1.
-- Vidí: segment **FIN, ACK**. Stav Alice **FIN_WAIT** (v tabulce Spojení; na netstat se ukáže `FIN_WAIT_2`/`TIME_WAIT` až později).
+- Vidí: segment **FIN, ACK** (seq 77, ack 250). Stav Alice **FIN_WAIT_1** (karta Spojení).
 - Text: „Stránka je přenesená, Alice spojení ukončuje: ‚já už nic nepošlu‘. Mezitím u SRV1: web ví, že klient skončil.“
 - Simulátor zjednodušuje: „FIN posílá první Alice; ve skutečnosti může kterákoli strana.“
 
-#### Krok 16: SRV1: ACK + FIN
-- Ohnisko: rentgen. Vpravo: SRV1 → Alice („Teď Alice“).
-- Vidí: SRV1 odpoví **FIN, ACK** (potvrdí Aliciin FIN a zároveň ukončí svůj směr). Stav SRV1 `LAST_ACK` (jen ve tabulce Spojení).
-- Text: „SRV1 potvrzuje a také končí. Mezitím u Alice: čeká na poslední potvrzení.“
-- Simulátor zjednodušuje: „Ve skutečnosti jsou ACK a FIN často dva segmenty; tady je spojíme.“
+#### Krok 16a: SRV1 potvrdí FIN; 16b: SRV1 také končí (rozhodnutí 60: ukončení ve 4 segmentech)
+- Ohnisko: rentgen. Vpravo: Alice („Teď Alice“).
+- Vidí: 16a: SRV1 pošle **ACK** (seq 250, ack 78; FIN zabral jedno číslo), stav SRV1 CLOSE_WAIT, Alice FIN_WAIT_2. 16b: web zavře spojení, SRV1 pošle **FIN, ACK** (seq 250, ack 78), stav LAST_ACK.
+- Text: „SRV1 potvrzuje FIN … SRV1 také končí. Mezitím u Alice: čeká na poslední potvrzení.“
+- Note: „Ukončení má 4 segmenty (FIN, ACK, FIN, ACK), jak ho kreslí CCNA. V praxi často 3: server pošle ACK a FIN v jednom segmentu.“
 
 #### Krok 17: Poslední ACK a TIME_WAIT
 - Ohnisko: terminál. Vpravo: Alice.
 - Vidí: Alice pošle ACK; SRV1 spojení uzavře (CLOSED, zmizí z netstat). Alice jde do **TIME_WAIT** (odpočet).
-- Dělá (terminál): na Alici `netstat -an`: `TCP 192.168.1.10:49731  192.168.2.10:80  TIME_WAIT`; na SRV1 řádek zmizel, zůstalo `LISTENING`.
+- Dělá (terminál): na Alici `netstat -an`: `TCP 192.168.1.10:49152  192.168.2.10:80  TIME_WAIT`; na SRV1 řádek zmizel, zůstalo `LISTEN`.
 - Text: „Spojení skončilo. Alice ještě chvíli čeká (TIME_WAIT): kdyby se její poslední ACK ztratilo, SRV1 pošle FIN znovu a Alice ho musí umět potvrdit.“
 - Note: „TIME_WAIT na straně, která zavírá první, je normální výpis `netstat` po každé stránce. Neznamená to chybu.“
 
@@ -213,15 +213,15 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 20: Dvě spojení, dva zdrojové porty (vyhodnotí tip z kroku 19)
 - Ohnisko: terminál. Vpravo: SRV1.
-- Dělá (terminál): na SRV1 `netstat -an`: řádky `192.168.2.10:80  192.168.1.10:49732  ESTABLISHED` a `192.168.2.10:80  192.168.1.10:49733  ESTABLISHED` a stále jeden `LISTENING` na portu 80.
-- Text: „Tvůj tip: <volba>. Skutečnost: zdrojové porty 49732 a 49733. Mezitím u SRV1: každé spojení je jednoznačné čtveřicí (IP a port Alice, IP a port serveru). Na portu 80 naslouchá pořád jen jedna aplikace, spojení má víc.“
+- Dělá (terminál): na SRV1 `ss -tan`: řádky `ESTAB 192.168.2.10:80 192.168.1.10:49153` a `ESTAB 192.168.2.10:80 192.168.1.10:49154` a stále jeden `LISTEN` na portu 80.
+- Text: „Tvůj tip: <volba>. Skutečnost: zdrojové porty 49153 a 49154 (49152 drží TIME_WAIT). Mezitím u SRV1: každé spojení je jednoznačné čtveřicí (IP a port Alice, IP a port serveru). Na portu 80 naslouchá pořád jen jedna aplikace, spojení má víc.“
 - Note: „Spojení určuje čtveřice (zdrojová IP, zdrojový port, cílová IP, cílový port) a protokol. Ne jen cílový port.“
 - Aha 3.
 
 #### Krok 21: Bob se připojí
 - Ohnisko: topologie. Vpravo: SRV1.
-- Vidí: Bob (192.168.2.20) otevře stránku taky, zrychleně (handshake + GET). Segment `192.168.2.20:51200 → 192.168.2.10:80` letí jen přes SW2 (bez routeru, srovnání s Alicí).
-- Dělá (terminál): na SRV1 `netstat -an`: tři spojení ESTABLISHED; všechna mají místní socket `192.168.2.10:80`, liší se vzdálený socket.
+- Vidí: Bob (192.168.2.20) otevře stránku taky, zrychleně (handshake + GET). Segment `192.168.2.20:49152 → 192.168.2.10:80` letí jen přes SW2 (Bob má vlastní čítač portů) (bez routeru, srovnání s Alicí).
+- Dělá (terminál): na SRV1 `ss -tan`: tři spojení ESTAB; všechna mají místní socket `192.168.2.10:80`, liší se vzdálený socket.
 - Text: „Další klient, stejný cílový port 80. Mezitím u SRV1: třetí spojení, stejný port. Server si pamatuje socket každého klienta zvlášť.“
 
 #### Krok 22: SRV1 předá data správné aplikaci (demultiplex)
@@ -262,7 +262,7 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 #### Krok 27: Alice posílá znovu GET
 - Ohnisko: topologie. Vpravo: Alice.
-- Vidí: nové spojení (49734, handshake rychle). Alice pošle GET; segment letí dolů, po kabelu a **na kabelu mezi R1 a SW2 zmizí** (červený záblesk, štítek „ztraceno“). Alice spustí časovač (odpočet 1 s).
+- Vidí: nové spojení (49156, handshake rychle). Alice pošle GET; segment letí dolů, po kabelu a **na kabelu mezi R1 a SW2 zmizí** (červený záblesk, štítek „ztraceno“). Alice spustí časovač (odpočet 1 s).
 - Text: „Na kabelu se něco stalo a segment se ztratil. Alice o tom neví: zkouší dál. Odpočítává čas, jak dlouho má na potvrzení čekat.“
 - Simulátor zjednodušuje: „Ztráta je naplánovaná scénářem; v reálné síti nevíme, kde a proč.“
 
@@ -297,7 +297,7 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 1. **Dotaz DNS letí bez navazování** (krok 3): student tipoval „nejdřív spojení“; UDP pošle zprávu a nestará se.
 2. **Tři segmenty a tabulka Spojení: ESTABLISHED** (kroky 7–10): spojení není kabel, je to záznam v obou počítačích a domluvená čísla.
 3. **Dvě spojení z jedné IP na jeden port se liší jen zdrojovým portem** (krok 20): proto klient dostává náhodný zdrojový port.
-4. **ack 201, ne 200** (krok 14): potvrzuje se, co čekám dál.
+4. **ack 250, ne 249** (krok 14): potvrzuje se, co čekám dál.
 5. **Port není díra, jde o to, jestli na něm někdo naslouchá** (krok 24).
 6. **Ztracená data pošle znovu TCP, ztracený DNS dotaz až aplikace** (kroky 29 a 31): rozdíl mezi spolehlivým a nespolehlivým přenosem vidět na vlastní oči.
 
@@ -326,16 +326,16 @@ Doporučené dělení pro učitele (lze skončit po kterékoli části):
 
 ## Terminál: kdy a proč
 
-Terminál je volitelný; kroky ho jen doporučují. Přibývají příkazy `nslookup` a `netstat -an` (Windows i SRV1).
+Terminál je volitelný; kroky ho jen doporučují. Přibývají příkazy `nslookup`, `netstat -an` a `curl -v` (Windows) a `ss -tuln` / `ss -tan` (Linux na SRV1, cmd.md kap. 18).
 
 | Krok | Zařízení | Příkaz | Co student zjistí |
 |---|---|---|---|
-| 1 | Alice, SRV1 | `ipconfig /all`, `netstat -an` | DNS server; LISTENING 53 a 80 |
+| 1 | Alice, SRV1 | `ipconfig /all`, `ss -tuln` (SRV1) | DNS server; LISTENING 53 a 80 |
 | 5 | Alice | `nslookup www.skola.lan` | DNS server a jméno → IP |
-| 10 | Alice, SRV1 | `netstat -an` | ESTABLISHED, oba směry |
+| 10 | Alice, SRV1 | `netstat -an`, `ss -tan` (SRV1) | ESTABLISHED, oba směry |
 | 17 | Alice, SRV1 | `netstat -an` | TIME_WAIT u Alice; u SRV1 nic |
-| 20 | SRV1 | `netstat -an` | dvě spojení, jeden LISTENING |
-| 21 | SRV1 | `netstat -an` | tři spojení, lišící se vzdálený socket |
+| 20 | SRV1 | `ss -tan` | dvě spojení, jeden LISTENING |
+| 21 | SRV1 | `ss -tan` | tři spojení, lišící se vzdálený socket |
 | 31 | Alice | `nslookup www.skola.lan` | timeout a druhý pokus (UDP bez ACK) |
 
 Pozn.: `netstat -a -n -p tcp -o` (Michalova prezentace) je v simulátoru zjednodušeno na `netstat -an`; přepínače `-p tcp` a `-o` (PID) vyzkouší student až v reálném terminálu (úkol níže).
@@ -360,7 +360,7 @@ Pozn.: `netstat -a -n -p tcp -o` (Michalova prezentace) je v simulátoru zjednod
    Očekávaná odpověď: odpověď RST, spojení se nenaváže.
 9. Jaká je role DNS? Přes jaký protokol a port běžně jede?
    Očekávaná odpověď: překlad jmen na IP adresy; UDP, port 53.
-10. Proč je v simulátoru ack 201 po přijetí 200 bajtů?
+10. Proč je v simulátoru ack 250 po přijetí 249 bajtů?
     Očekávaná odpověď: ack = další očekávaný bajt.
 
 Kontrolní úkol (k Michalově ukázce webserveru v Pythonu, prezentace „4. aplikační vrstva“):
@@ -384,12 +384,12 @@ Odpoví: Který řádek odpovídá `listen()` a který `accept()`? Jaký zdrojov
 - Každý krok má `focus` a `rightNode`; text kroku mluví o tom uzlu, jehož sloupec je vpravo (rozh. 57). Při přechodu na jiný uzel
   se nadpis sloupce zvýrazní („Teď Alice“).
 - Tipy: 2, 6, 13, 19, 23, 28 jsou samostatné kroky se stavem před událostí; nadpis „Otázka: …“; žádný text před tipem neprozrazuje výsledek.
-- Segmenty: DNS dotaz a odpověď = UDP, porty 52114 ↔ 53; handshake = tři segmenty (SYN, SYN-ACK, ACK) s relativními čísly 0 / 0,1 / 1,1;
-  GET a odpověď s ack = 1 + délka; ukončení čtyři příznakové segmenty (FIN, ACK+FIN, ACK) podle kroků 15–17.
+- Segmenty: DNS dotaz a odpověď = UDP, porty 49152 ↔ 53; handshake = tři segmenty (SYN, SYN-ACK, ACK) s relativními čísly 0 / 0,1 / 1,1;
+  GET a odpověď s ack = 1 + délka; ukončení čtyři segmenty (FIN, ACK / ACK, FIN, ACK / ACK) podle kroků 15, 16a, 16b, 17.
 - `netstat -an`: stavy LISTENING / ESTABLISHED / TIME_WAIT odpovídají tabulce Spojení v daném kroku.
 - Ztráta (F): retransmise má stejné seq a data jako ztracený segment; UDP dotaz se na L4 neopakuje.
 
-## Otevřené otázky (pro projektanta a orchestrátora)
+## Otevřené otázky (vyřešeno rozhodnutím 60)
 
 - **O1:** Topologie sítě 2: SW2 mezi R1, Bobem a SRV1 (návrh), nebo jiné řešení? Má dopad na krok 21 (Bob bez routeru).
 - **O2:** Absolutní ISN a porty (parametry scénáře): potvrdit nebo změnit; velikost okna a volby TCP jen zobrazit.

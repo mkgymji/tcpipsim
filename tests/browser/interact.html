@@ -391,6 +391,56 @@ f.onload = async () => {
     await chipCheck(f, 3, ['2', '9', '12', '13', '14', '15', '17', '19']);
     for (const m of ['osi', 'tcpip']) for (const k of ['3', '7', '9', '17', '25']) { w3.location.hash = `#u=3&k=${k}&m=${m}`; await wait(200); layoutCheck(d3, `úroveň 3, krok ${k}, ${m}`); }
     check(!r3.dataset.errors, `úroveň 3 bez chyb (${r3.dataset.lastError ?? ''})`);
+
+    // ---------- úroveň 4 „Transport a aplikace“ (ui.md kap. 14) ----------
+    const wait4 = loaded();
+    q3('.lvlseg [data-level="4"]').click();
+    await wait4; await wait(400);
+    const d4 = f.contentDocument, w4 = f.contentWindow, r4 = d4.documentElement;
+    const q4 = (s) => d4.querySelector(s);
+    const lab4 = () => q4('#prog-label').textContent;
+    check(r4.dataset.level === '4' && r4.dataset.core === 'ok', 'výběr úrovně 4 načte úroveň 4');
+    check(d4.title === 'tcpipsim: Úroveň 4 Transport a aplikace', `title úrovně 4 (${d4.title})`);
+    check(d4.querySelectorAll('.t4 [data-node]').length >= 6 && q4('.t4 [data-node="SRV1"]') && q4('.t4 [data-node="SW2"]'), 'topologie má SW2 a SRV1');
+    // obálka L4: příznaky a relativní čísla; karta Spojení se stavy obou stran
+    w4.location.hash = '#u=4&k=8&m=osi';
+    await wait(300);
+    check(lab4().startsWith('Krok 8 z 31'), `adresa #u=4&k=8 (${lab4()})`);
+    check(q4('#nest .b4 .flags4')?.textContent === 'SYN, ACK' && q4('#nest .b4').textContent.includes('ack 1'), 'obálka L4: SYN, ACK a ack 1');
+    check(q4('#info .conn4') && q4('#info .conn4').textContent.includes('ESTABLISHED') && q4('#info .conn4').textContent.includes('SYN_RECEIVED'), 'karta Spojení: stavy obou stran');
+    check(q4('#info tr.selected[data-field="tcp.ack"]'), 'rentgen TCP: vybrané pole ack');
+    // karta Spojení se vejde do šířky panelu (žádná vodorovná přetečení tabulek)
+    const over = [...d4.querySelectorAll('#info .ct4')].filter((t) => t.scrollWidth > t.parentElement.clientWidth + 1);
+    check(!over.length, `tabulky karet se vejdou (${over.map((t) => `${t.scrollWidth}>${t.parentElement.clientWidth} ${[...t.querySelectorAll('td')].filter((c) => c.scrollWidth > c.clientWidth + 1).map((c) => c.textContent).join('|')}`).join('; ')})`);
+    // tip 13: odpověď (ack 250) nikde na obrazovce
+    w4.location.hash = '#u=4&k=13&m=osi';
+    await wait(300);
+    check(q4('#fwd-label').textContent !== 'Potvrdit tip' && !q4('#nest').textContent.includes('250') && !q4('#explain').textContent.includes('ack 250'), 'tip 13 neprozradí ack 250');
+    q4('#explain [data-pick="250"]').click();
+    await wait(100);
+    check(q4('#fwd-label').textContent === 'Potvrdit tip', 'výběr tipu: Vpřed = Potvrdit tip');
+    q4('#btn-fwd').click();
+    await wait(300);
+    check(lab4().startsWith('Krok 14') && q4('#explain .evalline')?.textContent.includes('Sedí'), `krok 14 vyhodnotí tip (${lab4()})`);
+    // terminál: netstat -an na Alici, ss -tuln na SRV1 (Linux), ztráta v kroku 27
+    w4.location.hash = '#u=4&k=10&m=osi';
+    await wait(300);
+    q4('[data-run="PC1"]').click();
+    check(q4('#term-body').textContent.includes('ESTABLISHED'), 'krok 10: netstat -an ukáže ESTABLISHED');
+    q4('#term-input').dispatchEvent(new w4.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    w4.location.hash = '#u=4&k=1&m=osi';
+    await wait(300);
+    q4('[data-run="SRV1"]').click();
+    check(q4('#termwin.linux') && q4('#term-body').textContent.includes('LISTEN') && q4('#termwin .prompt')?.textContent === 'student@srv1:~$', 'SRV1: Linux, ss -tuln');
+    q4('#term-input').dispatchEvent(new w4.KeyboardEvent('keydown', { key: 'Escape', bubbles: true }));
+    w4.location.hash = '#u=4&k=27&m=osi';
+    await wait(300);
+    check(q4('.t4 .ftag3.lost'), 'krok 27: kabel ukazuje ztracený segment');
+    for (const m of ['osi', 'tcpip']) for (const k of ['3', '7', '12', '18', '22a', '24', '29']) { w4.location.hash = `#u=4&k=${k}&m=${m}`; await wait(200); layoutCheck(d4, `úroveň 4, krok ${k}, ${m}`); }
+    // topologie: IP adresy v kartách se vejdou (nejsou useknuté)
+    const cut = [...d4.querySelectorAll('.t4 .ip, .t4 .if3 .mono')].filter((x) => x.scrollWidth > x.clientWidth + 1 || rect(x).right > rect(x.closest('.pc3, .if3')).right + 1);
+    check(!cut.length, `topologie 4: IP adresy se vejdou (${cut.length})`);
+    check(!r4.dataset.errors, `úroveň 4 bez chyb (${r4.dataset.lastError ?? ''})`);
   } catch (e) {
     check(false, `výjimka: ${e}`);
   }

@@ -51,7 +51,7 @@ function pcCard(v, id, ui) {
     ${ui.selected === id ? `<button type="button" class="btn tiny-txt" data-term="${id}">Terminál <kbd>F2</kbd></button>` : ''}</div>`;
 }
 
-function switchCard(v, id, ui) {
+export function switchCard(v, id, ui) {
   const n = v.nodes[id];
   const fresh = v.newEntries[id] ?? {};
   const rows = n.mac_table.map((e) => `<tr class="${fresh[e.mac] ? 'new' : ''}" title="${esc(`${e.mac} (${label(v, byMac(v, e.mac))}) na ${e.port}`)}"><td class="mono"><span class="dim">…</span>${esc(macTail(e.mac))}</td><td>${esc(e.port)}</td></tr>`).join('');
@@ -98,7 +98,7 @@ function routerCard(v, id, ui) {
 
 const bitsOnL1 = (v) => Boolean(v.packet && (v.packet.form === 'bits' || v.packet.form === 'wire') && v.packet.bytes);
 
-function wire3(v, link, area, leftNode, tip = false) {
+export function wire3(v, link, area, leftNode, tip = false) {
   const w = v.wires[link];
   let tag = '';
   if (w) {
@@ -106,7 +106,8 @@ function wire3(v, link, area, leftNode, tip = false) {
     const p = w.pdu.payload;
     const what = p?.proto === 'arp' ? 'ARP' : 'rámec';
     const ttl = p?.proto === 'ipv4' && !tip ? `<span class="ttl3">TTL ${p.h.ttl}</span>` : '';   // tip 13: TTL nic neprozradí
-    tag = `<span class="ftag3 ${toRight ? 'r' : 'l'}${p?.proto === 'arp' ? ' arp' : ''}">${toRight ? '' : '◀ '}${what}${toRight ? ' ▶' : ''}</span>${ttl}`;
+    tag = w.lost ? '<span class="ftag3 lost">✕ ztracen</span>'
+      : `<span class="ftag3 ${toRight ? 'r' : 'l'}${p?.proto === 'arp' ? ' arp' : ''}">${toRight ? '' : '◀ '}${what}${toRight ? ' ▶' : ''}</span>${ttl}`;
   }
   return `<div class="w3 ${area}${w && bitsOnL1(v) ? ' on' : ''}" data-link="${link}"><span class="cable"></span>${tag}</div>`;
 }
@@ -251,8 +252,38 @@ function icmpBlock(pdu, compact = false) {
   return `<button type="button" class="icmpb" data-field="icmp.type" data-tab="icmp"><b>ICMP ${esc(ICMP_NAME[h.type] ?? h.type)}</b><small>${esc(extra)}</small></button>`;
 }
 
+// úroveň 4: obálka L4 (TCP segment / UDP datagram) s porty, příznaky a relativními čísly
+const APP_OF_PORT = { 53: 'DNS', 80: 'web', 8080: 'nic' };
+function l4Box(pdu, model, v, sel, depth, compact) {
+  const h = pdu.h, tcp = pdu.proto === 'tcp', tab = pdu.proto;
+  const who = (p) => APP_OF_PORT[p] ?? (p >= 49152 ? 'klient' : '');
+  const addr = cell('zdroj port', who(h.sport), `<b>${h.sport}</b>`, `${tab}.sport`, tab, sel) + '<span class="arr">→</span>'
+    + cell('cíl port', who(h.dport), `<b>${h.dport}</b>`, `${tab}.dport`, tab, sel);
+  const chips = tcp ? `<div class="chips"><button type="button" class="chip flags4" data-field="tcp.flags" data-tab="tcp">${esc(h.flagsText)}</button>`
+    + `<button type="button" class="chip" data-field="tcp.seq" data-tab="tcp">seq ${h.rel?.seq ?? h.seq}</button>`
+    + (h.flags & 0x10 ? `<button type="button" class="chip" data-field="tcp.ack" data-tab="tcp">ack ${h.rel?.ack ?? h.ack}</button>` : '')
+    + (h.retransmit ? '<span class="chip retx">retransmise</span>' : '') + '</div>'
+    : `<div class="chips"><button type="button" class="chip" data-field="udp.len" data-tab="udp">hlavička 8 B</button></div>`;
+  const inner = pdu.payload ? box3(pdu.payload, model, v, sel, depth + 1, '', compact)
+    : `<div class="stub">${tcp ? 'bez dat: řídicí segment' : ''}</div>`;
+  return `<div class="box b2 b3 b4${depth ? ' inner' : ''}" data-env="${tab}" style="${cssVars(4)}">
+    <button type="button" class="lab" data-env="${tab}" data-tab="${tab}" aria-label="${esc(`Obálka ${rowLabel(model, 4)}: rentgen`)}"><span>${esc(rowLabel(model, 4))}</span><em>${tcp ? 'TCP segment' : 'UDP datagram'}</em></button>
+    <div class="addr">${addr}</div>${chips}${inner}</div>`;
+}
+
 function box3(pdu, model, v, sel, depth = 0, extra = '', compact = false) {
   if (!pdu) return '';
+  if (pdu.proto === 'tcp' || pdu.proto === 'udp') return l4Box(pdu, model, v, sel, depth, compact);
+  if (pdu.proto === 'dns') {
+    const q = pdu.h;
+    const txt = q.qr ? `DNS odpověď: ${q.answers.map((a) => `${a.name} = ${a.data}`).join(', ') || `chyba ${q.rcode}`}` : `DNS dotaz: kdo je ${q.question.name}? (typ ${q.question.type})`;
+    return `<div class="data d2" data-env="data"><span class="lab"><span>${model === 'osi' ? 'L7' : 'L5-7'} data</span></span><button type="button" class="msg small" data-field="${q.qr ? 'dns.answer' : 'dns.qname'}" data-tab="dns">${esc(txt)}</button></div>`;
+  }
+  if (pdu.proto === 'data' && /^(GET |HTTP\/)/.test(pdu.payload)) {
+    const first = pdu.payload.split('\r\n')[0];
+    const n = new TextEncoder().encode(pdu.payload).length;
+    return `<div class="data d2" data-env="data"><span class="lab"><span>${model === 'osi' ? 'L7' : 'L5-7'} data (HTTP)</span></span><button type="button" class="msg small" data-field="http.start" data-tab="http">${esc(first)} <small>· ${n} B</small></button></div>`;
+  }
   if (pdu.proto === 'data') {
     const zero = pdu.payload.charCodeAt(0) === 0;
     return `<div class="data d2" data-env="data"><span class="lab"><span>${model === 'osi' ? 'L7' : 'L5-7'} data</span></span><span class="msg small">${zero ? 'sonda tracert: 64 B nul' : 'ping: 32 B dat'}</span></div>`;
@@ -294,6 +325,15 @@ export function currentMessage(v) {
       : { name: 'ARP odpověď', from: label(v, byIp(v, h.spa)), to: label(v, byIp(v, h.tpa)) };
   }
   const ip = x?.proto === 'ipv4' ? x : v.pkt;
+  const l4 = x?.proto === 'tcp' || x?.proto === 'udp' ? x : ip?.payload;
+  if (l4?.proto === 'tcp' || l4?.proto === 'udp') {
+    const src = l4 === ip?.payload ? ip.h.src : null;
+    const fromN = src ? label(v, byIp(v, src)) : label(v, v.flow?.sender);
+    const toN = ip && l4 === ip.payload ? label(v, byIp(v, ip.h.dst)) : label(v, v.flow?.receiver);
+    const name = l4.proto === 'udp' ? (l4.payload?.proto === 'dns' ? (l4.payload.h.qr ? 'DNS odpověď (UDP)' : 'DNS dotaz (UDP)') : 'UDP datagram')
+      : `TCP ${l4.h.flagsText}${l4.payload ? (l4.payload.payload.startsWith('GET') ? ' + HTTP GET' : ' + HTTP odpověď') : ''}${l4.h.retransmit ? ' (znovu)' : ''}`;
+    return { name, from: fromN, to: toN };
+  }
   const icmp = x?.proto === 'icmp' ? x : ip?.payload?.proto === 'icmp' ? ip.payload : null;
   if (ip && icmp) return { name: MSG_NAME[icmp.h.type] ?? 'ICMP', from: label(v, byIp(v, ip.h.src)), to: label(v, byIp(v, ip.h.dst)) };
   if (v.flow) return { name: v.flow.app === 'tracert' ? 'Echo Request (sonda)' : 'Echo Request', from: label(v, v.flow.sender), to: label(v, byIp(v, v.flow.dst)) };
@@ -318,6 +358,7 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
   const p = v.packet;
   if (!p) {
     const f = v.flow;
+    if (v.lost) return `<div class="float"><div class="plain small dropmsg">Segment se ztratil na kabelu (${esc(v.lost.link)} → ${esc(label(v, v.lost.node))})<small>${esc(label(v, v.lost.node))} nic nedostal; odesílatel o ztrátě neví</small></div></div>`;
     const txt = f ? `${label(v, f.sender)}: ${f.app} ${f.dst}` : v.config ? `${label(v, v.config.node)}: nová konfigurace` : 'Zatím se nic neposílá';
     return `<div class="float"><div class="plain small">${esc(txt)}<small>${v.arpFail ? `ARP dotaz na ${esc(v.arpFail.ip)}: nikdo neodpověděl` : v.dropped?.kind === 'no_route' ? 'z Alice nevyšel žádný rámec' : 'stav sítě'}</small></div></div>`;
   }
@@ -357,7 +398,7 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
   }
   if (v.delivered && v.delivered.node === pair.sender && anchor.at === 'sender') {
     const d = v.delivered;
-    note += `<p class="same">${esc(label(v, d.node))}: ${d.icmpType === 11 ? `Time Exceeded od ${esc(d.from)}` : `odpověď od ${esc(d.from)}, TTL ${d.ttl}`}</p>`;
+    note += `<p class="same">${esc(label(v, d.node))}: ${d.icmpType === 11 ? `Time Exceeded od ${esc(d.from)}` : d.port != null ? `aplikace ${esc(d.app)} dostala data od ${esc(d.from)}` : `odpověď od ${esc(d.from)}, TTL ${d.ttl}`}</p>`;
   }
   return `<div class="float">${html}${note ? `<div class="hang">${note}</div>` : ''}</div>`;
 }
@@ -365,10 +406,11 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
 // ---------------------------------------------------------------- vysvětlivka
 
 /** Vysvětlivka s tipem (rozhodnutí 31), nápovědami, opravou brány a skokem na části A–D. */
-export function explainHtml3(v, model, total, { predict, tips, evalLines = [], termHint, parts = [], curPart = null, tipLocked = false } = {}) {
+const PARTS_HELP3 = 'Úroveň má čtyři části: A ping do jiné sítě, B soused ve stejné síti, C TTL a tracert, D najdi chybu. Klik = skok na začátek části.';
+export function explainHtml3(v, model, total, { predict, tips, evalLines = [], termHint, parts = [], curPart = null, tipLocked = false, partsHelp = PARTS_HELP3 } = {}) {
   const s = v.step;
   const out = [];
-  out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="Úroveň má čtyři části: A ping do jiné sítě, B soused ve stejné síti, C TTL a tracert, D najdi chybu. Klik = skok na začátek části.">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
+  out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="${esc(partsHelp)}">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
   out.push(`<h3>${esc(predict ? `Otázka: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
   out.push(`<p>${chipsHtml(textFor(s.text, model), esc)}</p>`);
@@ -490,12 +532,14 @@ export function summaryCard3() {
 // ---------------------------------------------------------------- rentgen
 
 export const XRAY3_TABS = ['ethernet', 'arp', 'ipv4', 'icmp'];
-const TAB_LAYER = { ethernet: 2, arp: 2, ipv4: 3, icmp: 3 };
+const TAB_LAYER = { ethernet: 2, arp: 2, ipv4: 3, icmp: 3, udp: 4, tcp: 4, dns: 7, http: 7 };
 
 /** PDU, které rentgen ukazuje: obálka v aktuálním místě, jinak poslední rámec. */
 export function xrayTarget(v) {
   const p = v.packet?.pdu;
   if (p && (p.proto === 'ethernet' || p.proto === 'ipv4')) return p;
+  // úroveň 4: segment před zabalením nebo po rozbalení (paket kolem něj, je-li znám)
+  if (p && (p.proto === 'tcp' || p.proto === 'udp')) return v.pkt?.payload === p ? v.pkt : v.frame?.payload?.payload === p ? v.frame : p;
   return v.frame ?? v.pkt ?? null;
 }
 
@@ -521,7 +565,8 @@ export function xrayHtml3(v, xs) {
   const region = (i) => {
     const bl = ff.blocks.find((x) => i >= x.start && i < x.end);
     if (i >= ff.padOff) return 'pad';
-    return bl ? (TAB_LAYER[bl.id] === 2 ? 'l2' : 'l3') : 'l3';
+    const L = bl ? TAB_LAYER[bl.id] : 3;
+    return L === 2 ? 'l2' : L === 4 ? 'l4' : L === 7 ? 'data' : 'l3';
   };
   const rows = [];
   let gap = false;
@@ -542,8 +587,12 @@ export function xrayHtml3(v, xs) {
     : '<p class="fexp muted">Klikni na pole v tabulce, na bajty nebo na buňku adresy v obálce (Esc zruší výběr, R další záložka).</p>';
   const ctx = tab === 'ethernet' ? '<p class="xnote">Cílová MAC je v rámci před zdrojovou; štítek obálky píše odkud → kam.</p>'
     : tab === 'arp' ? '<p class="xnote">ARP je přímo v rámci (EtherType 0x0806): žádný IP paket, žádné TTL, přes router neprojde.</p>'
-      : tab === 'icmp' ? '<p class="xnote">ICMP nemá porty: jede přímo v IP paketu (Protocol 1).</p>' : '';
-  const titles = { ethernet: 'rámec L2 (Ethernet II)', arp: 'ARP zpráva v rámci', ipv4: 'paket L3 (IPv4)', icmp: 'ICMP v paketu' };
+      : tab === 'icmp' ? '<p class="xnote">ICMP nemá porty: jede přímo v IP paketu (Protocol 1).</p>'
+        : tab === 'tcp' ? '<p class="xnote">Relativní čísla počítá Wireshark (a simulátor) pro přehlednost; na drátě je jen absolutní číslo.</p>'
+          : tab === 'udp' ? '<p class="xnote">UDP hlavička má jen 8 B: porty, délka, součet. Žádná čísla sekvencí, žádné potvrzení.</p>'
+            : tab === 'http' ? '<p class="xnote">HTTP je text v datech TCP segmentu (řádky končí \\r\\n). Reálné weby dnes používají HTTPS: obsah by byl zašifrovaný.</p>' : '';
+  const titles = { ethernet: 'rámec L2 (Ethernet II)', arp: 'ARP zpráva v rámci', ipv4: 'paket L3 (IPv4)', icmp: 'ICMP v paketu',
+    udp: 'UDP datagram (L4)', tcp: 'TCP segment (L4)', dns: 'DNS zpráva (L7)', http: 'HTTP zpráva (L7)' };
   return `<h3>Rentgen: ${titles[tab]}</h3><div class="xtabs" role="group" aria-label="Obálky">${tabsHtml}</div>
-    <p class="xsum">${esc(pduFields(pdu).summary)}${pdu.proto === 'ipv4' ? ' (rámec ještě nevznikl nebo už je rozbalený)' : ''}</p>${table}<div class="hex" aria-label="Bajty">${rows.join('')}</div>${expl}${ctx}`;
+    <p class="xsum">${esc(ff.summary)}${pdu.proto === 'ipv4' ? ' (rámec ještě nevznikl nebo už je rozbalený)' : ''}</p>${table}<div class="hex" aria-label="Bajty">${rows.join('')}</div>${expl}${ctx}`;
 }

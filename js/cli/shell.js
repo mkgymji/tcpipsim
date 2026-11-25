@@ -4,9 +4,11 @@
 import { winExec, winPrompt } from './wincmd.js';
 import { iosExec, iosPrompt } from './ios.js';
 import { routerExec, routerPrompt } from './iosrouter.js';
+import { linuxExec, linuxPrompt } from './linux.js';
 import { isHost } from '../devices/types.js';
 
 export function dialectOf(node) {
+  if (node.type === 'server') return 'linux';   // SRV1 (úroveň 4)
   if (isHost(node.type)) return 'windows';
   if (node.type === 'switch' || node.type === 'router') return 'ios';
   return null;   // hub nemá konzoli
@@ -14,11 +16,13 @@ export function dialectOf(node) {
 
 export function promptOf(node, mode) {
   if (node.type === 'router') return routerPrompt(node, mode);
+  if (node.type === 'server') return linuxPrompt(node);
   return dialectOf(node) === 'ios' ? iosPrompt(node) : winPrompt(node);
 }
 
 export function execute(node, line, opts = {}) {
   const d = dialectOf(node);
+  if (d === 'linux') return linuxExec(node, line, opts);
   if (d === 'windows') return winExec(node, line, opts);
   if (node.type === 'router') return routerExec(node, line, opts);
   if (d === 'ios') return iosExec(node, line);

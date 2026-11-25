@@ -7,7 +7,7 @@
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <meta name="description" content="Výukový simulátor sítě TCP/IP: zapouzdření zprávy ve vrstvách ISO/OSI a TCP/IP, adresy MAC, IP a porty, hub a switch, směrování přes router, ARP, ping a tracert.">
-  <link rel="stylesheet" href="css/app.css?v=62">
+  <link rel="stylesheet" href="css/app.css?v=63">
   <script>
     // Zachytí chyby ještě před načtením modulů; smoke test čte data-errors z DOM.
     (function () {
@@ -41,6 +41,7 @@
       <button type="button" data-level="1" aria-pressed="true">1 Barvičky</button>
       <button type="button" data-level="2" aria-pressed="false">2 Adresy</button>
       <button type="button" data-level="3" aria-pressed="false">3 Směrování</button>
+      <button type="button" data-level="4" aria-pressed="false">4 Transport</button>
     </div>
     <div class="lvl" id="level-title"></div>
     <button type="button" class="btn small" id="btn-questions">Kontrolní otázky</button>
@@ -121,6 +122,6 @@
     <p id="q-tips" class="q-tips"></p>
   </dialog>
 
-  <script type="module" src="js/main.js?v=62" onerror="window.__tcpipsimModuleFailed()"></script>
+  <script type="module" src="js/main.js?v=63" onerror="window.__tcpipsimModuleFailed()"></script>
 </body>
 </html>

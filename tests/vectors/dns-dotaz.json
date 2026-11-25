@@ -5,7 +5,6 @@
   "description": "Topologie úrovně 4 (rozhodnutí 59, routing.md kap. 9): síť 1 jako v úrovni 3 (Alice Fa0/1, Cyril Fa0/3 na SW1, R1 Gi0/0 na Fa0/4); v síti 2 je nově přepínač SW2 (Fa0/1 R1 Gi0/1, Fa0/2 Bob, Fa0/3 SRV1 192.168.2.10, Linux TTL 64). ARP cache a MAC tabulky jsou předvyplněné stavem po předchozí komunikaci (Alice zná bránu, R1 zná Alici a SRV1, SRV1 zná bránu), aby vektor ukazoval jen L4 a L7; ARP přes router už ukazují vektory úrovně 3. Alice (resolver operačního systému, stejně jako před otevřením stránky v prohlížeči nebo curl) pošle DNS dotaz typu A z dynamického portu 49152 na port 53 DNS serveru 192.168.2.10 (nastaveného v konfiguraci Alice). SRV1 je pro zónu skola.lan autoritativní: odpověď má QR=1, AA=1, RD=1, RA=0 (flags 0x8500; server rekurzi nenabízí), stejné ID 1, zopakovanou otázku a jednu odpověď A s TTL 3600 (jméno v odpovědi komprimované ukazatelem 0xC00C, dns.md kap. 3). Simulátor zjednodušuje: resolver se ptá jen na A (bez AAAA, IPv6 simulace nemá), ID dotazu je čítač od 1, odpověď nemá záznamy v sekcích Authority/Additional.",
   "level": 4,
   "seed": 1,
-  "skip": "jádro zatím neumí DNS (akce dns_resolve, aplikace dns na serveru) ani úroveň 4",
   "spec_refs": [
     "docs/spec/dns.md",
     "docs/spec/udp.md kap. 4",
@@ -875,7 +874,7 @@
         "detail": "resolver: nový UDP socket, dynamický port 49152; DNS server 192.168.2.10 je v jiné síti -> přes bránu"
       },
       {
-        "step": 3,
+        "step": 2,
         "node": "R1",
         "event": "ip_forward",
         "detail": "TTL 128 -> 127; 192.168.2.0/24 connected Gi0/1"
@@ -893,7 +892,7 @@
         "detail": "skola.lan je moje zóna: www.skola.lan A 192.168.2.10 (autoritativní odpověď, AA=1)"
       },
       {
-        "step": 7,
+        "step": 6,
         "node": "R1",
         "event": "ip_forward",
         "detail": "TTL 64 -> 63"

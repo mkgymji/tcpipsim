@@ -4,8 +4,9 @@ import arp from './arp.js';
 import ipv4 from './ipv4.js';
 import icmp from './icmp.js';
 import udp from './udp.js';
+import tcp from './tcp.js';
 
-export const PROTOCOLS = { ethernet, arp, ipv4, icmp, udp };
+export const PROTOCOLS = { ethernet, arp, ipv4, icmp, udp, tcp };
 
 // Vrátí moduly zadaných id seřazené shora dolů (L4, L3, L2), odmítne neznámé.
 export function stackOf(ids) {

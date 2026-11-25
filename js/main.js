@@ -10,6 +10,7 @@ import { parseHash, parseLevel, formatHash } from './ui/urlstate.js';
 import { createLevel1 } from './ui/app1.js';
 import { createLevel2 } from './ui/app2.js';
 import { createLevel3 } from './ui/app3.js';
+import { createLevel4 } from './ui/app4.js';
 import { stepFocus } from './ui/focus.js';
 import { fieldTab } from './ui/chips.js';
 
@@ -47,7 +48,7 @@ const els = {
 // beforeForward(k), applyParams(params), dir(view), isTip(k) = na kroku k se přehrávání zastaví }
 const host = { state, rerender: () => render(), go: (k, o) => go(k, o), cur: () => timeline.cursor,
   setPlaying: (on) => setPlaying(on), openQuestions: () => openQuestions() };
-const app = levelId === 3 ? createLevel3(host) : levelId === 2 ? createLevel2(host) : createLevel1(host);
+const app = levelId === 4 ? createLevel4(host) : levelId === 3 ? createLevel3(host) : levelId === 2 ? createLevel2(host) : createLevel1(host);
 const { timeline, scenario } = app;
 const total = Math.max(...timeline.steps.map((s) => s.num));
 const last = timeline.length - 1;
@@ -307,6 +308,7 @@ window.addEventListener('hashchange', () => applyHash());
 const level = LEVELS[levelId];
 document.title = `tcpipsim: Úroveň ${levelId} ${level.title}`;
 document.body.classList.add(`lvl${levelId}`);
+if (levelId === 4) document.body.classList.add('lvl3');   // úroveň 4 staví na rozvržení úrovně 3
 $('level-title').textContent = scenario.title;
 const start = parseHash(location.hash, timeline.steps);
 if (start.model) state.model = start.model;

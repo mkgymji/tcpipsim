@@ -1,4 +1,5 @@
-// Převod PDU na bajty (bez DOM). Ethernet II, ARP, IPv4, ICMP, UDP, data (UTF-8).
+// Převod PDU na bajty (bez DOM). Ethernet II, ARP, IPv4, ICMP, UDP, TCP, DNS, data (UTF-8).
+import { encodeDns } from '../proto/dns.js';
 // Rámec bez preambule a bez FCS, s výplní na 60 B (docs/spec/model.md kap. 5, ethernet.md).
 
 const utf8 = new TextEncoder();
@@ -38,9 +39,31 @@ function encodeUdp(pdu, ipH) {
   return seg;
 }
 
+const u32 = (v) => [(v >>> 24) & 0xff, (v >>> 16) & 0xff, (v >>> 8) & 0xff, v & 0xff];
+
+// TCP segment (tcp.md kap. 2): hlavička 20 B + volby (MSS jen v SYN), součet s pseudohlavičkou.
+function encodeTcp(pdu, ipH) {
+  const h = pdu.h;
+  const body = pdu.payload ? encode(pdu.payload) : new Uint8Array(0);
+  const opts = (h.options ?? []).flatMap((o) => (o.kind === 2 ? [2, 4, ...u16(o.value)] : []));
+  const hl = 20 + opts.length;
+  const seg = new Uint8Array(hl + body.length);
+  seg.set([...u16(h.sport), ...u16(h.dport), ...u32(h.seq >>> 0), ...u32(h.ack >>> 0), (hl / 4) << 4, h.flags & 0xff,
+    ...u16(h.window ?? 0), 0, 0, 0, 0, ...opts]);
+  seg.set(body, hl);
+  if (ipH) {
+    const pseudo = new Uint8Array(12 + seg.length);
+    pseudo.set([...ip(ipH.src), ...ip(ipH.dst), 0, 6, ...u16(seg.length)]);
+    pseudo.set(seg, 12);
+    seg.set(u16(checksum(pseudo)), 16);
+  }
+  return seg;
+}
+
 function encodeIpv4(pdu) {
   const h = pdu.h;
-  const body = pdu.payload.proto === 'udp' ? encodeUdp(pdu.payload, h) : encode(pdu.payload);
+  const pp = pdu.payload.proto;
+  const body = pp === 'udp' ? encodeUdp(pdu.payload, h) : pp === 'tcp' ? encodeTcp(pdu.payload, h) : encode(pdu.payload);
   const total = 20 + body.length;
   const pkt = new Uint8Array(total);
   pkt.set([0x45, 0, ...u16(total), ...u16(h.id ?? 0), 0, 0, h.ttl, h.protocol, 0, 0,
@@ -85,7 +108,7 @@ function encodeIcmp(pdu) {
 }
 
 const ENCODERS = { data: encodeData, udp: (p) => encodeUdp(p, null), ipv4: encodeIpv4, ethernet: encodeEthernet,
-  arp: encodeArp, icmp: encodeIcmp };
+  arp: encodeArp, icmp: encodeIcmp, tcp: (p) => encodeTcp(p, null), dns: (p) => encodeDns(p.h) };
 
 export function encode(pdu) {
   const fn = ENCODERS[pdu.proto];

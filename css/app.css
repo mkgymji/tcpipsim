@@ -1022,3 +1022,61 @@ tr.chip-hl > td { background: #E3EAF3; }
   .pc3 { padding-top: 5px; }
   .pc3 .pchead svg { height: 18px; }
 }
+
+/* ---------- úroveň 4 „Transport a aplikace“ (docs/ui.md kap. 14); body má lvl3 i lvl4 ---------- */
+body.lvl4 { --topo-h: 290px; }
+@media (max-height: 820px) { body.lvl4 { --topo-h: 244px; } }
+.t4 .svc4 { white-space: nowrap; }
+.t3.t4 { grid-template-columns: 138px minmax(8px, 1fr) 54px minmax(8px, 1fr) 122px 122px minmax(8px, 1fr) 54px minmax(8px, 1fr) 138px; }
+.t4 .pc3 .ip { font-size: 14px; letter-spacing: -0.6px; white-space: nowrap; }
+.t4 .if3 .mono { font-size: 14px; letter-spacing: -0.7px; }
+.t4 .net3.n1 { grid-column: 1 / 6; }
+.t4 .net3.n2 { grid-column: 6 / 11; }
+.t4 .pc3.a4-PC1 { grid-column: 1; grid-row: 2; }
+.t4 .pc3.a4-PC3 { grid-column: 1; grid-row: 3; }
+.t4 .pc3.a4-PC2 { grid-column: 10; grid-row: 2; }
+.t4 .pc3.a4-SRV1 { grid-column: 10; grid-row: 3; }
+.t4 .pc3.dim4 { opacity: .6; }
+.t4 .w3.wb { grid-column: 7; grid-row: 2 / 4; }
+.t4 .w3.wd { grid-column: 9; grid-row: 2; }
+.t4 .w3.we { grid-column: 9; grid-row: 3; }
+.t4 .swslot { grid-column: 3; }
+.t4 .swslot2 { grid-column: 8; grid-row: 2 / 4; z-index: 2; }
+.t4 .sw3 { padding: 2px 3px; align-items: center; }
+.t4 .sw3 .devhead { flex-direction: column; gap: 0; }
+.t4 .sw3 .devhead small { display: none; }
+.t4 .r4 .r4note { font-size: 14px; color: var(--muted); text-align: center; }
+.t4 .svc4 { font-size: 14px; line-height: 1.15; font-weight: 700; text-align: center; }
+.t4 .cn4 { font-size: 14px; border: 2px solid var(--L4); border-radius: 5px; padding: 0 4px; background: var(--L4t); }
+.t4 .cn4.new { outline: 2px solid var(--ink); }
+.ftag3.lost { background: #B3261E; color: #fff; border-color: #B3261E; }
+.b4 .chips .flags4 { font-weight: 700; }
+.chip.retx { background: #B3261E; color: #fff; }
+.ct4 { border-collapse: collapse; width: 100%; font-size: 14px; line-height: 1.25; margin-top: 4px; table-layout: fixed; }
+.ct4 td { overflow-wrap: anywhere; }
+.conn4 .ct4 col.cs { width: 35%; }
+.conn4 .ct4 col.cp { width: 18%; }
+.conn4 .ct4 td.mono { white-space: nowrap; letter-spacing: -0.9px; }
+.t4 .net3.n1 .netlab { left: 146px; transform: none; }
+.t4 .net3.n2 .netlab { right: 146px; }
+.t4 .netlab small { display: none; }
+.conn4 .ct4 td b { font-size: 14px; letter-spacing: -0.7px; }
+.ct4 caption { text-align: left; font-weight: 700; font-size: 15px; }
+.ct4 th { text-align: left; border-bottom: 2px solid var(--line); padding: 0 3px; }
+.ct4 td { padding: 0 3px; border-bottom: 1px solid var(--line); }
+.ct4 td.mono { font: 14px var(--mono); letter-spacing: -0.6px; }
+.ct4 tr.new td, .ct4 tr.hit td { background: var(--L4t); box-shadow: inset 0 2px 0 var(--ink), inset 0 -2px 0 var(--ink); }
+.ct4 tr.lrow td { color: var(--muted); }
+.tl4 tr.sg-udp td:first-child, .sgk.sg-udp { border-left: 6px solid var(--L7); }
+.tl4 tr.sg-ctl td:first-child, .sgk.sg-ctl { border-left: 6px solid var(--L4); }
+.tl4 tr.sg-data td:first-child, .sgk.sg-data { border-left: 6px solid var(--L3); }
+.tl4 tr.sg-rst td:first-child { border-left: 6px solid #B3261E; }
+.sgk { padding-left: 4px; margin-right: 6px; }
+.termwin.linux .term-h { background: #2B2B2B; color: #fff; }
+.termwin.linux .term-b { background: #1E1E1E; color: #E8E8E8; }
+.termwin.linux .prompt { color: #8AE234; }
+@media (max-width: 1360px) {
+  .t3.t4 { grid-template-columns: 132px minmax(4px, 1fr) 50px minmax(4px, 1fr) 116px 116px minmax(4px, 1fr) 50px minmax(4px, 1fr) 132px; }
+}
+/* úroveň 4: vedle štítku „Teď Alice“ se role příjemce nevejde; štítek sám říká, kdo je teď vpravo */
+body.lvl4 .lift h2:has(.now-badge:not([hidden])) #receiver-role { display: none; }
