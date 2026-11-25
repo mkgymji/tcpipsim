@@ -39,7 +39,8 @@ export function mediumDevice(v) {
  */
 export function laneEnd(anchor, packetForm, deviceType = null) {
   const bits = packetForm === 'bits' || packetForm === 'wire';
-  if (bits) return deviceType === 'switch' ? 6 : 7;
+  // se zařízením v pruhu končí poznámka nad řádkem L2: nad věžičkou hubu je jeho jméno
+  if (bits) return deviceType ? 6 : 7;
   // rámec ve switchi: blok sedí na věžičce switche (jeho řádek L2 svítí), nepřekrývá ji
   if (anchor.at === 'device') return 6;
   return Math.min(7, 9 - Math.max(2, anchor.layer));
@@ -97,11 +98,14 @@ export function mediumHtml(v, pair, { model = 'osi', animate = false, dev = null
   let tower = '';
   if (dev) {
     const act = anchor.at === 'device' && anchor.node === dev.id ? anchor.layer : null;
+    // buňky nesou jméno vrstvy, ne PDU: rámec je jen jeden, ten velký nad věžičkou (kontrola 38, M2)
     const cell = (num, name) => `<span class="tcell${act === num ? ' active' : ''}" style="--c:var(--L${num});--t:var(--L${num}t)"><b>L${num}</b> ${name}</span>`;
     tower = `<div class="tower ${dev.type}${act ? ' act' : ''}" aria-label="${esc(`${dev.label}: ${dev.type === 'switch' ? 'switch, vrstvy L1 a L2' : 'hub, jen vrstva L1'}`)}">
-      <span class="tname">${esc(dev.label)}</span>${dev.type === 'switch' ? cell(2, 'rámec') : ''}${cell(1, 'bity')}</div>`;
+      <span class="tname">${esc(dev.label)}</span>${dev.type === 'switch' ? cell(2, 'Linková') : ''}${cell(1, 'Fyzická')}</div>`;
   }
-  return `<div class="mrow${on ? ' on' : ''}${dev ? ` has-dev dev-${dev.type}` : ''}"><span class="cable" aria-hidden="true"></span>${cap}${ribbon}</div>${tower}`;
+  // úroveň 1: i samotný kabel v pruhu otevře panel Detail „Kabel“ (stejně jako kabel v topologii)
+  const cable = capInfo ? '<span class="cable hit" data-wire aria-hidden="true"></span>' : '<span class="cable" aria-hidden="true"></span>';
+  return `<div class="mrow${on ? ' on' : ''}${dev ? ` has-dev dev-${dev.type}` : ''}">${cable}${cap}${ribbon}</div>${tower}`;
 }
 
 // ---- DOM: poloha bloku a plynulý posun (jen transform; při omezení animací a kroku vzad bez pohybu) ----

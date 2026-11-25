@@ -156,7 +156,7 @@ export function renderTopology(els, view, scn, animate) {
   dev(els.receiver, view.receiver, 'příjemce');
   const onWire = view.packet?.form === 'wire';
   els.wire.classList.toggle('act', onWire);
-  els.wireCap.textContent = onWire ? 'bity jedou po kabelu — viz L1 dole' : 'kabel';
+  els.wireCap.textContent = onWire ? 'bity jedou po kabelu = pruh „médium“ dole (L1)' : 'kabel';
   els.wireBits.innerHTML = '';
 }
 

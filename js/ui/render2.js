@@ -107,15 +107,21 @@ function portBadge(v, dev, port, side, ui) {
     : `<div class="${cls}">${inner}</div>`;
 }
 
-function wireHtml(v, link, side, animate) {
+// Po kabelu jedou bity (L1), proto štítek „bity“ v barvě L1, stejně jako pásek v pruhu média dole
+// (kontrola 38, M1). Kabel svítí jen tehdy, když bity právě jsou na L1, tedy i v pruhu dole;
+// jinak štítek jen ukazuje, kudy rámec v tomto kroku jel.
+function wireHtml(v, link, side, animate, lit) {
   const w = v.wires[link];
   let tag = '';
   if (w) {
     const toRight = side === 'left' ? isHost(v.nodes[w.from]?.type) : !isHost(v.nodes[w.from]?.type);
-    tag = `<span class="ftag ${toRight ? 'r' : 'l'}${animate ? ' anim-travel' : ''}" title="rámec">${toRight ? '' : '◀ '}<span class="fw">rámec</span>${toRight ? ' ▶' : ''}</span>`;
+    tag = `<span class="ftag ${toRight ? 'r' : 'l'}${animate ? ' anim-travel' : ''}" title="bity">${toRight ? '' : '◀ '}<span class="fw">bity</span>${toRight ? ' ▶' : ''}</span>`;
   }
-  return `<div class="wire2 w-${side}${w ? ' on' : ''}" data-link="${link}"><span class="cable"></span>${tag}</div>`;
+  return `<div class="wire2 w-${side}${w && lit ? ' on' : ''}" data-link="${link}"><span class="cable"></span>${tag}</div>`;
 }
+
+/** Jsou bity právě na L1 (v pruhu média dole)? Stejná podmínka jako `mrow on` v ui/lift.js. */
+const bitsOnL1 = (v) => Boolean(v.packet && (v.packet.form === 'bits' || v.packet.form === 'wire') && v.packet.bytes);
 
 function macTable(v, dev) {
   const n = v.nodes[dev];
@@ -167,7 +173,7 @@ export function topologyHtml(v, ui) {
   for (const id of hosts) {
     const s = slots[id];
     parts.push(pcCard(v, id, s, ui));
-    parts.push(`<div class="wslot ws-${s}">${wireHtml(v, portOf[id].link, side(id), ui.animate)}</div>`);
+    parts.push(`<div class="wslot ws-${s}">${wireHtml(v, portOf[id].link, side(id), ui.animate, bitsOnL1(v))}</div>`);
     parts.push(`<div class="pslot ps-${s}">${portBadge(v, dev, portOf[id].port, side(id), ui)}</div>`);
   }
   const dec = decisionText(v);
@@ -176,8 +182,8 @@ export function topologyHtml(v, ui) {
   // při tipu se schová vše, co by prozradilo výsledek (rozhodnutí 31)
   const tip = Boolean(ui.predict && ui.predict.node === dev);
   // rozhodnutí 38: topologie je mapa; zvýrazněný kabel = totéž co pruh média dole v řádku L1
-  const l1 = Object.keys(v.wires ?? {}).length
-    ? '<span class="l1note"><i class="lk" aria-hidden="true"></i>zvýrazněný kabel = bity dole v řádku L1</span>' : '';
+  const l1 = Object.keys(v.wires ?? {}).length && bitsOnL1(v)
+    ? '<span class="l1note"><i class="lk" aria-hidden="true"></i>zvýrazněný kabel = pruh „médium“ dole (L1)</span>' : '';
   return `<span class="tag">TOPOLOGIE</span><span class="legend">dvojitý obrys = odesílatel a příjemce vybrané zprávy</span>${swap}${l1}
     <div class="star">${parts.join('')}<div class="dslot">${deviceCard(v, dev, { ...ui, decision: dec, tip })}</div></div>`;
 }
@@ -247,8 +253,8 @@ export function nestCaption(v, pair, { tip = false } = {}) {
 function frameAtDevice(pdu, model, v, sel, dev) {
   const name = rowLabel(model, 2);
   return `<div class="box b2 bdev" data-env="ethernet" style="${cssVars(2)}">
-    <button type="button" class="lab" data-env="ethernet" data-tab="ethernet" aria-label="${esc(`Obálka ${name}: rentgen`)}">
-    <span>${esc(name)}</span><em>rámec</em></button>
+    <button type="button" class="lab" data-env="ethernet" data-tab="ethernet" aria-label="${esc(`Obálka ${name}, rámec ve switchi ${nodeLabel(v, dev)}: rentgen`)}">
+    <span>${esc(name)}</span><em>rámec ve switchi ${esc(nodeLabel(v, dev))}</em></button>
     <div class="addr">${addrRow(pdu, v, sel)}</div>
     <div class="stub">uvnitř paket (${esc(rowLabel(model, 3))}): ${esc(nodeLabel(v, dev))} ho neotevírá</div><span class="trail">konec rámce</span></div>`;
 }

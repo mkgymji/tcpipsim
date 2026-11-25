@@ -54,6 +54,7 @@ body.ready .loading { display: none; }
 .wire { flex: 1; margin: 0 24px; position: relative; height: 72px; border: 0; background: none; padding: 0; cursor: pointer; border-radius: 8px; }
 .wire .cable { position: absolute; left: 0; right: 0; top: 30px; height: 6px; background: var(--ink); border-radius: 3px; }
 .wire .cap { position: absolute; left: 0; right: 0; top: 4px; text-align: center; font-size: 15px; color: var(--muted); }
+.wire.act .cap { color: var(--ink); white-space: nowrap; }
 .wbits { position: absolute; top: 42px; left: 0; right: 0; display: flex; justify-content: center; pointer-events: none; }
 .wbits:empty { display: none; }
 .wbits .ribbon { padding: 2px 6px; background: #fff; border: 3px solid var(--L1); border-radius: 6px; font: 700 15px var(--mono); color: var(--L1); white-space: nowrap; letter-spacing: 1px; }
@@ -99,7 +100,10 @@ svg.b text.sm { font-size: 15px; letter-spacing: -1px; }
 .medium { grid-row: 6 / 8; grid-column: 1; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; margin: 0 -14px; position: relative; z-index: 1; pointer-events: none; --tw: 112px; }
 .medium > * { pointer-events: auto; }
 .mrow { grid-row: 2; grid-column: 1; position: relative; pointer-events: none; }
-.mrow > button, .mrow > .ribbon { pointer-events: auto; }
+.mrow > button, .mrow > .ribbon, .mrow > .cable.hit { pointer-events: auto; }
+/* úroveň 1: kabel v pruhu je klikací (panel Detail „Kabel“); větší plocha pro myš */
+.mrow > .cable.hit { cursor: pointer; }
+.mrow > .cable.hit::before { content: ''; position: absolute; inset: -10px 0; }
 .mrow .cable { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; background: var(--ink); border-radius: 3px; }
 /* aktivní kabel: stejný vzhled dole v pruhu média i nahoře v topologii */
 .mrow.on .cable, .wire.act .cable, .wire2.on .cable { background: var(--L1); height: 8px; margin-top: -4px; box-shadow: 0 0 0 5px var(--L1t); }
@@ -127,8 +131,10 @@ span.mcap { cursor: default; }
 .tower { grid-column: 1; justify-self: center; width: var(--tw); display: flex; flex-direction: column; gap: 5px; position: relative; z-index: 1; }
 .tower.hub { grid-row: 2; }
 .tower.switch { grid-row: 1 / 3; }
-.tower .tname { position: absolute; top: -12px; left: 0; right: 0; margin: auto; width: fit-content; background: var(--panel); border: 2px solid var(--ink); border-radius: 5px; font-size: 15px; font-weight: 700; padding: 0 5px; line-height: 1.2; z-index: 1; }
-.tower.hub .tname { top: auto; bottom: -12px; }
+/* jméno zařízení stojí vedle věžičky, nepřesahuje její okraj (kontrola 38): hub nad ní, switch vlevo od L2 */
+.tower .tname { position: absolute; background: var(--panel); border: 0; border-radius: 5px; font-size: 15px; font-weight: 700; padding: 0 5px; line-height: 1.2; z-index: 1; white-space: nowrap; }
+.tower.hub .tname { bottom: calc(100% + 4px); left: 0; right: 0; margin: auto; width: fit-content; }
+.tower.switch .tname { right: calc(100% + 6px); top: 0; height: calc(50% - 2.5px); display: flex; align-items: center; box-sizing: border-box; }
 .tcell { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 6px; border: 3px solid var(--c); background: var(--t); border-radius: 6px; font-size: 15px; font-weight: 600; color: var(--ink); }
 .tcell b { background: var(--c); color: #fff; border-radius: 3px; padding: 0 4px; }
 .tcell.active { border-width: 5px; box-shadow: 0 0 0 3px var(--ink); }
@@ -351,7 +357,7 @@ body.lvl2 .topo { display: block; padding: 30px 14px 8px; }
 .ws-rbot { grid-column: 6; grid-row: 3; }
 .wire2 { position: absolute; inset: 0; }
 .wire2 .cable { position: absolute; left: -4px; right: -4px; top: 18px; height: 6px; background: var(--ink); border-radius: 3px; }
-.ftag { position: absolute; top: -10px; left: 50%; margin-left: -35px; width: 70px; text-align: center; background: var(--L2t); border: 3px solid var(--L2); border-radius: 6px; font-size: 15px; font-weight: 700; color: var(--ink); white-space: nowrap; }
+.ftag { position: absolute; top: -10px; left: 50%; margin-left: -32px; width: 64px; text-align: center; background: #fff; border: 3px solid var(--L1); border-radius: 6px; font-size: 15px; font-weight: 700; color: var(--L1); white-space: nowrap; }
 .pslot { grid-column: 3; grid-row: 2; display: flex; justify-content: flex-end; position: relative; z-index: 2; }
 .ps-left { grid-column: 3; grid-row: 2; justify-content: flex-end; }
 .ps-rtop { grid-column: 5; grid-row: 1; justify-content: flex-start; }
@@ -364,7 +370,7 @@ body.lvl2 .topo { display: block; padding: 30px 14px 8px; }
 .port.pick { border-style: dashed; cursor: pointer; }
 .port.pick.tip, .port.tip { border-style: solid; border-width: 5px; box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--ink); }
 .port.nopick { border-style: dotted; }
-.tiptag { position: absolute; top: -14px; left: -6px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 700; padding: 0 5px; border-radius: 4px; line-height: 1.2; }
+.tiptag { position: absolute; top: -14px; left: -6px; background: var(--ink); color: #fff; font-size: 15px; font-weight: 700; padding: 0 5px; border-radius: 4px; }
 
 .dslot { grid-column: 4; grid-row: 1 / span 3; align-self: stretch; display: flex; flex-direction: column; justify-content: center; position: relative; min-height: 0; }
 .devcard { border: 3px solid var(--ink); border-radius: 10px; background: var(--panel); padding: 6px 8px; display: flex; flex-direction: column; gap: 4px; min-height: 0; }
@@ -394,7 +400,7 @@ body.lvl2 .topo { display: block; padding: 30px 14px 8px; }
 .mact th { white-space: nowrap; }
 .mact .newtag, .mact .looktag { padding: 0 3px; }
 .mact tr.new td { background: var(--L2t); }
-.mact tr.new { outline: 4px solid var(--ink); outline-offset: -4px; }
+.mact tr.new td { box-shadow: inset 0 3px 0 var(--ink), inset 0 -3px 0 var(--ink); padding-top: 3px; padding-bottom: 3px; }
 .mact tr.empty td { color: var(--muted); font-style: italic; }
 .mact tr.found { outline: 3px dashed var(--ink); outline-offset: -3px; }
 .newtag, .looktag { background: var(--ink); color: #fff; font-weight: 700; padding: 0 4px; border-radius: 3px; font-size: 15px; }
@@ -413,6 +419,9 @@ body.lvl2 .lane { max-height: none; }
 .b2.inner .acell { flex-direction: row; align-items: center; justify-content: flex-start; gap: 4px; padding: 0 3px; }
 .b2.inner .acell .cap > span { display: none; }
 .b2.inner .acell .val { letter-spacing: -0.7px; overflow: visible; }
+/* rámec ve switchi: svislá spojka dolů k řádku L2 věžičky switche v pruhu (kontrola 38, M2) */
+.bdev { overflow: visible; }
+.bdev::after { content: ''; position: absolute; left: 50%; top: 100%; width: 4px; height: 10px; margin-left: -2px; background: var(--L2); }
 .bdev .stub { border: 2px dashed var(--L3); background: var(--panel); border-radius: 5px; font-size: 15px; padding: 0 6px; color: var(--ink); }
 .b2 { gap: 4px; padding-bottom: 6px; }
 .b2 > .lab { min-height: 24px; font-size: 16px; }
@@ -430,7 +439,7 @@ body.lvl2 .lane { max-height: none; }
 .d2 .msg { min-height: 0; padding: 2px 8px; font-size: 20px; }
 .acell .short { display: none; }
 .b2 { position: relative; }
-.b2 > .trail { position: absolute; right: 8px; bottom: -3px; padding: 0 6px; line-height: 1.2; }
+.b2 > .trail { position: absolute; right: 8px; bottom: -3px; padding: 0 6px; }
 .b2[data-env="ethernet"] { padding-bottom: 16px; }
 .socket { margin: 6px 0 0; text-align: center; font: 16px var(--mono); }
 .arpstrip { margin: 2px 0 0; font-size: 15px; border: 3px solid var(--L2); background: var(--L2t); border-radius: 6px; padding: 0 6px; line-height: 1.25; white-space: nowrap; }
@@ -438,7 +447,7 @@ body.lvl2 .lane { max-height: none; }
 /* ARP tabulka u odesílatele: jeden řádek pod kartou PC (rozhodnutí 38: pod obálkou by překryla pruh média) */
 .pc .arpstrip { position: absolute; top: calc(100% + 2px); left: 0; z-index: 2; }
 /* topologie: zvýrazněný kabel = pruh média dole v L1 (rozhodnutí 38) */
-.topo .l1note { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 15px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; background: var(--panel); padding: 0 4px; }
+.topo .l1note { position: absolute; bottom: 4px; left: calc(50% - 36px); z-index: 3; transform: translateX(-50%); font-size: 15px; color: var(--ink); white-space: nowrap; display: flex; align-items: center; gap: 6px; background: var(--panel); padding: 0 4px; }
 .l1note .lk { display: inline-block; width: 28px; height: 6px; background: var(--L1); border-radius: 3px; box-shadow: 0 0 0 3px var(--L1t); }
 .dropmsg { margin: 0 0 6px; font-size: 16px; border: 2px dashed var(--ink); border-radius: 6px; padding: 2px 8px; }
 .dropmsg .dim, .dropmsg b { font-family: var(--mono); }
@@ -546,7 +555,7 @@ body.lvl2 .explain p.note { font-size: 16px; }
   .d2 .msg { padding: 1px 8px; font-size: 18px; }
   .apps-strip .apps { margin-top: 2px; }
   .apps-strip:not(.has) { display: none; }
-  .apps .app { line-height: 1.2; }
+  .apps .app { }
   .acell { flex-direction: row; align-items: center; justify-content: flex-start; gap: 4px; padding: 0 3px; }
   .acell .val { font-size: 15px; letter-spacing: -0.7px; overflow: visible; }
   .pcbtn svg { width: 30px; height: 26px; }

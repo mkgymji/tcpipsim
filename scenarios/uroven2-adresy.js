@@ -89,7 +89,7 @@ export default {
         why: 'hub nečte adresy, a tak bity pošle na všechny ostatní porty.' } },
     { num: 6, match: { kind: 'repeat' }, title: 'Hub rozešle všem', evaluates: ['hub'],
       text: 'Hub nečte žádné adresy. Co přijde na jeden port, pošle na všechny ostatní.',
-      note: 'Hub je zařízení fyzické vrstvy: pracuje s bity, ne s rámci.',
+      note: 'Hub je zařízení fyzické vrstvy: pracuje s bity, ne s rámci. Výška zařízení v pruhu = kam až čte: hub jen L1, switch L1 a L2.',
       simplifies: 'Bity kreslíme bajt po bajtu, jak se zapisují (karta je vysílá v jiném pořadí), a bez synchronizačního úvodu (preambule). Kolizi dvou současně vysílajících počítačů nesimulujeme.' },
     { num: 7, match: { kind: 'phy.rx', node: 'PC2' }, title: 'Cyril rámec zahodí',
       text: 'Cyril rámec taky dostal. Jeho síťová karta porovnala cílovou MAC se svou, nesedí a rámec zahodila. Operační systém Cyrila o něm nic neví.',

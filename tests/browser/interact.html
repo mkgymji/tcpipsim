@@ -72,6 +72,23 @@ f.onload = async () => {
       check(rib && rib.top >= l1s.top - 2 && rib.bottom <= l1s.bottom + 2 && rib.left >= l1s.right - 2 && rib.right <= l1r.left + 2,
         `úroveň 1, krok 6: bity jedou v pruhu média mezi řádky L1 (bity ${[rib?.left, rib?.right, rib?.top, rib?.bottom].map(Math.round)}, L1 ${[l1s.right, l1r.left, l1s.top, l1s.bottom].map(Math.round)})`);
       check(d.querySelector('#wire.act') && d.querySelector('#wire-cap').textContent.includes('L1'), 'kabel v topologii zvýrazněný s odkazem na L1');
+      // kontrola 38, M4: klik na kabel nahoře i na kabel v pruhu dole otevře stejný detail „Kabel“
+      $('#wire').click();
+      await wait(50);
+      const top = infoTitle() === 'Kabel' ? $('#info').innerHTML : null;
+      $('#stack-sender .row:last-child').click();
+      await wait(50);
+      check(infoTitle() !== 'Kabel', `mezitím jiný detail (${infoTitle()})`);
+      const cab = rect(d.querySelector('#medium .mrow .cable'));
+      let hit = null;
+      for (let x = cab.left + 4; x < cab.right - 4 && !hit; x += 6) {
+        const el = d.elementFromPoint(x, cab.top + cab.height / 2);
+        if (el?.matches?.('.cable.hit')) hit = el;
+      }
+      hit?.dispatchEvent(new w.MouseEvent('click', { bubbles: true }));
+      await wait(50);
+      check(top && hit && infoTitle() === 'Kabel' && $('#info').innerHTML === top,
+        `klik na kabel nahoře i v pruhu dole otevře stejný detail (nahoře ${Boolean(top)}, v pruhu ${Boolean(hit)}, panel ${infoTitle()})`);
     }
     w.location.hash = '#k=4&m=osi';
     await wait(200);

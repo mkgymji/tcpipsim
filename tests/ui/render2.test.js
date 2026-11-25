@@ -75,14 +75,26 @@ test('MAC tabulka: jen naučené záznamy (rozhodnutí 24), nový řádek se št
   const t12 = topologyHtml(at('12'), ui(at('12')));
   assert.doesNotMatch(t12, />\?</, 'žádný řádek „?“');
   assert.match(t12, /neznámá cílová MAC → flooding/);
-  assert.match(t12, /data-link="L2"[^>]*>.*rámec<\/span> ▶/);
-  assert.match(t12, /data-link="L3"[^>]*>.*rámec<\/span> ▶/);
+  assert.match(t12, /data-link="L2"[^>]*>.*bity<\/span> ▶/);
+  assert.match(t12, /data-link="L3"[^>]*>.*bity<\/span> ▶/);
   assert.match(t12, /<small>výstup<\/small>/);
   const t14 = topologyHtml(at('14'), ui(at('14')));
   assert.match(t14, /známá cílová MAC → jen Fa0\/1/);
   assert.doesNotMatch(t14, /data-link="L3"[^>]*><span class="cable"><\/span><span class="ftag/);
   assert.match(t14, /nalezeno/);
   assert.match(topologyHtml(at('6'), ui(at('6'))), /hub: na všechny ostatní porty/);
+});
+
+test('kontrola 38: na kabelu v topologii jedou bity (L1); kabel svítí jen spolu s pruhem média dole', () => {
+  // krok 6: hub opakuje bity, ty jsou na L1 -> kabel svítí a legenda odkáže na pruh dole
+  const t6 = topologyHtml(at('6'), ui(at('6')));
+  assert.match(t6, /class="wire2 w-right on"/);
+  assert.match(t6, /zvýrazněný kabel = pruh „médium“ dole \(L1\)/);
+  assert.doesNotMatch(t6, /<span class="fw">rámec/);
+  // krok 12: zpráva už je u Boba nahoře, bity na L1 nejsou -> štítky ukazují cestu, kabel nesvítí
+  const t12 = topologyHtml(at('12'), ui(at('12')));
+  assert.doesNotMatch(t12, /class="wire2[^"]* on"/);
+  assert.doesNotMatch(t12, /zvýrazněný kabel/);
 });
 
 test('Cyril zahodil: štítek ve topologii, výtah dvojice Alice -> Cyril ukáže zprávu karty', () => {

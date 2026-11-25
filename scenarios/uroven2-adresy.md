@@ -151,7 +151,8 @@ tip nic nepenalizuje a nic se neukládá; počet trefených tipů je v dialogu K
 
 - Vidí: hub zopakuje rámec na všechny porty kromě toho, odkud přišel; bity jedou k Bobovi i Cyrilovi.
 - Text: „Hub nečte žádné adresy. Co přijde na jeden port, pošle na všechny ostatní.“
-- Note: „Hub je zařízení fyzické vrstvy: pracuje s bity, ne s rámci.“ (vyvrací „hub = switch“; slovník: hub
+- Note: „Hub je zařízení fyzické vrstvy: pracuje s bity, ne s rámci. Výška zařízení v pruhu = kam až
+  čte: hub jen L1, switch L1 a L2.“ (druhá věta: kontrola 38, N2) (vyvrací „hub = switch“; slovník: hub
   se neoznačuje „opakovač“, rozhodnutí 16)
 - Simulátor zjednodušuje: „Bity kreslíme bajt po bajtu, jak se zapisují (karta je vysílá v jiném
   pořadí), a bez synchronizačního úvodu (preambule). Kolizi dvou současně vysílajících počítačů nesimulujeme.“

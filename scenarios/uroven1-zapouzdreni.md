@@ -81,19 +81,24 @@ Každý krok: co student vidí, co dělá, text vysvětlivky.
 
 - Vidí: obálky se v dolní vrstvě rozpadnou na řadu 0 a 1; kolem ní šedá stuha „bity“. Barevné
   proužky ještě chvíli prosvítají (aby šlo pochopit, že jde o stejnou věc, jen zakódovanou).
-- Text (ISO/OSI): „Fyzická vrstva přepsala celý rámec, obálky i zprávu, na bity (0 a 1). Po drátě jede
+- Text (ISO/OSI): „Fyzická vrstva přepsala celý rámec, obálky i zprávu, na bity (0 a 1). Po kabelu pojede
   všechno, kabel ale obálky od zprávy nerozlišuje.“ (TCP/IP: „Vrstva síťového rozhraní přepsala …“,
   aby text seděl se sloupcem vrstev.) Rozhodnutí 17: původní „obálky se neposílají“ vytvářelo
   miskoncepci. Dodatečná oprava didaktika: formulace „už nejde poznat, co je zpráva a co obálka“
   mohla svádět k dojmu, že se informace ztratí; příjemce rámec správně složí a obálky rozliší,
   nerozlišuje je jen kabel.
 
-### Krok 6: Bity jedou po drátě
+### Krok 6: Bity jedou po kabelu
 
-- Vidí: bity putují po drátě od Alice k Bobovi (animace tečkami); rychlost lze zpomalit.
-- Dělá: tlačítkem Pauza zastaví a může kliknout na drát: „Po kabelu jede celý rámec jako bity.
+- Vidí: bity putují v pruhu „médium (kabel)“ mezi řádky L1 od Alice k Bobovi; kabel v topologii
+  nahoře je zvýrazněný stejně (rozhodnutí 38); rychlost lze zpomalit.
+- Dělá: tlačítkem Pauza zastaví a může kliknout na kabel nahoře nebo v pruhu dole (oba otevřou
+  stejný detail): „Po kabelu jede celý rámec jako bity.
   Kabel nerozlišuje obálky ani zprávu.“
 - Text: „Teď jsou bity na drátě. Kabel nic neví o zprávě ani o vrstvách.“
+- Hint: „Zastav přehrávání a klikni na kabel (nahoře, nebo v pruhu „médium (kabel)“ dole).“
+- Pojmenování (kontrola 38, N4): v pruhu „médium (kabel)“, v textech „kabel“; „drát“ jen v hovorovém
+  „na drátě“.
 
 ### Krok 7: Bob přijímá bity
 
@@ -144,8 +149,8 @@ neukládat; je to jen procvičení.
 1. V jakém pořadí se přidávají obálky u odesílatele a v jakém se sundávají u příjemce?
    Očekávaná odpověď: přidávají se shora dolů (aplikační -> transportní -> síťová -> síťového rozhraní),
    sundávají se zdola nahoru, opačně. Obálka přidaná poslední se sundává první.
-2. Jak se jmenují data s obálkou na transportní, síťové a linkové vrstvě? Co jede po drátě?
-   Očekávaná odpověď: segment, paket, rámec. Po drátě jedou bity: celý rámec i s obálkami a zprávou.
+2. Jak se jmenují data s obálkou na transportní, síťové a linkové vrstvě? Co jede po kabelu?
+   Očekávaná odpověď: segment, paket, rámec. Po kabelu jedou bity: celý rámec i s obálkami a zprávou.
 3. Kolik vrstev má ISO/OSI a kolik TCP/IP? Kam patří aplikační vrstva TCP/IP v ISO/OSI?
    Očekávaná odpověď: 7 a 4; aplikační vrstva TCP/IP odpovídá vrstvám 7, 6 a 5 (aplikační, prezentační, relační).
 4. Změnila se zpráva „Ahoj, Bobe!“ cestou? Co se změnilo?
