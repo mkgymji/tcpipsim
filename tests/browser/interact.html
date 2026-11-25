@@ -146,9 +146,20 @@ f.onload = async () => {
       check(!q('#medium .ribbon'), 'krok tipu: v pruhu média žádné bity');
     }
     check(q('.mact tbody').querySelectorAll('tr.new').length === 1, 'nový řádek MAC tabulky v kroku 11');
-    check(q('#explain h3').textContent.startsWith('Tip: '), `nadpis tipu (${q('#explain h3').textContent})`);
+    check(q('#explain h3').textContent.startsWith('Ptám se tebe: '), `nadpis tipu (${q('#explain h3').textContent})`);
     check(!q('.port.out') && !q('.pill.received') && !q('.pill.dropped'), 'krok tipu nic neprozrazuje');
     check(!q('#termwin') || q('#termwin').hidden, 'terminál je zavřený');
+    {
+      // rozhodnutí 56: ohnisko tipu = žlutá karta s rámečkem a štítkem, ostatní panely ztlumené (ne pod 0.8)
+      const ex = q('#explain'), cs = w2.getComputedStyle(ex);
+      check(r2.dataset.stepFocus === 'tip' && ex.hasAttribute('data-focus') && ex.classList.contains('tip'), `krok tipu: ohnisko tip (${r2.dataset.stepFocus})`);
+      check(cs.backgroundColor === 'rgb(255, 226, 138)' && parseFloat(cs.outlineWidth) >= 4, `karta tipu žlutá s rámečkem (${cs.backgroundColor}, ${cs.outlineWidth})`);
+      check(w2.getComputedStyle(q('#explain > .stepno'), '::after').content.includes('Sleduj tady'), 'štítek Sleduj tady v záhlaví tipu');
+      check(q('#explain > .stepno').getBoundingClientRect().height <= 34, `záhlaví karty na jeden řádek (${Math.round(q('#explain > .stepno').getBoundingClientRect().height)} px)`);
+      const op = +w2.getComputedStyle(q('.left .topo')).opacity;
+      check(op >= 0.8 && op < 1 && +w2.getComputedStyle(q('#info')).opacity < 1, `ostatní panely mírně ztlumené (${op})`);
+      check(ex.scrollWidth <= ex.clientWidth + 1, 'karta tipu nepřetéká do šířky');
+    }
     // předpověď: klik na port, Potvrdit tip, vyhodnocení
     q('.port[data-pick="Fa0/2"]').click();
     check(q('.port[data-pick="Fa0/2"]').getAttribute('aria-pressed') === 'true', 'klik na port = tip');
@@ -210,6 +221,8 @@ f.onload = async () => {
     q('.devhead[data-node="SW1"]').click();
     q('[data-term="SW1"]').click();
     check(!q('#termwin').hidden && q('#termwin').classList.contains('ios'), 'terminál switche (Cisco IOS)');
+    await wait(20);
+    check(q('#termwin').hasAttribute('data-focus') || r2.dataset.stepFocus !== 'terminal', `otevřený terminál převezme ohnisko vrstev (${r2.dataset.stepFocus})`);
     const inp = q('#term-input');
     inp.value = 'sh mac add';
     inp.dispatchEvent(new w2.KeyboardEvent('keydown', { key: 'Enter', bubbles: true }));
@@ -248,7 +261,9 @@ f.onload = async () => {
     // tip v kroku 5 (ARP): nic neprozradí, Vpřed = Potvrdit tip, vyhodnocení v kroku 6
     w3.location.hash = '#u=3&k=5&m=osi';
     await wait(250);
-    check(q3('#explain h3').textContent.startsWith('Tip:'), 'krok 5: nadpis Tip');
+    check(q3('#explain h3').textContent.startsWith('Ptám se tebe:'), 'krok 5: nadpis Ptám se tebe');
+    check(r3.dataset.stepFocus === 'tip' && q3('#explain').hasAttribute('data-focus'), 'krok 5: ohnisko tip');
+    check(q3('#explain > .stephead').getBoundingClientRect().height <= 36, `krok 5: záhlaví s částmi A–D na jeden řádek (${Math.round(q3('#explain > .stephead').getBoundingClientRect().height)} px)`);
     check(!q3('.sw3 .decision'), 'tip: switch ještě nerozhodl');
     q3('#explain [data-pick="Cyril"]').click();
     q3('#explain [data-pick="R1 (Gi0/0)"]').click();
@@ -259,6 +274,7 @@ f.onload = async () => {
     // věž routeru v pruhu média do L3 (rozhodnutí 48)
     w3.location.hash = '#u=3&k=9&m=osi';
     await wait(250);
+    check(r3.dataset.stepFocus === 'rentgen' && q3('#info').hasAttribute('data-focus') && q3('#info > h3').textContent.startsWith('Rentgen'), `krok 9 (pole rentgenu): ohnisko rentgen (${r3.dataset.stepFocus})`);
     check(q3('.tower3.router .tcell.active') && q3('.tower3.router').textContent.includes('Síťová'), 'krok 9: R1 v pruhu média, aktivní L3');
     const fl3 = rect(q3('#nest .float')), tw3 = rect(q3('.tower3.router'));
     check(fl3 && tw3 && fl3.bottom <= tw3.top + 4, `blok sedí na věži routeru (${Math.round(fl3?.bottom)} <= ${Math.round(tw3?.top)})`);

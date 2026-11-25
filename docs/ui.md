@@ -393,3 +393,39 @@ Platí rozhodnutí 39–55; prototyp je jen vizuální vzor. Rozhraní routeru j
 4. **Tip na routeru** má tři volby včetně „zahodí“ a „zpět“: potvrdí didaktik.
 5. **Řádky S a S*** v ukázkové tabulce jsou jen demonstrace nejdelší shody; obsah tabulky pro scénář určí didaktik (např. výchozí trasa až s úrovní 5).
 6. **Přepínač „Vrstvy | Časová osa“**: v prototypu je jen vykreslený, ne funkční.
+
+## 13. Ohnisko a role panelů (rozhodnutí 56, úrovně 1–3)
+
+**Role panelů** rozliší barva záhlaví + ikona + slovo (ne jen barva). Barvy jsou neutrální a nepletou
+se s paletou vrstev L1–L7 (tokeny `--role-*` v `css/app.css`):
+
+| Panel | Záhlaví | Ikona | Slovo |
+|---|---|---|---|
+| Vysvětlivka | tmavý pruh (ink) s „Krok N z M“ | i | Krok |
+| Tip / otázka | celá karta žlutá #FFE28A, pruh tmavě okrový #6B4E00 | ? | „Ptám se tebe: …“ |
+| Rentgen | ocelově modrá #2F4A6B (ne L4 #1B5FAA, ne L1 #4A5A66) | lupa | „Rentgen: …“ |
+| Terminál | černé (Windows), tmavě modré (Cisco IOS) | >_ | název okna (např. „Konzole: R1“) |
+| Detail (úroveň 1) | světle šedé #E4E6E9 | i | Detail |
+
+Kontrast textu: #14181C na žluté 14:1, bílá na #2F4A6B 9:1. Na kroku tipu se karta při kroku vpřed
+jednou krátce zvětší a zakývá (0,5 s); při „Omezit animace“ / `prefers-reduced-motion` bez animace.
+Tlačítko Vpřed říká „Potvrdit tip“, jakmile student něco vybral (bez výběru dál „Vpřed“: tip lze
+přeskočit).
+
+**Ohnisko kroku** (`js/ui/focus.js`, `stepFocus(step, view, {termOpen})`, bez DOM): `tip` | `rentgen` |
+`topologie` | `vrstvy` | `terminal`. Výchozí pravidlo: krok tipu → tip; krok s vybraným polem rentgenu
+(`xray.fields`) → rentgen; krok, kde se mění tabulka (záznam `mac_learn`, `arp_learn`) → topologie;
+jinak vrstvy (blok). Scénář pravidlo přepíše polem `focus` u kroku (úroveň 3: kroky 2 a 15 s kartou
+masky / ARP tabulek → `rentgen` = pravý dolní panel). Otevřený terminál překrývá sloupec vrstev, proto
+ohnisko „vrstvy“ při otevřeném terminálu patří terminálu; `focus: 'terminal'` bez otevřeného okna
+spadne na „vrstvy“.
+
+Zobrazení (`applyFocus()` v `js/main.js`): panel ohniska dostane atribut `data-focus` → rámeček
+4 px v barvě role (`outline`, nic neposune) a štítek „Sleduj tady“ (u karet v záhlaví nebo na vlastním
+řádku, u topologie a vrstev na horní hraně rámu, nic nepřekryje). Ostatní panely mají `opacity: .82`
+(šedý text #4B5563 si drží AA 4,5:1). Otevřený terminál se netlumí. Stav je i v
+`<html data-step-focus>` (testy). Testy: `tests/ui/focus.test.js` (tip → tip, pole rentgenu → rentgen
+ve všech krocích úrovní 1–3), `tests/browser/interact.html` (žlutá karta, rámeček, štítek, záhlaví na
+jeden řádek, ztlumení při 1280×720).
+
+Odkazové čipy z textu („→ Rentgen: TTL“, bod c) zatím nejsou.

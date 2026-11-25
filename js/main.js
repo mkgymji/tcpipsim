@@ -10,6 +10,7 @@ import { parseHash, parseLevel, formatHash } from './ui/urlstate.js';
 import { createLevel1 } from './ui/app1.js';
 import { createLevel2 } from './ui/app2.js';
 import { createLevel3 } from './ui/app3.js';
+import { stepFocus } from './ui/focus.js';
 
 const SPEEDS = [0.25, 0.5, 1, 2, 4];
 const DWELL_MS = 4200;        // doba jednoho kroku při přehrávání (1x): animace + čtení
@@ -81,8 +82,11 @@ function render({ animate = false, prev = null } = {}) {
   app.render(view, { animate, prev, model: state.model });
   const key = `${k}|${state.model}`;
   if (state.shown !== key) {
+    const stepChanged = state.shownK !== k;
     app.renderPanels(view, state.model, total);
     state.shown = key;
+    state.shownK = k;
+    applyFocus(view, { pop: animate && stepChanged });
     const hash = formatHash(view.step, state.model, levelId);
     if (!location.hash.startsWith(hash)) history.replaceState(null, '', hash);
   }
@@ -90,6 +94,26 @@ function render({ animate = false, prev = null } = {}) {
   document.documentElement.dataset.step = String(k);
   document.documentElement.dataset.model = state.model;
 }
+
+// Ohnisko kroku a role panelů (rozhodnutí 56): rámeček + štítek „Sleduj tady“, ostatní ztlumit.
+const FOCUS_EL = { tip: '#explain', rentgen: '#info', topologie: '.left .topo', vrstvy: '.left .lift', terminal: '#termwin' };
+function applyFocus(view = timeline.view(cur()), { pop = false } = {}) {
+  const termOpen = !$('termwin').hidden;
+  const f = stepFocus(view.step, view, { termOpen });
+  const tip = Boolean(view.step.predict);
+  const ex = $('explain');
+  ex.classList.toggle('tip', tip);
+  $('info').dataset.role = levelId === 1 ? 'detail' : 'rentgen';
+  document.querySelectorAll('[data-focus]').forEach((x) => x.removeAttribute('data-focus'));
+  document.querySelector(FOCUS_EL[f])?.setAttribute('data-focus', '');
+  $('app').dataset.stepFocus = f;
+  document.documentElement.dataset.stepFocus = f;
+  // tip na sebe jednou krátce upozorní (při „Omezit animace“ CSS animaci vypne)
+  ex.classList.remove('anim-pop');
+  if (pop && tip) { void ex.offsetWidth; ex.classList.add('anim-pop'); }
+}
+// terminál se otevírá a zavírá mimo render(): ohnisko přepočítat podle viditelnosti okna
+new MutationObserver(() => applyFocus()).observe($('termwin'), { attributes: true, attributeFilter: ['hidden'] });
 
 function setFrozen(on) { document.body.classList.toggle('frozen', on); }
 

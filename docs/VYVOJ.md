@@ -531,7 +531,8 @@ a výchozí úrovně v `levels.js`, (5) testy `tests/proto/<proto>.test.js` + ve
 **Scénář:** (1) text v `scenarios/<id>.md` (didaktik), (2) data `scenarios/<id>.js` podle
 kap. 5.3 (texty kroků doslova z .md; úroveň 2 navíc `initial_state`, akce `udp_send`/`mark`/`swap`
 a u kroku `predict`, `evaluates`, `terminal`, `xray`, `socket`, `summary`, `arpHint`, viz hlavička
-`uroven2-adresy.js`), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
+`uroven2-adresy.js`; volitelně `focus` = ohnisko kroku, jinak výchozí pravidlo v `js/ui/focus.js`,
+`docs/ui.md` kap. 13), (3) zápis do katalogu (až bude víc scénářů), (4) test, že
 každý krok najde svůj záznam (`buildSteps` jinak vyhodí chybu), (5) smoke test.
 
 **UI úrovně 1 (jak ladit):** `index.html#k=4&m=tcpip` otevře krok 4 (označení jako v UI, např. `8b`) v režimu TCP/IP,

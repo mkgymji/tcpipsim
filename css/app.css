@@ -880,3 +880,78 @@ body.lvl3 .row .xmark { top: -12px; bottom: auto; right: 4px; border: 2px solid 
   body.lvl2 .row[data-layer="L4"] .pdu, body.lvl2 .row[data-layer="transport"] .pdu,
   body.lvl3 .row[data-layer="L4"] .pdu, body.lvl3 .row[data-layer="transport"] .pdu { font-size: 15px; line-height: 1; text-align: left; }
 }
+
+/* ---- Ohnisko kroku a role panelů (rozhodnutí 56, ui.md kap. 13) ----
+   Barvy rolí jsou neutrální (ink, žlutá, ocelově modrá, šedá, černá), nepletou se s paletou L1–L7.
+   Role nese vždy i ikona a slovo, ne jen barva. */
+:root {
+  --role-step: var(--ink);
+  --role-tip: #6B4E00; --role-tip-bg: #FFE28A;        /* text #14181C na #FFE28A: 14:1 */
+  --role-xray: #2F4A6B;                                /* bílý text: 9:1; ne L4 #1B5FAA, ne L1 #4A5A66 */
+  --role-detail-bg: #E4E6E9;
+  --role-term: #000;
+}
+/* záhlaví vysvětlivky „Krok“: tmavý pruh s ikonou „i“ */
+.explain > .stepno, .explain > .stephead { display: flex; align-items: center; gap: 8px; margin: -12px -14px 8px; padding: 3px 14px; background: var(--role-step); color: #fff; border-radius: 7px 7px 0 0; }
+.explain > .stephead .stepno { color: #fff; display: flex; align-items: center; gap: 8px; }
+.explain > .stepno::before, .explain > .stephead .stepno::before { content: "i"; flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font: 700 13px/1 Georgia, serif; }
+.explain > .stephead .plab { color: #E5E7EB; }
+.explain > .stephead .pbtn { background: transparent; color: #fff; border-color: #fff; }
+.explain > .stephead .pbtn.on { background: #fff; color: var(--ink); }
+/* tip: celá karta žlutá, ikona „?“, nadpis „Ptám se tebe: …“ */
+.explain.tip { background: var(--role-tip-bg); border-color: var(--role-tip); }
+.explain.tip > .stepno, .explain.tip > .stephead { background: var(--role-tip); }
+.explain.tip > .stepno::before, .explain.tip > .stephead .stepno::before { content: "?"; font-family: var(--font); }
+.explain.tip p.ptitle, .explain.tip p.hint, .explain.tip p.simpl, .explain.tip .predict small { color: #3A3200; }
+.explain.anim-pop { animation: tip-pop 520ms ease-out; }
+@keyframes tip-pop {
+  0% { transform: none; } 25% { transform: scale(1.03); } 45% { transform: scale(1.03) rotate(-0.7deg); }
+  65% { transform: scale(1.02) rotate(0.7deg); } 100% { transform: none; }
+}
+/* rentgen: ocelově modré záhlaví s lupou; detail (úroveň 1): světle šedé */
+#info > h3 { display: flex; align-items: center; gap: 8px; margin: 0 0 4px; padding: 3px 10px; border-radius: 6px; flex: none; }
+#info[data-role="rentgen"] > h3 { background: var(--role-xray); color: #fff; }
+#info[data-role="rentgen"] > h3::before { content: ""; flex: none; width: 18px; height: 18px; background: no-repeat center / contain url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 20' fill='none' stroke='%23fff' stroke-width='2.6' stroke-linecap='round'%3E%3Ccircle cx='8' cy='8' r='5.5'/%3E%3Cpath d='M12.2 12.2 18 18'/%3E%3C/svg%3E"); }
+#info[data-role="detail"] > h3 { background: var(--role-detail-bg); color: var(--ink); }
+#info[data-role="detail"] > h3::before { content: "i"; flex: none; width: 20px; height: 20px; border-radius: 50%; border: 2px solid currentColor; display: inline-flex; align-items: center; justify-content: center; font: 700 13px/1 Georgia, serif; }
+/* terminál: černé záhlaví s ikonou „>_“ (Windows); IOS má tmavě modré */
+.termwin .term-h { background: var(--role-term); color: #fff; }
+.termwin .term-h .btn { background: #fff; }
+.termwin .term-h b::before { content: ">_"; font: 700 15px var(--mono); margin-right: 8px; }
+
+/* ohnisko: silný rámeček v barvě role + štítek „Sleduj tady“, ostatní panely mírně ztlumené
+   (0.82: i šedý text #4B5563 si drží kontrast AA 4.5:1 na bílé) */
+.left .topo, .left .lift, #explain, #info, #termwin { transition: opacity 200ms; }
+#app[data-step-focus] :is(.left .topo, .left .lift, #info):not([data-focus]) { opacity: .82; }
+[data-focus] { --fc: var(--ink); outline: 4px solid var(--fc); outline-offset: 2px; }
+#explain[data-focus].tip { --fc: var(--role-tip); }
+#info[data-focus] { --fc: var(--role-xray); }
+#termwin[data-focus] { --fc: var(--role-term); }
+.left .lift[data-focus] { position: relative; }
+.left .topo[data-focus]::after, .left .lift[data-focus]::after,
+#explain[data-focus] > .stepno::after, #explain[data-focus] > .stephead .stepno::after,
+#info[data-focus]::before, .termwin[data-focus] .term-h b::after {
+  content: "Sleduj tady"; background: var(--fc); color: #fff; font: 700 14px/20px var(--font); padding: 1px 9px; border-radius: 6px; white-space: nowrap; z-index: 6; pointer-events: none;
+}
+.left .topo[data-focus]::after, .left .lift[data-focus]::after { position: absolute; top: -11px; right: 16px; }
+/* rentgen se posouvá (overflow): štítek je „lepkavý“ vpravo nahoře na vlastním řádku, nic nepřekryje */
+#explain[data-focus] > .stepno::after, #explain[data-focus] > .stephead .stepno::after { background: #fff; color: var(--fc); margin-left: 4px; }
+#info[data-focus]::before { align-self: flex-end; position: sticky; top: 0; margin: -6px -6px -4px 0; }
+.termwin[data-focus] .term-h b::after { margin-left: 10px; background: #FFE28A; color: #000; }
+@media (prefers-reduced-motion: reduce) {
+  .explain.anim-pop { animation: none; }
+  .left .topo, .left .lift, #explain, #info, #termwin { transition: none; }
+}
+body.reduce-motion .explain.anim-pop { animation: none; }
+body.reduce-motion :is(.left .topo, .left .lift, #explain, #info, #termwin) { transition: none; }
+.explain > .stephead .stepno { white-space: nowrap; }
+/* úzké záhlaví úrovně 3: při štítku „Sleduj tady“ se schová slovo „Části:“ (tlačítka A–D zůstanou) */
+#explain[data-focus] > .stephead .plab { display: none; }
+@media (max-height: 820px) {
+  .explain > .stepno, .explain > .stephead { margin: -10px -12px 6px; padding: 2px 12px; }
+}
+
+/* Patička s licencí: drobně v pravém dolním rohu ovládací lišty, nebere místo rozvržení. */
+footer.controls { position: relative; }
+.license { position: absolute; right: 12px; bottom: 1px; margin: 0; font-size: 11px; line-height: 1.2; color: #4B5563; }
+.license a { color: inherit; }

@@ -321,12 +321,12 @@ export function appsHtml(v, id) {
 
 // --- vysvětlivka s předpovědí ---
 
-// Vysvětlivka. Krok tipu (rozhodnutí 31): nadpis „Tip: …“, volby hned pod textem, aby je
+// Vysvětlivka. Krok tipu (rozhodnutí 31): nadpis „Ptám se tebe: …“, volby hned pod textem, aby je
 // nic neodsunulo; `evalLines` = vyhodnocení tipů z předchozího kroku (HTML, už escapované).
 export function explainHtml2(view, model, total, { predict, tips, evalLines = [], termHint, summary } = {}) {
   const s = view.step;
   const out = [`<div class="stepno">Krok ${stepLabel(s)} z ${total}${s.part ? ` (rozbalování ${s.part[0]}/${s.part[1]})` : ''}</div>`];
-  out.push(`<h3>${esc(predict ? `Tip: ${predict.q}` : textFor(s.title, model))}</h3>`);
+  out.push(`<h3>${esc(predict ? `Ptám se tebe: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
   out.push(`<p>${esc(textFor(s.text, model))}</p>`);
   if (predict) {

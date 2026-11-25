@@ -8,6 +8,8 @@
 //   panel = co ukáže pravý panel nad rentgenem: 'mask' | 'compare' | 'tables' | 'probes',
 //   fix = krok s tlačítkem „Oprav bránu“ (přechod na další krok, kde se brána opraví),
 //   hideGw = topologie neukazuje bránu Alice (část D před diagnózou, rozhodnutí 51),
+//   focus = přepíše výchozí ohnisko kroku: 'tip'|'rentgen'|'topologie'|'vrstvy'|'terminal' (rozhodnutí 56,
+//     js/ui/focus.js; 'rentgen' = pravý dolní panel, i když v něm je karta panel),
 //   allDevices = pruh média ukáže všechna zařízení topologie, ne cestu dvojice (tip 16, rozhodnutí 51).
 const ALICE = '192.168.1.10', BOB = '192.168.2.20', CYRIL = '192.168.1.30', GW = '192.168.1.1';
 
@@ -75,7 +77,7 @@ export default {
       text: 'Alice porovná síťovou část své adresy s adresou cíle. Maska 255.255.255.0 říká: prvních 24 bitů je síť. U Cyrila se shodují, u Boba ne (192.168.1.0 ≠ 192.168.2.0): Bob je v jiné síti.',
       note: 'Adresa sítě = IP adresa AND maska. Zápis 192.168.1.0/24 říká totéž: prvních 24 bitů je síť.',
       simplifies: 'Všechny sítě v této úrovni mají masku /24 (255.255.255.0). Jiné délky masky (/16, /26 …) a podsítě procvičíš v úrovni 5.',
-      panel: 'mask' },
+      panel: 'mask', focus: 'rentgen' },
     { num: 3, match: { kind: 'app.start', node: 'PC1', app: 'ping' }, title: 'Ping vzniká',
       text: 'Alice vytvořila paket pro Boba (192.168.2.20). Teď potřebuje rámec. Kdo bude v rámci uvedený jako příjemce?',
       note: 'ICMP nejede v segmentu: je přímo uvnitř IP paketu (protokol 1), proto nemá porty.',
@@ -146,7 +148,7 @@ export default {
       text: 'Alice nezná MAC adresu Boba a nikdy ji nezjistí: MAC adresy jsou platné jen v jedné síti. Každý pozná jen adresy sousedů ve své síti. Router je v obou sítích, a proto zná obě strany.',
       note: 'Z tohoto důvodu nelze přes internet zjistit MAC adresu cizího počítače z jiné sítě.',
       hint: 'Zkus arp -a na Cyrilovi: tabulka je prázdná. ARP dotaz Alice sice dostal, ale neptala se na něj, a tak si ji nezapsal. Sám zatím s nikým nemluvil.',
-      panel: 'tables', terminal: { node: 'R1', cmd: 'show ip arp' } },
+      panel: 'tables', focus: 'rentgen', terminal: { node: 'R1', cmd: 'show ip arp' } },
     // ---------- Část B: Cíl ve stejné síti ----------
     { num: 16, part3: 'B', match: { kind: 'app.start', node: 'PC1', dst: CYRIL }, title: 'Ping na souseda', allDevices: true,
       text: 'Teď Alice pošle ping Cyrilovi, který je ve stejné síti. Kam rámec půjde?',
