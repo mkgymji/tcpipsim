@@ -67,7 +67,7 @@ Termíny, které používá `docs/spec/` a které ve slovníku chyběly. Všechn
 
 | Anglický termín | Český pokus | Jak se říká v praxi | V simulátoru | Poznámka |
 |---|---|---|---|---|
-| interface | rozhraní | rozhraní, „interface“, „interfejs“ (slang) | rozhraní | Na routeru `G0/0`, na switchi „port“ (`Fa0/1`). Rozhraní má MAC a IP, port switche ne. |
+| interface | rozhraní | rozhraní, „interface“, „interfejs“ (slang) | rozhraní | Na routeru `Gi0/0` (GigabitEthernet0/0), na switchi „port“ (`Fa0/1`). Rozhraní má MAC a IP, port switche ne. |
 | EtherType | typ (protokolu) | EtherType | EtherType | Pole rámce: co je uvnitř (`0x0800` IPv4, `0x0806` ARP). Nepřekládá se. |
 | preamble / SFD | preambule | preambule | preambule (v simulaci se nepřenáší) | Synchronizace na L1; Wireshark ji neukazuje. |
 | padding | výplň | výplň, „padding“ | výplň | Doplnění dat rámce na minimum 46 B. |
@@ -96,6 +96,21 @@ Termíny, které používá `docs/spec/` a které ve slovníku chyběly. Všechn
 | Destination Unreachable | cíl nedostupný | „destination unreachable“, „nedostupný“ | Destination Unreachable (cíl nedostupný) | ICMP typ 3; Windows česky „Cílový hostitel není dostupný“ (ověřit znění). |
 | Time Exceeded | čas vypršel | „TTL expired“, „time exceeded“ | Time Exceeded (TTL vypršelo) | ICMP typ 11; Windows: „TTL expired in transit“. |
 | identifier / sequence number (ICMP) | identifikátor / pořadové číslo | „seq“, „icmp_seq“ | identifikátor, pořadové číslo | Pole Echo zprávy. |
+
+## Doplnění pro úroveň 3 (návrh didaktika, čeká na schválení projektantem)
+
+Termíny „brána / default gateway“, „maska“, „směrovací tabulka“, „next hop“, „hop“ (skok), „TTL“, „default route“, „connected route“,
+„longest prefix match“, „Time Exceeded“, „tracert“ a „host part / network part“ už ve slovníku jsou a úroveň 3 je používá beze změny.
+Nově navrhuji:
+
+| Anglický termín | Český pokus | Jak se říká v praxi | V simulátoru | Poznámka |
+|---|---|---|---|---|
+| Request timed out | vypršel časový limit požadavku | „request timed out“, „ping neprošel“, „timeoutuje“ | Request timed out (výpis Windows) | Hláška `ping`: odpověď nepřišla. Česky ve Windows „Časový limit žádosti vypršel“ (ověřit). Neplést s „Destination host unreachable“: tu někdo odpověděl (často vlastní PC nebo router), že cíl nedosáhne. |
+| Gateway of last resort | brána poslední záchrany | „gateway of last resort“, „výchozí cesta“ | Gateway of last resort (výpis `show ip route`) | Řádek IOS: kam router pošle, co nezná. Doslovný překlad se nepoužívá; student ho uvidí jen ve výpisu (`is not set`). |
+| troubleshooting | řešení potíží, hledání chyb | „troubleshooting“, „troubleshootovat“, „ladění sítě“ | hledání chyby (postup zdola nahoru) | „Troubleshooting“ je ustálené v CCNA i v praxi; v simulátoru česky „hledání chyby“. |
+| directly connected | přímo připojená síť | „connected“, „přímo připojená“ | přímo připojená síť (C) | Už je pod „connected route“; připomínám, že v `netstat -nr` Windows tomu odpovídá `On-link`. |
+| On-link | přímo na lince | „on-link“ | On-link (výpis `netstat -nr`) | Windows píše do sloupce Gateway, když je cíl v téže síti: bez routeru. Česky se neříká. |
+| broadcast domain (rozšíření) | všesměrová doména | broadcastová doména | broadcastová doména | Už ve slovníku; v úrovni 3 se poprvé ukáže, že jejím okrajem je router (ARP dotaz končí na routeru). |
 
 ## Poznámky
 

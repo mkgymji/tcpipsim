@@ -1,0 +1,258 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "ping-bez-brany",
+  "title": "Úroveň 3: Alice bez výchozí brány pinguje Boba v jiné síti -> nic neodejde",
+  "description": "Topologie úrovně 3 (rozhodnutí 39, routing.md kap. 7): Alice (Fa0/1) a Cyril (Fa0/3) na SW1 v 192.168.1.0/24, R1 Gi0/0 na Fa0/4, Bob se přestěhoval do 192.168.2.0/24 (192.168.2.20, MAC zůstává 02:00:00:00:00:02) a je přímo na R1 Gi0/1; Fa0/2 je volný. Alice má konfiguraci z úrovně 2 (rozhodnutí 27): Default Gateway prázdná. Cíl 192.168.2.20 není v 192.168.1.0/24 a směrovací tabulka Alice nemá výchozí cestu, takže IP vrstva paket vůbec neodešle: žádný ARP, žádný rámec na lince, switch se nic nenaučí. Chybu hlásí vlastní OS Alice, ne síť. Windows vypíše „PING: transmit failed. General failure.“ (cmd.md kap. 8.2; ověřit při pilotu, rozhodnutí 46). Typická chyba: student hledá problém na routeru, ale paket nikdy neopustil PC.",
+  "level": 3,
+  "spec_refs": [
+    "docs/spec/ipv4.md kap. 4.2",
+    "docs/spec/routing.md kap. 6",
+    "docs/spec/cmd.md kap. 8",
+    "docs/rozhodnuti.md bod 39, 41"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1"
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1"
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/4"
+        }
+      },
+      {
+        "id": "L4",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "PC2",
+          "if": "eth0"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [],
+      "PC2": [],
+      "PC3": [],
+      "R1": []
+    },
+    "mac_table": {
+      "SW1": []
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        }
+      ],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "ping",
+      "args": {
+        "dst": "192.168.2.20",
+        "count": 1
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "ip_drop",
+        "detail": "žádná cesta k 192.168.2.20: není v 192.168.1.0/24 a výchozí brána není nastavená"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [],
+        "PC2": [],
+        "PC3": [],
+        "R1": []
+      },
+      "mac_table": {
+        "SW1": []
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "ping",
+      "sent": 1,
+      "received": 0,
+      "replies": [],
+      "errors": [
+        {
+          "seq": 1,
+          "kind": "no_route"
+        }
+      ]
+    }
+  }
+}

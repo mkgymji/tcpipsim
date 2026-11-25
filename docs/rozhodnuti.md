@@ -123,3 +123,39 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     Platí pro úroveň 1 i 2. Proč: prostorová metafora musí sedět s vrstvovým modelem; jinak se
     musí odnaučit. Ponaučení: kontrola didaktika ověřuje i rozvržení obrazovky proti obrázkům
     z prezentací, ne jen texty.
+
+## 2026-11-25 — sjednocení specifikace úrovně 3 „Směrování“
+
+39. **Topologie úrovně 3:** Alice (Fa0/1) a Cyril (Fa0/3) zůstávají na SW1 v 192.168.1.0/24 se stejnými
+    adresami. **Bob se přestěhuje** do druhé sítě: 192.168.2.20/24, brána 192.168.2.1, **MAC zůstává
+    02:00:00:00:00:02**, připojen přímo na R1 Gi0/1. R1: Gi0/0 → SW1 Fa0/4, 192.168.1.1/24, MAC
+    02:00:00:00:01:01; Gi0/1 192.168.2.1/24, MAC 02:00:00:00:01:02; TTL 255. Port Fa0/2 zůstane volný
+    (kabel od Boba vede jinam). Server se v úrovni 3 nepoužívá (přijde v úrovni 4 s webem; TTL 64
+    tam). Bob je PC, ping dává `TTL=127`. Proč: příběh Alice → Bob pokračuje a stěhování nese pointu
+    „IP adresa patří k síti, MAC ke kartě“ (rozh. 25 tím platí pro jména a MAC, IP Boba se mění
+    záměrně a scénář to řekne). Projektant přegeneruje vektory.
+40. **Rozhraní routeru se jmenují Gi0/0, Gi0/1** (Packet Tracer 2911/ISR), ne Fa0/0. Opravit
+    i `docs/ui.md`, `docs/VYVOJ.md`, prototyp.
+41. **Chyby konfigurace v části D: chybějící brána a špatná brána (.254)**, ne špatná maska.
+    Proč (projektant): Cisco má výchozí proxy ARP, takže by ping se špatnou maskou na skutečné síti
+    prošel — simulace bez proxy ARP by učila něco, co se musí odnaučit. Maska se vysvětluje
+    v části A (porovnání síťové části).
+42. **Oprava chyby v části D tlačítkem** („Oprav bránu“), konfigurační příkazy PC až v úrovni 5.
+43. **Jedna úroveň, kroky 0–25, rozdělená na části A–D** se skokem na začátek části v UI
+    (učitel může skončit po části B). Tip v kroku 11 se vyhodnotí v kroku 12 — v souladu s rozh. 31.
+44. **tracert v úrovni 3 přes jeden router** (2 řádky: 192.168.1.1, pak Bob), Time Exceeded je vidět.
+    Animuje se jedna sonda na TTL, výpis ukáže tři časy — označené zjednodušení. Topologie se dvěma
+    routery (vektor `tracert-dva-routery`) zůstává `skip` pro pozdější rozšíření.
+45. **IOS:** `enable` ano; `show ip route`, `show ip interface brief`, `show ip arp`, `ping` ano;
+    `traceroute` na routeru v úrovni 3 odmítnout hláškou simulátoru („v této úrovni použij tracert
+    na PC“ — IOS posílá UDP sondy, ICMP imitace by byla nepravdivá); `show running-config` až úroveň 5.
+    Windows `route print` ukáže jen sekci IPv4 Route Table; `netstat -nr` stejné.
+46. **Nejistá místa** (Windows „General failure“ bez brány, ICMP 3/1 z Cisco po neúspěšném ARP,
+    započítání Destination host unreachable do Received) se implementují podle `cmd.md`/`icmp.md`
+    s označením „ověřit při pilotu“ (rozšíření rozh. 30).
+47. **Vrstva L4 při pingu:** řádek přeskočený, šrafovaný, „ICMP nemá porty“; ve sloupci vrstev zůstává
+    „segment / datagram“ (rozh. 32) — pokud se nevejde, zkrátit popisek „kdo se stará“, ne PDU.
+48. **Router v pruhu média** je věž do L3 s dvěma nohami (Gi0/0, Gi0/1); paket vystoupá do L3,
+    starý rámec (přerušovaný) se zahodí, nový rámec klesne. Karta „Rámec před a za R1“ ukazuje
+    změněné MAC, stejné IP a TTL −1. Sítě v topologii jako neutrální podbarvené oblasti se štítkem
+    adresy sítě (ne barvami vrstev).

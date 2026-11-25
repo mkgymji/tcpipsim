@@ -1,0 +1,1455 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "tracert-dva-routery",
+  "title": "Úroveň 3: tracert -d přes dva routery (TTL 1, 2, 3 -> Time Exceeded, Time Exceeded, Echo Reply)",
+  "description": "Alice — R1 — R2 — server, přímé kabely. Síť 192.168.2.0/24 je tranzitní mezi routery (R1 Gi0/1 .1, R2 Gi0/0 .2). R1 má statickou cestu 192.168.3.0/24 via 192.168.2.2, R2 výchozí cestu 0.0.0.0/0 via 192.168.2.1. ARP cache jsou naplněné předchozím pingem, aby vektor ukazoval jen TTL. Windows tracert posílá ICMP Echo Request (ne UDP jako Linux a Cisco), 3 sondy na každý skok, TTL 1, 2, 3; data 64 B nul (podle záznamu provozu, ověřit při pilotu). Router, kterému by TTL kleslo na 0, paket zahodí a pošle Time Exceeded ze zdrojové adresy rozhraní, kterým zpráva odchází (RFC 1812 4.3.2.4) - proto tracert ukáže 192.168.1.1 a 192.168.2.2, tj. adresy rozhraní směrem k Alici. Cíl odpoví Echo Reply a tracert skončí. Simulátor zjednodušuje: další sonda odchází hned po příchodu odpovědi na předchozí; Windows bez -d by se navíc ptal DNS na jména (reverzní dotazy), proto akce odpovídá tracert -d. Vektor má skip, dokud jádro neumí akci tracert.",
+  "level": 3,
+  "skip": "jádro zatím neumí akci tracert ani ICMP Time Exceeded (úroveň 3)",
+  "spec_refs": [
+    "docs/spec/icmp.md kap. 3 a 4",
+    "docs/spec/ipv4.md kap. 3 a 5",
+    "docs/spec/routing.md",
+    "docs/spec/cmd.md kap. 8"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1"
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ],
+        "static_routes": [
+          {
+            "prefix": "192.168.3.0/24",
+            "next_hop": "192.168.2.2"
+          }
+        ]
+      },
+      {
+        "id": "R2",
+        "type": "router",
+        "label": "R2",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:02:01",
+            "ip": "192.168.2.2",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:02:02",
+            "ip": "192.168.3.1",
+            "prefix": 24
+          }
+        ],
+        "static_routes": [
+          {
+            "prefix": "0.0.0.0/0",
+            "next_hop": "192.168.2.1"
+          }
+        ]
+      },
+      {
+        "id": "SRV1",
+        "type": "server",
+        "label": "Server",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:04",
+            "ip": "192.168.3.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.3.1"
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "R1",
+          "if": "Gi0/0"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "R2",
+          "if": "Gi0/0"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R2",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "SRV1",
+          "if": "eth0"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [
+        {
+          "ip": "192.168.1.1",
+          "mac": "02:00:00:00:01:01",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "R1": [
+        {
+          "ip": "192.168.1.10",
+          "mac": "02:00:00:00:00:01",
+          "if": "Gi0/0",
+          "type": "dynamic"
+        },
+        {
+          "ip": "192.168.2.2",
+          "mac": "02:00:00:00:02:01",
+          "if": "Gi0/1",
+          "type": "dynamic"
+        }
+      ],
+      "R2": [
+        {
+          "ip": "192.168.2.1",
+          "mac": "02:00:00:00:01:02",
+          "if": "Gi0/0",
+          "type": "dynamic"
+        },
+        {
+          "ip": "192.168.3.10",
+          "mac": "02:00:00:00:00:04",
+          "if": "Gi0/1",
+          "type": "dynamic"
+        }
+      ],
+      "SRV1": [
+        {
+          "ip": "192.168.3.1",
+          "mac": "02:00:00:00:02:02",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ]
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.3.0/24",
+          "next_hop": "192.168.2.2",
+          "if": "Gi0/1",
+          "type": "static"
+        }
+      ],
+      "R2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.2/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.3.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.3.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "Gi0/0",
+          "type": "default"
+        }
+      ],
+      "SRV1": [
+        {
+          "prefix": "192.168.3.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.3.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "tracert",
+      "args": {
+        "dst": "192.168.3.10",
+        "max_hops": 30,
+        "probes": 3,
+        "resolve": false
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [
+      {
+        "n": 1,
+        "step": 1,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 1, sonda 1: Echo Request TTL 1",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 2,
+        "step": 2,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 1, sonda 1: Time Exceeded od 192.168.1.1 (adresa Gi0/0, kudy zpráva odchází)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.1",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 3,
+        "step": 3,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 1, sonda 2: Echo Request TTL 1",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 4,
+        "step": 4,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 1, sonda 2: Time Exceeded od 192.168.1.1 (adresa Gi0/0, kudy zpráva odchází)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.1",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 5,
+        "step": 5,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 1, sonda 3: Echo Request TTL 1",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 6,
+        "step": 6,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 1, sonda 3: Time Exceeded od 192.168.1.1 (adresa Gi0/0, kudy zpráva odchází)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.1",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 7,
+        "step": 7,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 2, sonda 1: Echo Request TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 8,
+        "step": 8,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 2, sonda 1: R1 snížil TTL na 1, static 192.168.3.0/24 via 192.168.2.2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 9,
+        "step": 9,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 2, sonda 1: Time Exceeded od 192.168.2.2 (R2 Gi0/0), TTL 255",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 10,
+        "step": 10,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 2, sonda 1: Time Exceeded přeposlaný, TTL 254",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 254,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 11,
+        "step": 11,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 2, sonda 2: Echo Request TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 12,
+        "step": 12,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 2, sonda 2: R1 snížil TTL na 1, static 192.168.3.0/24 via 192.168.2.2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 13,
+        "step": 13,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 2, sonda 2: Time Exceeded od 192.168.2.2 (R2 Gi0/0), TTL 255",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 14,
+        "step": 14,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 2, sonda 2: Time Exceeded přeposlaný, TTL 254",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 254,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 15,
+        "step": 15,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 2, sonda 3: Echo Request TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 16,
+        "step": 16,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 2, sonda 3: R1 snížil TTL na 1, static 192.168.3.0/24 via 192.168.2.2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 17,
+        "step": 17,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 2, sonda 3: Time Exceeded od 192.168.2.2 (R2 Gi0/0), TTL 255",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 255,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 18,
+        "step": 18,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 2, sonda 3: Time Exceeded přeposlaný, TTL 254",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.2",
+            "dst": "192.168.1.10",
+            "ttl": 254,
+            "protocol": 1,
+            "total_length": 56
+          },
+          "icmp": {
+            "type": 11,
+            "code": 0,
+            "orig": {
+              "src": "192.168.1.10",
+              "dst": "192.168.3.10",
+              "protocol": 1
+            }
+          },
+          "frame_len": 70
+        }
+      },
+      {
+        "n": 19,
+        "step": 19,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 3, sonda 1: Echo Request TTL 3",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 3,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 20,
+        "step": 20,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 3, sonda 1: TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 21,
+        "step": 21,
+        "link": "L3",
+        "from": "R2",
+        "to": "SRV1",
+        "summary": "hop 3, sonda 1: TTL 1 (R2: 192.168.3.0/24 connected) - cíl ho přijme",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:02:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 22,
+        "step": 22,
+        "link": "L3",
+        "from": "SRV1",
+        "to": "R2",
+        "summary": "hop 3, sonda 1: Echo Reply TTL 64",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 23,
+        "step": 23,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 3, sonda 1: Echo Reply TTL 63 (R2 výchozí cesta 0.0.0.0/0 via 192.168.2.1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 24,
+        "step": 24,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 3, sonda 1: Echo Reply TTL 62",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 62,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 25,
+        "step": 25,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 3, sonda 2: Echo Request TTL 3",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 3,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 26,
+        "step": 26,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 3, sonda 2: TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 27,
+        "step": 27,
+        "link": "L3",
+        "from": "R2",
+        "to": "SRV1",
+        "summary": "hop 3, sonda 2: TTL 1 (R2: 192.168.3.0/24 connected) - cíl ho přijme",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:02:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 28,
+        "step": 28,
+        "link": "L3",
+        "from": "SRV1",
+        "to": "R2",
+        "summary": "hop 3, sonda 2: Echo Reply TTL 64",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 29,
+        "step": 29,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 3, sonda 2: Echo Reply TTL 63 (R2 výchozí cesta 0.0.0.0/0 via 192.168.2.1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 30,
+        "step": 30,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 3, sonda 2: Echo Reply TTL 62",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 62,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 31,
+        "step": 31,
+        "link": "L1",
+        "from": "PC1",
+        "to": "R1",
+        "summary": "hop 3, sonda 3: Echo Request TTL 3",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 3,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 32,
+        "step": 32,
+        "link": "L2",
+        "from": "R1",
+        "to": "R2",
+        "summary": "hop 3, sonda 3: TTL 2",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:01",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 2,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 33,
+        "step": 33,
+        "link": "L3",
+        "from": "R2",
+        "to": "SRV1",
+        "summary": "hop 3, sonda 3: TTL 1 (R2: 192.168.3.0/24 connected) - cíl ho přijme",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:02:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.3.10",
+            "ttl": 1,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 34,
+        "step": 34,
+        "link": "L3",
+        "from": "SRV1",
+        "to": "R2",
+        "summary": "hop 3, sonda 3: Echo Reply TTL 64",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:02:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 35,
+        "step": 35,
+        "link": "L2",
+        "from": "R2",
+        "to": "R1",
+        "summary": "hop 3, sonda 3: Echo Reply TTL 63 (R2 výchozí cesta 0.0.0.0/0 via 192.168.2.1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:02:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      },
+      {
+        "n": 36,
+        "step": 36,
+        "link": "L1",
+        "from": "R1",
+        "to": "PC1",
+        "summary": "hop 3, sonda 3: Echo Reply TTL 62",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.3.10",
+            "dst": "192.168.1.10",
+            "ttl": 62,
+            "protocol": 1,
+            "total_length": 92
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "data_len": 64
+          },
+          "frame_len": 106
+        }
+      }
+    ],
+    "events": [
+      {
+        "step": 1,
+        "node": "R1",
+        "event": "ip_drop",
+        "detail": "TTL 1: snížením by kleslo na 0 -> zahodit, ICMP Time Exceeded (11/0) zdroji 192.168.1.10"
+      },
+      {
+        "step": 7,
+        "node": "R1",
+        "event": "ip_forward",
+        "detail": "TTL 2 -> 1; longest match 192.168.3.0/24 static via 192.168.2.2 (Gi0/1)"
+      },
+      {
+        "step": 8,
+        "node": "R2",
+        "event": "ip_drop",
+        "detail": "TTL 1 -> zahodit, Time Exceeded ze zdrojové adresy 192.168.2.2 (rozhraní Gi0/0, kudy zpráva odchází, RFC 1812 4.3.2.4)"
+      },
+      {
+        "step": 9,
+        "node": "R1",
+        "event": "ip_forward",
+        "detail": "Time Exceeded pro 192.168.1.10: TTL 255 -> 254, connected Gi0/0"
+      },
+      {
+        "step": 21,
+        "node": "SRV1",
+        "event": "ip_deliver",
+        "detail": "Echo Request s TTL 1 pro mě: hostitel TTL nekontroluje, paket nepřeposílá"
+      },
+      {
+        "step": 22,
+        "node": "R2",
+        "event": "ip_forward",
+        "detail": "TTL 64 -> 63; 192.168.1.10 nemá konkrétní cestu -> 0.0.0.0/0 via 192.168.2.1"
+      },
+      {
+        "step": 36,
+        "node": "PC1",
+        "event": "ip_deliver",
+        "detail": "Echo Reply od cíle 192.168.3.10 -> tracert končí (Trace complete.)"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [
+          {
+            "ip": "192.168.1.1",
+            "mac": "02:00:00:00:01:01",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "R1": [
+          {
+            "ip": "192.168.1.10",
+            "mac": "02:00:00:00:00:01",
+            "if": "Gi0/0",
+            "type": "dynamic"
+          },
+          {
+            "ip": "192.168.2.2",
+            "mac": "02:00:00:00:02:01",
+            "if": "Gi0/1",
+            "type": "dynamic"
+          }
+        ],
+        "R2": [
+          {
+            "ip": "192.168.2.1",
+            "mac": "02:00:00:00:01:02",
+            "if": "Gi0/0",
+            "type": "dynamic"
+          },
+          {
+            "ip": "192.168.3.10",
+            "mac": "02:00:00:00:00:04",
+            "if": "Gi0/1",
+            "type": "dynamic"
+          }
+        ],
+        "SRV1": [
+          {
+            "ip": "192.168.3.1",
+            "mac": "02:00:00:00:02:02",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ]
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "tracert",
+      "reached": true,
+      "hops": [
+        {
+          "hop": 1,
+          "from": "192.168.1.1",
+          "replies": 3,
+          "kind": "time_exceeded"
+        },
+        {
+          "hop": 2,
+          "from": "192.168.2.2",
+          "replies": 3,
+          "kind": "time_exceeded"
+        },
+        {
+          "hop": 3,
+          "from": "192.168.3.10",
+          "replies": 3,
+          "kind": "echo_reply"
+        }
+      ]
+    }
+  }
+}

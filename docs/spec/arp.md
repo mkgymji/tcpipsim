@@ -8,7 +8,7 @@ Stav: návrh, iterace 1. Zdroj: RFC 826; RFC 1122 2.3.2 (požadavky na hostitele
 ARP zjistí MAC adresu k IPv4 adrese **v téže síti** (v téže broadcastové doméně). Hostitel ho
 používá, když chce poslat paket dalšímu skoku: buď přímo cíli (cíl je ve stejné síti), nebo
 výchozí bráně. **ARP se nikdy neptá na adresu za routerem** — typická miskoncepce, kterou
-simulátor vyvrací (vektor `ping-router`: PC1 se ptá na 192.168.1.1, ne na server).
+simulátor vyvrací (vektor `ping-router`: Alice se ptá na 192.168.1.1, ne na Boba 192.168.2.20).
 
 ARP zpráva je přímo v rámci (EtherType `0x0806`), není v IP paketu.
 
@@ -70,36 +70,84 @@ v pozorovatelném chování `arp -a` — **ověřit na reálném provozu** (otev
 ## 5. ARP cache
 
 Záznam: `ip`, `mac`, `if` (rozhraní), `type` (`dynamic` / `static`), `age`.
-Příkazy: Windows `arp -a`, `arp -d`; Cisco `show ip arp`, `clear arp-cache`.
+Příkazy: Windows `arp -a`, `arp -d`; Cisco `show ip arp` (= `show arp`), `clear arp-cache`.
 
-| Uzel | Výchozí doba platnosti dynamického záznamu v simulaci | Realita |
+### 5.1 Doba platnosti (zjednodušeně)
+
+RFC 1122 2.3.2.1: implementace MUSÍ mít mechanismus, jak zastaralé záznamy odstranit; je-li to
+časový limit, SHOULD být nastavitelný a má se **obnovit, když uzel uvidí ARP zprávu od dotyčného**
+(„refreshed by observing the source fields … of an ARP broadcast“).
+
+| Uzel | Doba platnosti v simulaci (`arp_timeout`) | Realita |
 |---|---|---|
-| PC, server | 300 s | Windows: „reachable time“ náhodně 15–45 s, pak ověřování (NUD); Linux podobně |
-| router | 14 400 s (4 h) | Cisco IOS výchozí ARP timeout 4 h |
+| PC, server | 300 s | Windows/Linux: stavový automat NUD — „reachable“ náhodně 15–45 s, pak „stale“ a ověření při dalším použití; v `arp -a` záznam zůstává déle |
+| router | 14 400 s (4 h) | Cisco IOS výchozí `arp timeout 14400` (4 h); `show ip arp` ukazuje stáří v minutách |
 
-Simulátor zjednodušuje: u hostitelů jedna pevná doba místo stavového automatu NUD (RFC 4861
-má NUD pro IPv6, Windows/Linux ho používají i pro IPv4). Pro výuku stačí „záznam po čase vyprší“.
+Pravidla simulace:
+1. Záznam vznikne nebo se obnoví (age := 0) **jen z přijaté ARP zprávy** podle algoritmu kap. 4.
+   Odeslání paketu ani přijetí IP paketu stáří neobnovuje.
+2. Když age dosáhne `arp_timeout`, záznam zmizí (událost `arp_expire`). Další paket na tuto IP
+   spustí nový ARP request (fronta, kap. 6).
+3. Statické záznamy (`type: static`) nestárnou a příchozí ARP je nepřepíše.
+4. `arp -d` (Windows) a `clear arp-cache` (IOS) smažou dynamické záznamy hned; to je hlavní
+   způsob, jak si ve scénáři ARP zopakovat (čekat 300 s je nepraktické). Simulátor může nabídnout
+   i „posunout čas“.
+
+Simulátor zjednodušuje: jedna pevná doba platnosti místo stavového automatu NUD (RFC 4861 kap. 7.3
+pro IPv6; Windows i Linux ho používají i pro IPv4). Na VŠ/CCNA se nic neodnaučuje: platí „záznam
+po čase vyprší a ARP se zopakuje“; hodnoty jsou nastavitelné a v detailu je věta „Skutečný Windows
+záznam ověřuje už po desítkách sekund, Cisco router si ho pamatuje 4 hodiny.“
 
 Cisco `show ip arp` vypisuje i vlastní adresy rozhraní (stáří „-“). Simulátor je v datech
-(ARP cache ve vektorech) **neuvádí**; UI je může doplnit při výpisu.
+(ARP cache ve vektorech) **neuvádí**; výpis je doplní (`cmd.md` kap. 10.3). Windows `arp -a`
+podobně doplní statické broadcastové řádky (`cmd.md` kap. 4).
 
 ## 6. Čekání na odpověď (fronta) a neúspěch
 
+Rozhodnutí 9: výchozí chování podle RFC (fronta), i na routeru.
+
+### 6.1 Fronta
+
 - Paket, který čeká na ARP, se **uloží do fronty**, ne zahodí (RFC 1122 2.3.2.2: „SHOULD save
   (rather than discard) at least one (the latest) packet“; RFC 1812 3.3.2: routery „SHOULD queue
-  up to a small number of datagrams“). Simulace: fronta max. 3 pakety na cílovou IP, při přeplnění
-  se zahodí nejstarší. Událost `arp_queue`.
-- Neodpoví-li nikdo: request se zopakuje, celkem 3 pokusy po 1 s. Pak se pakety z fronty zahodí.
-  - Hostitel: aplikace dostane chybu. Windows `ping` v téže síti vypíše odpověď od **vlastní**
-    IP „Destination host unreachable“ (žádný ICMP paket na lince!) — ověřit přesné české znění.
-  - Router: pošle zdroji ICMP Destination Unreachable, kód 1 (host unreachable) — RFC 1812
-    3.3.2 to umožňuje až po neúspěšném ARP; Cisco to dělá s omezením četnosti (ověřit).
-- Počet a interval opakování jsou zjednodušení (Windows/Linux/Cisco se liší); hodnota je
-  nastavitelná v jádře.
+  up to a small number of datagrams briefly“).
+- Fronta je **na uzel a IP next hopu** (ne na cílovou IP paketu): pakety různým cílům přes
+  stejnou bránu čekají na jeden ARP. Max. 3 pakety; při přeplnění se zahodí nejstarší
+  (událost `ip_drop`, detail „fronta ARP plná“).
+- Pokud na next hop už ARP běží, nový paket se jen přidá do fronty — **druhý request se neposílá**
+  dřív než za 1 s (RFC 1122 2.3.2.1: max. 1 ARP request za sekundu na cíl).
+- Po přijetí ARP reply (nebo requestu, ze kterého vznikne záznam) se pakety z fronty odešlou
+  v pořadí příchodu, v tomtéž kroku (zpracování v uzlu trvá 0 kroků, `model.md` kap. 7).
+- Události: `arp_queue` (paket uložen, request odeslán), `arp_learn` (záznam vznikl, fronta odeslána).
 
-Otevřená otázka: **Cisco IOS první paket čekající na ARP zahodí** (proto první ping z routeru
-vypíše `.!!!!`). Simulátor ve výchozím stavu frontuje i na routeru (podle RFC, bez ztráty).
-Zda nabídnout „věrnost Cisco“ přepínačem, viz `README.md`.
+### 6.2 Opakování a neúspěch
+
+- Neodpoví-li nikdo: request se zopakuje, **celkem 3 pokusy, interval 1 s** (časy 0, 1, 2 s od
+  prvního). Po 1 s od posledního pokusu (čas 3 s) je ARP neúspěšný: událost `arp_fail`, pakety
+  z fronty se zahodí. Vektor `ping-spatna-brana`.
+- **Hostitel:** aplikace dostane chybu „cíl nedostupný“. Windows `ping` vypíše odpověď od **vlastní**
+  IP: `Reply from 192.168.1.10: Destination host unreachable.` — na lince žádný ICMP paket není
+  (Microsoft: „Destination host unreachable error means that the ARP requests that are sent by the
+  node aren't getting a response“, learn.microsoft.com, Troubleshoot TCP/IP communication).
+- **Router:** pro **jeden** z paketů ve frontě pošle zdroji ICMP Destination Unreachable, kód 1
+  (host unreachable); ostatní zahodí bez hlášení (RFC 1812 3.3.2 a 5.2.7.1). Zdrojová IP ICMP =
+  adresa rozhraní, kterým zpráva odchází (RFC 1812 4.3.2.4). Windows pak vypíše
+  `Reply from 192.168.1.1: Destination host unreachable.` — **od routeru**. Rozdíl „od sebe / od
+  routeru“ je pro diagnostiku podstatný a scénář ho může využít.
+  **Ověřit:** zda Cisco IOS při neúspěšném ARP ICMP 3/1 opravdu posílá (projektant si není jistý;
+  Packet Tracer v této situaci podle zkušenosti ukazuje spíš `Request timed out.`). Pokud ne,
+  simulátor zůstane u RFC a označí: „Simulátor se drží RFC; skutečný Cisco router paket často
+  zahodí bez hlášení a ping vypíše Request timed out.“
+- Počet a interval opakování jsou zjednodušení (Windows, Linux i Cisco se liší: Cisco opakuje
+  ARP request po 2 s, ověřit); hodnoty `arp_retries` = 3, `arp_retry_interval` = 1 s jsou
+  nastavitelné v jádře a vektory s nimi počítají.
+
+### 6.3 Cisco a první ztracený ping
+
+Cisco IOS **první paket čekající na ARP zahodí** (proto první ping z routeru do nové sítě vypíše
+`.!!!!`, Packet Tracer stejně). Simulátor ve výchozím stavu frontuje i na routeru (rozhodnutí 9,
+podle RFC, bez ztráty) a v detailu řekne: „Skutečný Cisco router první paket při čekání na ARP
+zahodí, proto v Packet Traceru uvidíš u prvního pingu tečku.“ Volba „věrnost Cisco“ až v úrovni 5.
 
 ## 7. Mimo rozsah této iterace
 

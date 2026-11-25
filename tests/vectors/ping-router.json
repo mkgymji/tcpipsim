@@ -1,19 +1,24 @@
 {
   "format": "tcpipsim-vector/1",
   "id": "ping-router",
-  "title": "Ping z PC v 192.168.1.0/24 na server v 192.168.2.0/24 přes router (výchozí brána)",
-  "description": "PC1 se ARPem ptá na bránu, ne na server. Router snižuje TTL, mění MAC adresy rámce, IP adresy zůstávají. Server odpovídá s vlastním TTL 64, PC1 vidí TTL 63. Linky jsou přímé (bez switchů), aby vynikla L3 logika.",
+  "title": "Ping Alice (192.168.1.0/24) -> Bob (192.168.2.0/24) přes router, přímé kabely",
+  "description": "Minimální varianta topologie úrovně 3 (rozhodnutí 39) bez switche, aby vynikla L3 logika. Alice se ARPem ptá na bránu, ne na Boba. Router snižuje TTL, mění MAC adresy rámce, IP adresy zůstávají; paket čeká ve frontě routeru na ARP Boba (rozhodnutí 9). Bob (Windows, TTL 128) odpovídá novým paketem, Alice vidí TTL 127. Plná topologie se switchem je ve vektoru ping-arp-prvni.",
+  "level": 3,
   "spec_refs": [
     "docs/spec/model.md",
     "docs/spec/arp.md",
     "docs/spec/ipv4.md",
-    "docs/spec/icmp.md"
+    "docs/spec/icmp.md",
+    "docs/spec/routing.md",
+    "docs/spec/vektory.md",
+    "docs/rozhodnuti.md bod 9, 39"
   ],
   "topology": {
     "nodes": [
       {
         "id": "PC1",
         "type": "pc",
+        "label": "Alice",
         "ttl_default": 128,
         "interfaces": [
           {
@@ -28,16 +33,17 @@
       {
         "id": "R1",
         "type": "router",
+        "label": "R1",
         "ttl_default": 255,
         "interfaces": [
           {
-            "name": "G0/0",
+            "name": "Gi0/0",
             "mac": "02:00:00:00:01:01",
             "ip": "192.168.1.1",
             "prefix": 24
           },
           {
-            "name": "G0/1",
+            "name": "Gi0/1",
             "mac": "02:00:00:00:01:02",
             "ip": "192.168.2.1",
             "prefix": 24
@@ -45,14 +51,15 @@
         ]
       },
       {
-        "id": "SRV1",
-        "type": "server",
-        "ttl_default": 64,
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
         "interfaces": [
           {
             "name": "eth0",
-            "mac": "02:00:00:00:00:04",
-            "ip": "192.168.2.10",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
             "prefix": 24
           }
         ],
@@ -68,17 +75,17 @@
         },
         "b": {
           "node": "R1",
-          "if": "G0/0"
+          "if": "Gi0/0"
         }
       },
       {
         "id": "L2",
         "a": {
           "node": "R1",
-          "if": "G0/1"
+          "if": "Gi0/1"
         },
         "b": {
-          "node": "SRV1",
+          "node": "PC2",
           "if": "eth0"
         }
       }
@@ -88,7 +95,7 @@
     "arp_cache": {
       "PC1": [],
       "R1": [],
-      "SRV1": []
+      "PC2": []
     },
     "routing_table": {
       "PC1": [
@@ -105,7 +112,33 @@
           "type": "default"
         }
       ],
-      "SRV1": [
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "PC2": [
         {
           "prefix": "192.168.2.0/24",
           "next_hop": null,
@@ -118,32 +151,6 @@
           "if": "eth0",
           "type": "default"
         }
-      ],
-      "R1": [
-        {
-          "prefix": "192.168.1.0/24",
-          "next_hop": null,
-          "if": "G0/0",
-          "type": "connected"
-        },
-        {
-          "prefix": "192.168.1.1/32",
-          "next_hop": null,
-          "if": "G0/0",
-          "type": "local"
-        },
-        {
-          "prefix": "192.168.2.0/24",
-          "next_hop": null,
-          "if": "G0/1",
-          "type": "connected"
-        },
-        {
-          "prefix": "192.168.2.1/32",
-          "next_hop": null,
-          "if": "G0/1",
-          "type": "local"
-        }
       ]
     }
   },
@@ -153,7 +160,7 @@
       "node": "PC1",
       "command": "ping",
       "args": {
-        "dst": "192.168.2.10",
+        "dst": "192.168.2.20",
         "count": 1
       }
     }
@@ -212,7 +219,7 @@
         "link": "L1",
         "from": "PC1",
         "to": "R1",
-        "summary": "ICMP Echo Request 192.168.1.10 -> 192.168.2.10 (cílová MAC = brána)",
+        "summary": "Echo Request 192.168.1.10 -> 192.168.2.20 (cílová MAC = brána)",
         "pdu": {
           "eth": {
             "dst": "02:00:00:00:01:01",
@@ -221,7 +228,7 @@
           },
           "ip": {
             "src": "192.168.1.10",
-            "dst": "192.168.2.10",
+            "dst": "192.168.2.20",
             "ttl": 128,
             "protocol": 1,
             "total_length": 60
@@ -241,8 +248,8 @@
         "step": 4,
         "link": "L2",
         "from": "R1",
-        "to": "SRV1",
-        "summary": "ARP request: kdo má 192.168.2.10? Ptá se 192.168.2.1",
+        "to": "PC2",
+        "summary": "ARP request: kdo má 192.168.2.20? Ptá se 192.168.2.1",
         "pdu": {
           "eth": {
             "dst": "ff:ff:ff:ff:ff:ff",
@@ -254,7 +261,7 @@
             "sha": "02:00:00:00:01:02",
             "spa": "192.168.2.1",
             "tha": "00:00:00:00:00:00",
-            "tpa": "192.168.2.10"
+            "tpa": "192.168.2.20"
           },
           "frame_len": 60
         }
@@ -263,19 +270,19 @@
         "n": 5,
         "step": 5,
         "link": "L2",
-        "from": "SRV1",
+        "from": "PC2",
         "to": "R1",
-        "summary": "ARP reply: 192.168.2.10 má MAC 02:00:00:00:00:04",
+        "summary": "ARP reply: 192.168.2.20 má MAC 02:00:00:00:00:02",
         "pdu": {
           "eth": {
             "dst": "02:00:00:00:01:02",
-            "src": "02:00:00:00:00:04",
+            "src": "02:00:00:00:00:02",
             "ethertype": "0x0806"
           },
           "arp": {
             "op": "reply",
-            "sha": "02:00:00:00:00:04",
-            "spa": "192.168.2.10",
+            "sha": "02:00:00:00:00:02",
+            "spa": "192.168.2.20",
             "tha": "02:00:00:00:01:02",
             "tpa": "192.168.2.1"
           },
@@ -287,17 +294,17 @@
         "step": 6,
         "link": "L2",
         "from": "R1",
-        "to": "SRV1",
-        "summary": "ICMP Echo Request 192.168.1.10 -> 192.168.2.10 (nové MAC, stejné IP, TTL 127)",
+        "to": "PC2",
+        "summary": "Echo Request (nové MAC, stejné IP, TTL 127)",
         "pdu": {
           "eth": {
-            "dst": "02:00:00:00:00:04",
+            "dst": "02:00:00:00:00:02",
             "src": "02:00:00:00:01:02",
             "ethertype": "0x0800"
           },
           "ip": {
             "src": "192.168.1.10",
-            "dst": "192.168.2.10",
+            "dst": "192.168.2.20",
             "ttl": 127,
             "protocol": 1,
             "total_length": 60
@@ -316,19 +323,19 @@
         "n": 7,
         "step": 7,
         "link": "L2",
-        "from": "SRV1",
+        "from": "PC2",
         "to": "R1",
-        "summary": "ICMP Echo Reply 192.168.2.10 -> 192.168.1.10 (TTL 64)",
+        "summary": "Echo Reply 192.168.2.20 -> 192.168.1.10 (TTL 128)",
         "pdu": {
           "eth": {
             "dst": "02:00:00:00:01:02",
-            "src": "02:00:00:00:00:04",
+            "src": "02:00:00:00:00:02",
             "ethertype": "0x0800"
           },
           "ip": {
-            "src": "192.168.2.10",
+            "src": "192.168.2.20",
             "dst": "192.168.1.10",
-            "ttl": 64,
+            "ttl": 128,
             "protocol": 1,
             "total_length": 60
           },
@@ -348,7 +355,7 @@
         "link": "L1",
         "from": "R1",
         "to": "PC1",
-        "summary": "ICMP Echo Reply 192.168.2.10 -> 192.168.1.10 (TTL 63)",
+        "summary": "Echo Reply (TTL 127)",
         "pdu": {
           "eth": {
             "dst": "02:00:00:00:00:01",
@@ -356,9 +363,9 @@
             "ethertype": "0x0800"
           },
           "ip": {
-            "src": "192.168.2.10",
+            "src": "192.168.2.20",
             "dst": "192.168.1.10",
-            "ttl": 63,
+            "ttl": 127,
             "protocol": 1,
             "total_length": 60
           },
@@ -378,13 +385,13 @@
         "step": 0,
         "node": "PC1",
         "event": "arp_queue",
-        "detail": "192.168.2.10 není v 192.168.1.0/24 -> výchozí cesta, next hop 192.168.1.1; ARP na bránu, ne na server"
+        "detail": "192.168.2.20 není v 192.168.1.0/24 -> výchozí cesta, next hop 192.168.1.1; ARP na bránu, ne na Boba"
       },
       {
         "step": 1,
         "node": "R1",
         "event": "arp_learn",
-        "detail": "192.168.1.10 -> 02:00:00:00:00:01 na G0/0 (z requestu)"
+        "detail": "192.168.1.10 -> 02:00:00:00:00:01 na Gi0/0 (z requestu)"
       },
       {
         "step": 2,
@@ -396,17 +403,17 @@
         "step": 3,
         "node": "R1",
         "event": "ip_forward",
-        "detail": "TTL 128 -> 127; longest match 192.168.2.0/24 connected G0/1; next hop = 192.168.2.10, MAC neznámá"
+        "detail": "TTL 128 -> 127; longest match 192.168.2.0/24 connected Gi0/1; next hop = 192.168.2.20, MAC neznámá"
       },
       {
         "step": 3,
         "node": "R1",
         "event": "arp_queue",
-        "detail": "paket čeká na ARP 192.168.2.10 na G0/1"
+        "detail": "paket čeká na ARP 192.168.2.20 na Gi0/1"
       },
       {
         "step": 4,
-        "node": "SRV1",
+        "node": "PC2",
         "event": "arp_learn",
         "detail": "192.168.2.1 -> 02:00:00:00:01:02 (z requestu)"
       },
@@ -414,25 +421,25 @@
         "step": 5,
         "node": "R1",
         "event": "arp_learn",
-        "detail": "192.168.2.10 -> 02:00:00:00:00:04 na G0/1; odeslání paketu z fronty"
+        "detail": "192.168.2.20 -> 02:00:00:00:00:02 na Gi0/1; odeslání z fronty"
       },
       {
         "step": 6,
-        "node": "SRV1",
+        "node": "PC2",
         "event": "ip_deliver",
-        "detail": "Echo Request pro mě; odpověď na 192.168.1.10 jde přes bránu 192.168.2.1, jejíž MAC už znám"
+        "detail": "Echo Request pro mě; odpověď přes bránu 192.168.2.1, jejíž MAC už znám"
       },
       {
         "step": 7,
         "node": "R1",
         "event": "ip_forward",
-        "detail": "TTL 64 -> 63; longest match 192.168.1.0/24 connected G0/0; MAC 192.168.1.10 známá"
+        "detail": "TTL 128 -> 127; 192.168.1.0/24 connected Gi0/0; MAC 192.168.1.10 známá"
       },
       {
         "step": 8,
         "node": "PC1",
         "event": "ip_deliver",
-        "detail": "Echo Reply id 1 seq 1, TTL 63"
+        "detail": "Echo Reply id 1 seq 1, TTL 127"
       }
     ],
     "final_state": {
@@ -449,17 +456,17 @@
           {
             "ip": "192.168.1.10",
             "mac": "02:00:00:00:00:01",
-            "if": "G0/0",
+            "if": "Gi0/0",
             "type": "dynamic"
           },
           {
-            "ip": "192.168.2.10",
-            "mac": "02:00:00:00:00:04",
-            "if": "G0/1",
+            "ip": "192.168.2.20",
+            "mac": "02:00:00:00:00:02",
+            "if": "Gi0/1",
             "type": "dynamic"
           }
         ],
-        "SRV1": [
+        "PC2": [
           {
             "ip": "192.168.2.1",
             "mac": "02:00:00:00:01:02",
@@ -476,9 +483,9 @@
       "received": 1,
       "replies": [
         {
-          "from": "192.168.2.10",
+          "from": "192.168.2.20",
           "bytes": 32,
-          "ttl": 63
+          "ttl": 127
         }
       ]
     }

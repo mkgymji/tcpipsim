@@ -1,7 +1,7 @@
 # Formát testovacích vektorů
 
-Stav: návrh, iterace 1, doplněno v iteraci 2 (UDP, úroveň 2). Verze formátu: `tcpipsim-vector/1`
-(doplňky iterace 2 jsou zpětně kompatibilní: jen nové nepovinné klíče). Soubory: `tests/vectors/*.json`.
+Stav: návrh, iterace 1, doplněno v iteraci 2 (UDP, úroveň 2) a 3 (router, statické cesty, ICMP chyby, tracert). Verze formátu: `tcpipsim-vector/1`
+(doplňky iterací 2 a 3 jsou zpětně kompatibilní: jen nové nepovinné klíče). Soubory: `tests/vectors/*.json`.
 
 Testovací vektor popisuje **výchozí stav sítě + akci → co se musí stát na linkách a jak mají
 vypadat tabulky na konci**. Formát nezávisí na implementaci: popisuje jen pozorovatelné chování
@@ -16,6 +16,8 @@ anglicky (jsou to data pro kód), texty (`title`, `description`, `summary`, `det
   "id": "ping-switch",
   "title": "…",
   "description": "…co má vektor ukázat…",
+  "level": 3,
+  "skip": "důvod (nepovinné)",
   "spec_refs": ["docs/spec/arp.md", "…"],
   "topology": { "nodes": [ … ], "links": [ … ] },
   "initial_state": { "arp_cache": { … }, "mac_table": { … }, "routing_table": { … } },
@@ -28,6 +30,11 @@ anglicky (jsou to data pro kód), texty (`title`, `description`, `summary`, `det
   }
 }
 ```
+
+Nepovinné klíče kořene: `level` (úroveň simulátoru, pro kterou vektor platí), `skip` (text: vektor
+popisuje chování, které jádro zatím neumí; runner `tests/core/vectors.test.js` ho přeskočí s tímto
+důvodem). Kdo funkci v jádře dodělá, `skip` z vektoru smaže — vektor pak musí projít. Vektory s akcí
+`ping` přeskakuje runner i bez `skip` (`vectorSkipReason` v `js/core/harness.js`), dokud jádro ping neumí.
 
 ## 2. `topology`
 
@@ -42,6 +49,7 @@ anglicky (jsou to data pro kód), texty (`title`, `description`, `summary`, `det
 | `gateway` | IP | ne | výchozí brána hostitele |
 | `ttl_default` | číslo | ne | výchozí TTL (jinak podle `type`, `ipv4.md` kap. 3) |
 | `label` | string | ne | jméno pro UI („Alice“); jádro ho nepoužívá |
+| `static_routes` | pole | ne | router: ručně zadané cesty `{ "prefix": "síť/délka", "next_hop": IP }` (= `ip route`); `0.0.0.0/0` je výchozí cesta. Odvozují se z nich záznamy `static`/`default` v `routing_table` (`routing.md` kap. 2.1) |
 | `apps` | pole | ne | aplikace na uzlu: `{ "name", "proto": "udp", "port": číslo \| null, "auto_reply"?: text }`; `port: null` = klient bez pevného portu (OS přidělí dynamický, `udp.md` kap. 4.2); `auto_reply` = po přijetí zprávy hned odpoví tímto textem na zdrojovou IP a port (`udp.md` kap. 5) |
 
 **Linka** (`links[]`): `{ "id": "L1", "a": { "node": "PC1", "if": "eth0" }, "b": { "node": "SW1", "if": "Fa0/1" } }`.
@@ -74,8 +82,10 @@ Výměna zařízení (úroveň 2, hub za switch se stejnými kabely):
 — uzel `node` se nahradí uzlem `with` (nový switch má prázdnou MAC tabulku, jako po zapnutí), konce
 linek se přejmenují podle mapy `ports`, `id` linek zůstanou; přenosy po výměně mají v `from`/`to` nový uzel.
 Akce se stejným `time` se provedou v pořadí, v jakém jsou ve vektoru (nejdřív výměna, pak odeslání).
-Další příkazy (`arp -d`, `tracert`, CLI routeru) přibudou
-s dalšími iteracemi; seznam povolených příkazů bude ve specifikaci příslušného protokolu.
+Úroveň 3: `{ "command": "ping", "args": { "dst": IP, "count": N } }` (časování `icmp.md` kap. 2.1: další
+dotaz 1 s po odpovědi) a `{ "command": "tracert", "args": { "dst": IP, "max_hops": 30, "probes": 3, "resolve": false } }`
+(= Windows `tracert -d`, `icmp.md` kap. 4.1). Další příkazy (`arp -d`, CLI routeru) přibudou s dalšími
+vektory; seznam povolených příkazů je ve specifikaci příslušného protokolu.
 
 ## 5. `expected.transmissions` — PDU na linkách
 
@@ -99,7 +109,7 @@ Každý záznam = jeden přenos jednoho rámce po jedné lince jedním směrem:
 | `pdu.eth` | `dst`, `src`, `ethertype` (`"0x0800"`, `"0x0806"`) |
 | `pdu.arp` | `op` (`request`/`reply`), `sha`, `spa`, `tha`, `tpa` |
 | `pdu.ip` | `src`, `dst`, `ttl`, `protocol` (číslo), `total_length` |
-| `pdu.icmp` | `type`, `code`, `id`, `seq`, `data_len` |
+| `pdu.icmp` | `type`, `code`, `id`, `seq`, `data_len` (Echo); u chybových zpráv (Type 3, 11) `orig`: `{ src, dst, protocol }` z přiložené hlavičky původního paketu (`icmp.md` kap. 3.1) |
 | `pdu.udp` | `sport`, `dport`, `length` (UDP Length = 8 + data v bajtech) |
 | `pdu.data` | `text` (data aplikace jako text), `len` (délka v bajtech UTF-8) |
 | `pdu.frame_len` | délka rámce v bajtech bez preambule a FCS, včetně výplně |
@@ -123,7 +133,9 @@ Každý záznam = jeden přenos jednoho rámce po jedné lince jedním směrem:
 Slovník: `nic_drop`, `arp_learn`, `arp_ignore`, `arp_queue`, `mac_learn`, `flood`, `forward`, `filter`,
 `repeat` (hub zopakoval rámec), `ip_forward`, `ip_deliver`, `ip_drop`, `udp_send` (aplikace odeslala
 datagram, případně přidělení dynamického portu), `udp_deliver` (cílový port → aplikace),
-`udp_no_listener` (na cílovém portu nikdo nepřijímá, `udp.md` kap. 4.3). Slouží k vysvětlení a vizualizaci. **Nejsou normativní**
+`udp_no_listener` (na cílovém portu nikdo nepřijímá, `udp.md` kap. 4.3); úroveň 3: `arp_fail` (ARP po 3 pokusech
+bez odpovědi, fronta zahozena, `arp.md` kap. 6.2), `arp_expire` (vypršel záznam ARP cache). `ip_drop` zahrnuje
+i „žádná cesta“ a „TTL vypršelo“ (detail to upřesní). Slouží k vysvětlení a vizualizaci. **Nejsou normativní**
 (nemusí být úplné); pokud implementace hlásí události se stejným slovníkem, test je smí porovnat
 jako podmnožinu (každá uvedená událost musí nastat ve stejném kroku a uzlu).
 
@@ -135,15 +147,21 @@ jako podmnožinu (každá uvedená událost musí nastat ve stejném kroku a uzl
 - Stav se porovnává ve chvíli, kdy simulace nemá žádné čekající události (všechny PDU doručené),
   a dřív, než by vypršel jakýkoli časovač stárnutí.
 - `app_result`: výsledek příkazu, např. ping: `sent`, `received`, `replies[]` (`from`, `bytes`, `ttl`).
-  Čas odezvy se nekontroluje.
+  Čas odezvy se nekontroluje. Úroveň 3: `errors[]` = dotazy bez odpovědi Echo Reply s důvodem
+  `{ "seq", "kind": "no_route" | "arp_failed" | "unreachable" | "ttl_exceeded" | "timeout", "from"?, "code"? }`
+  (`icmp.md` kap. 2.1); `received` počítá jen skutečné Echo Reply (Windows ve statistice počítá jinak,
+  `cmd.md` kap. 8.4 — to řeší terminál, ne vektor).
+- `app_result` pro `tracert`: `reached` (true = odpověděl cíl), `hops[]` = `{ "hop", "from", "replies", "kind": "time_exceeded" | "echo_reply" | "timeout" }`.
 - `app_result` pro UDP (úroveň 2): `received[]` = co dostaly aplikace (`node`, `app`, `port`, `from` ve tvaru
   `IP:port`, `text`), v libovolném pořadí, přesná shoda množiny; `not_received[]` = aplikace (`node`, `app`,
   `port`), které nesmí dostat nic (např. jiná aplikace na stejném PC, PC za hubem).
 
 ## 8. Konvence ve scénářích a vektorech
 
-- MAC hostitelů `02:00:00:00:00:0N`, MAC rozhraní routeru `02:00:00:00:RR:II` (lokálně spravované).
-- Porty switche `Fa0/N`, rozhraní routeru `G0/N`, hostitelů `eth0`, porty hubu `PN`.
+- MAC hostitelů `02:00:00:00:00:0N`, MAC rozhraní routeru `02:00:00:00:RR:II` (RR = číslo routeru,
+  II = rozhraní od 01: R1 Gi0/0 = `02:00:00:00:01:01`), vše lokálně spravované.
+- Porty switche `Fa0/N`, rozhraní routeru `Gi0/N` (od iterace 3; dříve `G0/N`), hostitelů `eth0`, porty hubu `PN`.
+- Topologie úrovně 3: `routing.md` kap. 7.
 - Nové vektory přidává projektant; každý vektor má v `spec_refs` odkaz na pravidla, která ověřuje.
 
 ## 9. Seznam vektorů (iterace 1)
@@ -162,3 +180,14 @@ Iterace 2 (úroveň 2, UDP, předvyplněné ARP tabulky podle rozhodnutí 14, `"
 | `udp-hub.json` | hub opakuje oba rámce na všechny ostatní porty, nic se neučí; PC3 zahodí oba | 6 |
 | `udp-switch-naucene.json` | naučená MAC tabulka: žádný flooding, jen obnovení záznamů; existující socket klienta (port 49152 znovu); délky v bajtech UTF-8 u textu s diakritikou | 4 |
 | `udp-switch-port6000.json` | celý děj scénáře úrovně 2: hub (opakování, Cyril zahazuje), akce `swap` na switch s prázdnou tabulkou (flooding, učení, přeposlání odpovědi), zpráva na port 6000 doručená aplikaci „poznámky“ (demultiplexing na stejném PC), rámec přesně 60 B bez výplně, hostitelé bez brány (rozhodnutí 27) | 13 |
+
+Iterace 3 (úroveň 3 „Směrování“, `"level": 3`, ARP a ICMP se opravdu posílají):
+
+| Soubor | Co ověřuje | Přenosů |
+|---|---|---|
+| `ping-router.json` | (přegenerováno podle rozhodnutí 39: Alice — R1 — Bob 192.168.2.20 přímými kabely, `Gi0/N`) ARP na bránu, fronta na routeru, přepis MAC, TTL odpovědi 127 | 8 |
+| `ping-arp-prvni.json` | topologie úrovně 3 (rozhodnutí 39: Alice a Cyril na SW1, R1 na Fa0/4, Bob na R1 Gi0/1), prázdné ARP cache i MAC tabulka: ARP na bránu, fronta u Alice i na routeru, Cyril si z cizího requestu nic neuloží, router se naučí Alici z requestu; `ping -n 2`: druhý dotaz bez ARP | 19 |
+| `ping-bez-brany.json` | Alice bez brány, Bob v jiné síti: žádný přenos, chyba `no_route` | 0 |
+| `ping-spatna-brana.json` | brána 192.168.1.254 neexistuje: 3 ARP requesty po 1 s (flooding na Fa0/3, Fa0/4), router neodpoví (není jeho IP), `arp_failed` od vlastní IP; router si Alici neuloží | 9 |
+| `tracert-alice-bob.json` | `tracert -d` přes jeden router (rozhodnutí 44): TTL 1 → Time Exceeded od 192.168.1.1 (adresa odchozího rozhraní), TTL 2 → sonda s TTL 1 doručená Bobovi, Echo Reply TTL 127; `skip`, dokud jádro neumí tracert | 30 |
+| `tracert-dva-routery.json` | (pozdější rozšíření, `skip`) `tracert -d` přes R1, R2 se statickou i výchozí cestou, server 192.168.3.10 | 36 |

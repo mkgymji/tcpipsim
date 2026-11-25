@@ -62,7 +62,7 @@ Rozhraní (`interface`) má:
 
 | Atribut | Význam | Příklad |
 |---|---|---|
-| `name` | název podle zvyklosti zařízení | PC: `eth0`; switch: `Fa0/1`; router: `G0/0` |
+| `name` | název podle zvyklosti zařízení | PC: `eth0`; switch: `Fa0/1`; router: `Gi0/0` (Cisco zkratka GigabitEthernet0/0) |
 | `mac` | 48bitová MAC (jen L2/L3 uzly mimo switch a hub) | `02:00:00:00:00:01` |
 | `ip`, `prefix` | IPv4 adresa a délka masky (jen L3 uzly) | `192.168.1.10`, `24` (= 255.255.255.0) |
 | `up` | stav rozhraní | `true` |

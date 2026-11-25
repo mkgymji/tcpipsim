@@ -1,6 +1,6 @@
 # UI: vizuální jazyk a rozvržení
 
-Stav: návrh v3 (přidána kap. 11 Úroveň 2: Adresy, prototyp `prototypes/uroven2.html`); návrh v2 (iterace 1, sjednoceno podle `docs/rozhodnuti.md` 1–16), autor kreativec. Prototyp úrovně 1: `prototypes/uroven1.html`
+Stav: návrh v4 (přidána kap. 12 Úroveň 3: Směrování, prototyp `prototypes/uroven3.html`); v3 (kap. 11 Úroveň 2: Adresy, prototyp `prototypes/uroven2.html`); návrh v2 (iterace 1, sjednoceno podle `docs/rozhodnuti.md` 1–16), autor kreativec. Prototyp úrovně 1: `prototypes/uroven1.html`
 (snímek `prototypes/uroven1.png`, 1400x900); prototyp ještě ukazuje obálky L5 a L6 a 16 kroků, platí tento dokument. Číselné hodnoty kontrastu jsou spočítané skriptem (vzorec WCAG 2.x).
 
 ## 0. Zásady
@@ -289,3 +289,95 @@ Scénář: Alice (PC A, `192.168.1.10`, MAC `02:00:00:00:00:01`) posílá UDP zp
 - Jméno zařízení vs. role: ve scénáři zůstávají Alice, Bob, Cyril; kontrola s didaktikem (didaktika.md kap. úroveň 2).
 - Hub vs. switch: přepínač v topologii (jedna karta se jménem „SW1“ / „HUB1“) a vlastní návrh karty hubu (jen L1) se dopracuje spolu se scénářem.
 - Test čitelnosti MAC (tučný poslední bajt) na školním projektoru: pilot.
+
+## 12. Úroveň 3: Směrování
+Prototyp: `prototypes/uroven3.html`, stavy přes adresu `#s=router|pred|arp|ping|tracert|lpm` a terminál `&t=win|cisco`.
+Snímky 1400x900 a 1280x720 jsou v `tmp/u3/` (`<stav>_900.png`, `<stav>_720.png`, `term-win_*`, `term-cisco_*`), hlavní stav `prototypes/uroven3.png` a `prototypes/uroven3-720.png`.
+Platí kap. 1–11 (paleta, rozh. 31, 37, 38). Nic z toho se nemění, přibývá router, druhá síť a tři druhy zpráv (ARP, ICMP, data).
+V textu pro studenty se nepoužívá „výtah“ ani „prostředník“ (rozh. 37); spodní panel se jmenuje „Vrstvy“.
+
+### 12.1 Rozvržení
+Stejná mřížka jako úroveň 2 (topologie nahoře, vrstvy dole, vysvětlivka + karta vpravo, ovládání dole). Změny:
+- **Topologie je vyšší** (316 px při 900, 244 px při 720) a má tři části zleva doprava: síť 1 (Alice, SW1), karta R1, síť 2 (Bob).
+- **Sloupce vrstev jsou užší** (192 px, při šířce do 1360 px 170 px), protože uprostřed je věž routeru. Popisek řádku je dvouřádkový: název vrstvy a pod ním název PDU (data, datagram, paket, rámec, bity); při 720 px je to 36 px na řádek, písmo 15–16 px.
+- **Pravý spodní panel** je podle kroku: „Rámec před a za R1“ (porovnání), „Shoda po bitech“ (nejdelší shoda), rentgen (ARP, ICMP) nebo „Sondy“ (tracert).
+- **Spodní panel vlevo má přepínač „Vrstvy | Časová osa“.** Časová osa (sekvenční diagram) se otevře sama u tracertu; u ostatních kroků jde zapnout ručně. Důvod: tracert je o pořadí zpráv v čase, ne o vrstvách jednoho zařízení.
+
+### 12.2 Dvě sítě v topologii
+- Každá síť je **podbarvená oblast s přerušovaným okrajem a štítkem** „SÍŤ 192.168.1.0/24 (brána .1)“ a „SÍŤ 192.168.2.0/24“. Barva oblastí je neutrální (světle šedomodrá, světle hnědošedá), aby se nepletla s barvami vrstev; sítě se odliší i **šrafováním** a textem štítku, ne jen odstínem.
+- Router R1 stojí **mezi oblastmi** jako karta, která oblasti překrývá o pár pixelů: „je v obou sítích“. Rozhraní jsou v hlavičce karty: vlevo Fa0/0 s 192.168.1.1 (patří do sítě 1), vpravo Fa0/1 s 192.168.2.1 (síť 2). Štítek „vstup“ / „výstup“ u rozhraní (text, ne jen barva).
+- Zařízení v topologii ukazují jméno a IP; MAC se v topologii nekreslí (nevešla by se, je ve vrstvách a v kartě porovnání).
+- Aktivní kabel je tlustší a nese štítek rámce; pod ním jeho **TTL** (`TTL 127`) mono písmem.
+
+### 12.3 Tvar U s routerem (rozh. 38)
+Pruh média dole se vším, co leží v cestě: u switche věž do L2, u routeru **věž do L3** (L1, L2, L3 nad sebou, aktivní řádek je horní). Obálka (paket) stojí nad věží a její spodní hrana končí u aktivního řádku, stejně jako u switche.
+- **Vlevo od věže R1 šipka nahoru, vpravo šipka dolů.** Tím se vidí „U s odbočkou“: rámec vystoupá L1 → L2 → L3, router rozhodne, nový rámec klesne L3 → L2 → L1.
+- Vlevo u šipky štítek **„starý rámec“** (přerušovaný okraj = už rozbalen, zahozen), vpravo **„nový rámec“** (plný, tlustší okraj). Nad věží paket, který jimi prošel.
+- Šipka nahoru a dolů jsou dvě stejné značky, ne animace; při přehrávání po nich putuje bod jako po kabelu (rychlost podle posuvníku, jde krokovat).
+- Před věží stojí malá věž SW1 (L2) v přerušovaném stylu = už je za námi.
+- Zasekne-li se animace na kroku (pauza), stav musí jít přečíst ze statického obrázku: proto jsou „starý“ a „nový“ rozlišeny tvarem okraje, ne pohybem.
+
+### 12.4 „MAC se změnila, IP zůstala“
+Karta **„Rámec před a za R1“** (pravý panel, 380–420 px) má dvě skupiny polí, každá v barvě své vrstvy (obálka L2 = hnědá, L3 = zelená, značka vrstvy vlevo nahoře):
+- **L2 rámec („platí jen na jednom kabelu“)**: cílová MAC, zdrojová MAC. Hodnota před (síť 1) → hodnota za (síť 2).
+- **L3 paket („platí na celé cestě“)**: zdrojová IP, cílová IP, TTL.
+- Změněné pole: tlustý černý obrys buňky + černý štítek **„jiná“** (u TTL „−1“). Nezměněné: běžný obrys + štítek **„stejná“ s fajfkou** (symbol z SVG, ne emoji). Nic jen barvou: text, tvar štítku a tloušťka obrysu.
+- Pod tím věta tučně: **„MAC se změnila, IP zůstala.“** a drobně přesnost: „V IP hlavičce se mění jen TTL (a s ním kontrolní součet hlavičky).“
+- Za MAC je v závorce, komu patří („R1 Fa0/0 → Bob“), protože cílová MAC před R1 je MAC brány, ne Boba (rozh. 15: štítek je vždy „zdroj → cíl“ na tomto kabelu).
+- Totéž je vidět i ve středu: paket nad věží má vlevo „starý rámec“ a vpravo „nový rámec“; kliknutí na štítek otevře rentgen toho rámce (kap. 11.4).
+- Navržené MAC rozhraní R1: Fa0/0 `02:00:00:00:00:11`, Fa0/1 `02:00:00:00:00:12` (konvence z rozh. 25 zůstává, poslední bajt tučně).
+
+### 12.5 Karta routeru, směrovací tabulka, TTL
+- **Hlavička karty:** ikona R1 (kruh se čtyřmi šipkami, jiný tvar než switch), rozhraní vlevo a vpravo.
+- **Směrovací tabulka R1:** sloupce Typ (C = připojená síť, S = ruční trasa, S* = výchozí trasa), Síť (cíl) s prefixem, Kam (rozhraní), Shoda. Sloupec **Shoda** se objeví až v kroku, kdy R1 vybírá (u tipu je schovaný, kap. 12.9). Hodnoty: „ne“, „24 bitů“.
+- **Vybraný řádek:** tlustý černý obrys + světle zelená výplň + černý štítek „24 bitů“ ve sloupci Shoda; ostatní řádky bez zvýraznění.
+- **Nejdelší shoda (LPM)** je samostatný detailní krok (`#s=lpm`): tabulka má víc řádků, které se shodují (192.168.2.0/24, 192.168.0.0/16, 0.0.0.0/0), a v pravém panelu karta **„Shoda po bitech“**: cíl ve dvojkové soustavě a pod ním každý prefix, **podbarvené shodné bity** + podtržení a štítek „24 bitů: vítěz“ / „16 bitů“ / „0 bitů“ / „ne: shoda jen 22 z 24“. Podbarvení se opírá o text s číslem, ne jen o barvu. Základní tabulka (2 řádky) zůstává; řádky S a S* se přidávají až scénářem (prototyp je ukazuje jako ukázku).
+- **ARP tabulka R1** pod směrovací; nový řádek má obrys a štítek „nový řádek“ v záhlaví tabulky.
+- **TTL** je vidět na třech místech: ve štítku paketu nad věží (`TTL 128 → 127`, přeškrtnutá stará hodnota, černý štítek „−1“ a věta „R1 sníží TTL o 1“), pod aktivním kabelem v topologii a v kartě porovnání. TTL se snižuje právě v kroku, kdy paket stojí v L3 routeru (ne dřív, ne později).
+- Výchozí TTL ukázky je 128 (Windows), takže ping po jednom skoku ukáže `TTL=127`, shodně s výstupem příkazu ping.
+
+### 12.6 ARP: dotaz všem, odpověď jednomu (`#s=arp`)
+ARP je **služební zpráva**, ne zpráva uživatele: odliší se čtyřmi věcmi.
+1. Štítek na kabelu je **„ARP“** (ne „rámec“), pod kabelem popisek **„všem“** (u odpovědi „jen Alici“). U dotazu se štítek zkopíruje na všechny výstupní kabely (rozeslání), u odpovědi je jen jeden.
+2. Obálka L2 má **tečkovaný vnitřek** místo zelené obálky L3: uvnitř rámce je bílý blok „ARP dotaz: kdo má 192.168.1.1?“ s textem „bez IP paketu: ARP jede přímo v rámci“. Obálka L3 se tedy nekreslí.
+3. Cílová MAC `FF:FF:FF:FF:FF:FF` má černý štítek **„všem“** (broadcast); u odpovědi je cílová MAC konkrétní a štítek chybí.
+4. Ve sloupci vrstev odesílatele je L3 se dvěma řádky „paket / čeká na MAC“: vidět, že paket čeká, než se zeptá ARP. Na straně příjemce (R1) jsou L4–L7 „router nečte“.
+Rentgen ARP dotazu: pole rámce (cíl, zdroj, EtherType 0x0806) a pole ARP zprávy (Operace 1 = dotaz, Odesílatel IP/MAC, Hledá IP, Hledaná MAC = nuly „neznámá“, přerušovaný řádek). Poznámka „odpověď půjde unicastem“.
+Do ARP tabulky R1 přibude řádek v okamžiku příjmu dotazu (R1 se naučí Alici ze zdroje dotazu).
+
+### 12.7 Ping: ICMP bez L4 (`#s=ping`)
+- Na zdroji se ve sloupci vrstev **řádek L4 přeskočí**: tečkovaný okraj, šrafování, text „bez portů“ (ne jen barva). Paket vzniká v L3.
+- Uvnitř zeleného rámu paketu je **přerušovaný pruh „L4: žádný segment, ICMP nemá porty“** s ikonou L4 a pod ním blok „ICMP Echo request (typ 8) přímo uvnitř IP paketu“. Obálka L4 (modrá) se nekreslí, ICMP je zde součást paketu.
+- Ve štítku paketu je vedle TTL i **„protokol 1“** (pole IP hlavičky, které říká „uvnitř je ICMP“).
+- Rentgen: skupina „L3 IPv4 hlavička“ (TTL, Protokol zvýrazněn, zdrojová a cílová IP) a skupina „ICMP (uvnitř paketu)“ (Typ 8 = Echo request, Identifikátor, pořadí) a **přerušovaný řádek „Zdrojový a cílový port: žádné, ICMP je nemá“**. Studenti uvidí prázdné místo tam, kde u UDP byly porty.
+- Echo reply je stejný vzhled s Typem 0 a prohozenými adresami.
+
+### 12.8 Tracert: sondy a Time Exceeded (`#s=tracert`)
+Použije se **časová osa** (SVG sekvenční diagram, tři svislé osy Alice, R1, Bob, čas shora dolů, viewBox 880x276, vejde se bez posunu při 720 px).
+- Každý skok je **blok „sonda n“**: šipka Echo request vpravo, černý štítek **TTL n** pod začátkem šipky. U R1 je rámeček s tvarem: **křížek „TTL 1 → 0: zahodit“** nebo **šipka „TTL 2 → 1: přeposlat“**. Tvar rozlišuje, nejen text.
+- **Time Exceeded** je šipka zpět vlevo, tučný zelený popisek „Time Exceeded (typ 11)“ a pod ní drobně „odpověď od 192.168.1.1: tak se R1 prozradil“. Echo reply od cíle je stejná šipka zpět s popiskem „Echo reply“.
+- Odpovědi se **kreslí postupně** (nepřítomná = ještě se nestala), ne jako přerušované čáry (přerušované = „čeká“ podle kap. 2.2, nepoužije se na odpovědi). Aktuální šipka je tlustší s černým obrysem a štítkem „teď“.
+- Při více routerech přibývají osy (max. 4 uzly na šířku), sondy dalšího skoku jdou pod sebe; pokud se nevejdou, diagram se posouvá svisle, aktuální řádek zůstane vidět.
+- Vpravo karta **„Sondy“**: řádky #, TTL, Odpověděl (IP a jméno), Zpráva (Time Exceeded (typ 11) / Echo reply (typ 0)); aktuální řádek má obrys. Poznámka: „Windows pošle na každý skok 3 sondy; simulátor kreslí první, výpis v terminálu má všechny tři.“ (Simulátor zjednodušuje.)
+- Topologie nahoře dál ukazuje, kde sonda právě je (štítek „rámec“ + `TTL 2` pod kabelem).
+
+### 12.9 Tipy (rozh. 31) na úrovni 3 (`#s=pred`)
+Krok před rozhodnutím routeru ukazuje stav PŘED událostí: paket je v L3 routeru, **TTL zůstává 128**, směrovací tabulka **bez sloupce Shoda a bez zvýraznění**, pravý panel jen „Rámec, který dorazil k R1“ (jedna hodnota, ne dvojice před/za), žádný „nový rámec“, ARP tabulka R1 ještě nemá Boba.
+Nadpis karty „Tip: Co R1 s paketem udělá?“, volby **Fa0/0 zpět, Fa0/1, zahodí** (odvozené z topologie; vstupní rozhraní se nabízí jako „zpět“, protože ta chyba je typická; „zahodí“ = nemá trasu). Rozhraní Fa0/1 v kartě R1 je přerušované a nese „klik“; vstupní Fa0/0 je zamčené „vstup“. Přehrávání se zastaví. Další krok vyhodnotí tip jednou větou („Tvůj tip: Fa0/1. Skutečnost: Fa0/1. Souhlasí.“).
+
+### 12.10 Terminál
+- **Windows (PC Alice):** `tracert 192.168.2.20` s výstupem se třemi časy na řádek (`<1 ms`), řádek „Trace complete.“, hlavička „Tracing route to … over a maximum of 30 hops:“; také `ping`, `arp -a`, `ipconfig /all` (ipconfig tentokrát s Default Gateway 192.168.1.1, rozh. 27).
+- **IOS (R1):** `show ip route` s kódy „C - connected, S - static (zkráceno)“, řádek „Gateway of last resort“ a řádky tras; řádek, který právě vybral R1, je v terminálu **podbarven světle** a v textu vypsán celý. Dále `show ip arp`, `show ip interface brief`.
+- Stejný vzhled okna jako úroveň 2 (kap. 11.5): Windows tmavá s bílým textem, IOS tmavě modrá; záhlaví s druhem („Windows“ / „Cisco IOS“) a tlačítkem Zavřít (Esc). Monospace min. 16 px při 720 px, 18 px při 900.
+- Řádek `L` (local) z reálného IOS se v simulátoru nevypisuje: „Simulátor zjednodušuje: bez řádků typu L.“
+
+### 12.11 Čitelnost a rozměry
+Ověřeno snímky 1400x900 a 1280x720: nic se nepřekrývá, nic neuniká z okna (tělo stránky má `grid-template-columns:minmax(0,1fr)`, protože bez toho se širší obsah promítl za okraj okna). Při 720 px se skrývá: MAC u zařízení v topologii (vždy), podnadpisy sloupců vrstev, záhlaví sloupců a vysvětlující druhá věta v kartě porovnání. Nejmenší písmo 15 px, kromě šedých pomocných popisků všude tmavý text. Písmo MAC v kartě porovnání má mírně stažený řez (`letter-spacing:-.04em`), aby se 17 znaků vešlo do buňky na šířku 380 px; na Windows s Consolas je pohodlně.
+
+### 12.12 Otevřené body k rozhodnutí
+1. **MAC rozhraní R1** (`…:11` a `…:12`): potvrdit s projektantem.
+2. **Výchozí TTL 128** (Windows) místo 64: potvrdit s projektantem a didaktikem (sedí s výstupem ping `TTL=127`).
+3. **Název PDU u L4** v řádku vrstvy: „datagram“ pro UDP, „segment“ pro TCP, „bez portů“ pro ICMP (úroveň 2 měla „segment / datagram“, v užším sloupci se nevejde). Dopad na rozh. 32.
+4. **Tip na routeru** má tři volby včetně „zahodí“ a „zpět“: potvrdí didaktik.
+5. **Řádky S a S*** v ukázkové tabulce jsou jen demonstrace nejdelší shody; obsah tabulky pro scénář určí didaktik (např. výchozí trasa až s úrovní 5).
+6. **Přepínač „Vrstvy | Časová osa“**: v prototypu je jen vykreslený, ne funkční.

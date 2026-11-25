@@ -1,6 +1,6 @@
 # IPv4
 
-Stav: návrh, iterace 1. Zdroje: RFC 791 (formát, 3.1), RFC 1122 (hostitel: 3.2.1, 3.3.1),
+Stav: iterace 3 (úroveň 3; směrování podrobně v `routing.md`). Zdroje: RFC 791 (formát, 3.1), RFC 1122 (hostitel: 3.2.1, 3.3.1),
 RFC 1812 (router: 5.2.3, 5.2.4.3, 5.2.7.1, 5.3.1), RFC 2474/3168 (DSCP/ECN), RFC 1071 (kontrolní součet).
 
 ## 1. Adresa, maska, síť
@@ -61,8 +61,10 @@ RFC 1812 (router: 5.2.3, 5.2.4.3, 5.2.7.1, 5.3.1), RFC 2474/3168 (DSCP/ECN), RFC
 - **Hostitel** TTL nemění (nepřeposílá).
 - Echo Reply je **nový paket** odpovídajícího uzlu s jeho výchozím TTL. TTL v odpovědi pingu tedy
   = výchozí TTL odpovídajícího − počet routerů na zpáteční cestě. Ve vektoru `ping-router`:
-  server (64) přes 1 router → PC vidí TTL=63. (Typická miskoncepce: „TTL se vrací/odečítá tam i zpět“.)
-- Na TTL stojí `tracert` (další iterace).
+  Bob (Windows, 128) přes 1 router → Alice vidí TTL=127 (rozhodnutí 39; server s TTL 64 by dal 63). (Typická miskoncepce: „TTL se vrací/odečítá tam i zpět“.)
+- Na TTL stojí `tracert` (`icmp.md` kap. 4): sondy s TTL 1, 2, 3… a Time Exceeded od routerů.
+- Paket s TTL 1 **určený hostiteli** se doručí normálně (hostitel TTL nekontroluje, nepřeposílá):
+  ve vektoru `tracert-alice-bob` dojde k Bobovi sonda s TTL 1 a Bob odpoví.
 
 ## 4. Rozhodování hostitele při odeslání
 
@@ -85,7 +87,8 @@ vstup: cílová IP D
 1. vyber cestu z tabulky metodou longest prefix match (kap. 6)
 2. pokud cesta je connected (D je ve stejné síti podle masky):  next hop := D        (přímé doručení)
    jinak:                                                       next hop := brána    (nepřímé doručení)
-   pokud žádná cesta (není brána a D je mimo síť): chyba, nic se neodešle
+   pokud žádná cesta (není brána a D je mimo síť): chyba aplikaci (`no_route`), nic se neodešle,
+   ani ARP (vektor `ping-bez-brany`; Windows: `PING: transmit failed. General failure.`)
 3. MAC := ARP cache[next hop]; pokud chybí → ARP request na next hop, paket do fronty (arp.md kap. 6)
 4. rámec: zdrojová MAC = moje, cílová MAC = MAC next hopu; IP: zdroj = moje IP, cíl = D
 ```
@@ -109,6 +112,9 @@ Příchozí paket na rozhraní I (rámec už prošel L2 filtrem, `model.md` 6.4)
 7. **Nový rámec:** zdrojová MAC = MAC výstupního rozhraní, cílová MAC = MAC next hopu.
    IP adresy beze změny, přepočítat kontrolní součet. Odeslat.
 
+Zdrojová IP každé ICMP chyby z routeru = adresa rozhraní, kterým chyba odchází (RFC 1812 4.3.2.4,
+`icmp.md` kap. 3.2). ARP selže v kroku 6 → ICMP 3/1 pro jeden paket z fronty (`arp.md` kap. 6.2).
+
 Pořadí kroků 3 a 4: RFC 1812 nepředepisuje, zda kontrolovat TTL před vyhledáním cesty; pro
 studenta je pozorovatelný rozdíl jen v tom, kterou ICMP chybu dostane paket, který má TTL 1
 a zároveň nemá cestu. Simulátor: nejdřív TTL (jako Cisco IOS — **ověřit**).
@@ -122,7 +128,7 @@ Záznam: `prefix` (síť/délka), `next_hop` (IP nebo prázdné), `if` (výstupn
 
 | type | Cisco kód | Význam |
 |---|---|---|
-| `connected` | C | síť přímo připojeného rozhraní (vznikne nastavením IP na rozhraní ve stavu up) |
+| `connected` | C | síť přímo připojeného rozhraní (vznikne z `ip address` + `no shutdown`, rozhraní up/up; `routing.md` kap. 2) |
 | `local` | L | adresa rozhraní samotného, /32 (Cisco IOS 15+) — jen router |
 | `static` | S | ručně zadaná cesta (`ip route síť maska next-hop`) |
 | `default` | S* | statická výchozí cesta `0.0.0.0/0` (u hostitele = výchozí brána) |
@@ -131,9 +137,9 @@ Algoritmus (RFC 1812 5.2.4.3, Basic Match + Longest Match):
 1. Ponech jen cesty, pro které platí `D AND maska(cesty) == síť(cesty)`.
 2. Z nich vyber tu s **nejdelším prefixem**. `0.0.0.0/0` odpovídá všemu, ale vyhraje jen tehdy,
    když nic jiného neodpovídá.
-3. Při shodě délky (dvě cesty na stejnou síť) rozhoduje administrativní vzdálenost a metrika —
-   v této iteraci se nevyskytuje; simulátor odmítne vložit druhou cestu na stejný prefix
-   (zjednodušení, otevřená otázka).
+3. Při shodě délky (dvě cesty na stejnou síť) rozhoduje administrativní vzdálenost a metrika;
+   v úrovni 3 se AD a metrika jen zobrazují a simulátor druhou cestu na stejný prefix odmítne
+   (`routing.md` kap. 4).
 
 Cesty `local` (/32) zajistí, že paket na adresu routeru vyhraje longest match a doručí se lokálně;
 logicky je to totéž jako krok 2 v kap. 5. Hostitelům simulátor `local` cesty nepřidává.
