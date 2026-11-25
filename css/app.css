@@ -84,7 +84,54 @@ svg.b text { fill: #fff; font: 700 15px var(--font); text-anchor: middle; }
 svg.b text.sm { font-size: 15px; letter-spacing: -1px; }
 
 /* obálky */
-.nest { flex: 1; min-height: 0; display: flex; flex-direction: column; justify-content: center; position: relative; }
+/* prostřední sloupec jako „U“ (rozhodnutí 38): stejná mřížka 7 stop jako sloupec vrstev; blok má
+   spodní hranu u aktivní vrstvy (grid-row 1 / --lane-end, margin-top:auto), když je vyšší než
+   oblast, zůstane nahoře a přesahuje dolů (nikdy nad horní okraj). Pruh média = stopy L2 a L1. */
+.lane { flex: 1; min-height: 0; max-height: 480px; display: grid; grid-template-rows: repeat(7, minmax(var(--row-h), 1fr)); gap: 5px; position: relative; }
+.nest { grid-row: 1 / var(--lane-end, 8); grid-column: 1; min-height: 0; display: flex; flex-direction: column; position: relative; z-index: 2; }
+.nest > .float { margin-top: auto; position: relative; display: flex; flex-direction: column; }
+.float > .ghost-frame { inset: auto 0 0 0; }
+/* doplňky pod blokem (socket, ARP, doručení) visí pod ním a neposouvají jeho spodní hranu */
+.float > .hang { position: absolute; top: 100%; left: 0; right: 0; z-index: 3; display: flex; flex-direction: column; }
+.hang > * { background: var(--panel); }
+.bitnote { margin: 0 0 4px; align-self: center; text-align: center; font-size: 16px; color: var(--muted); background: var(--panel); border: 2px dashed var(--line); border-radius: 6px; padding: 1px 10px; line-height: 1.25; }
+.bitnote small { display: block; font-size: 15px; }
+.medium { grid-row: 6 / 8; grid-column: 1; display: grid; grid-template-rows: minmax(0, 1fr) minmax(0, 1fr); gap: 5px; margin: 0 -14px; position: relative; z-index: 1; pointer-events: none; --tw: 112px; }
+.medium > * { pointer-events: auto; }
+.mrow { grid-row: 2; grid-column: 1; position: relative; pointer-events: none; }
+.mrow > button, .mrow > .ribbon { pointer-events: auto; }
+.mrow .cable { position: absolute; left: 0; right: 0; top: 50%; height: 6px; margin-top: -3px; background: var(--ink); border-radius: 3px; }
+/* aktivní kabel: stejný vzhled dole v pruhu média i nahoře v topologii */
+.mrow.on .cable, .wire.act .cable, .wire2.on .cable { background: var(--L1); height: 8px; margin-top: -4px; box-shadow: 0 0 0 5px var(--L1t); }
+.wire.act .cable { top: 29px; margin-top: 0; }
+.wire2.on .cable { top: 17px; margin-top: 0; }
+.mcap { position: absolute; top: 0; bottom: 0; margin: auto 0; height: 24px; display: flex; align-items: center; background: var(--panel); border: 2px solid var(--line); border-radius: 6px; font-size: 15px; color: var(--muted); padding: 0 6px; white-space: nowrap; cursor: pointer; line-height: 1; }
+span.mcap { cursor: default; }
+.mcap.at-start, .mcap.at-seg-l { left: 22px; }
+.mcap.at-end, .mcap.at-seg-r { right: 22px; }
+.mcap.at-mid { left: 0; right: 0; margin: auto; width: fit-content; }
+.has-dev .mcap.at-seg-l { left: 18px; } .has-dev .mcap.at-seg-r { right: 18px; }
+.mrow .ribbon { position: absolute; top: 0; bottom: 0; margin: auto 0; height: 30px; display: flex; align-items: center; gap: 4px; padding: 0 4px 0 3px; background: #fff; border: 3px solid var(--L1); border-radius: 6px; font: 700 15px var(--mono); color: var(--L1); white-space: nowrap; z-index: 2; }
+.ribbon .lab { background: var(--L1); color: #fff; font: 700 15px var(--font); padding: 0 5px; border-radius: 3px; line-height: 1.35; }
+.ribbon .bv { letter-spacing: 0.5px; }
+.ribbon i { font-style: normal; }
+.ribbon.at-start { left: 4px; }
+.ribbon.at-end { right: 4px; }
+.ribbon.at-mid { left: 0; right: 0; margin: auto; width: fit-content; }
+.mrow:not(.has-dev) .ribbon.at-mid { left: 160px; right: auto; margin: auto 0; }
+.has-dev .ribbon .bv { letter-spacing: -0.5px; }
+.ribbon.at-seg-l { left: 4px; }
+.ribbon.at-seg-l-in { right: calc(50% + var(--tw) / 2 + 4px); }
+.ribbon.at-seg-r { left: calc(50% + var(--tw) / 2 + 4px); }
+/* hub (jen L1) a switch (L1 a L2) v pruhu média: výška jen do vrstvy, kterou zařízení čte */
+.tower { grid-column: 1; justify-self: center; width: var(--tw); display: flex; flex-direction: column; gap: 5px; position: relative; z-index: 1; }
+.tower.hub { grid-row: 2; }
+.tower.switch { grid-row: 1 / 3; }
+.tower .tname { position: absolute; top: -12px; left: 0; right: 0; margin: auto; width: fit-content; background: var(--panel); border: 2px solid var(--ink); border-radius: 5px; font-size: 15px; font-weight: 700; padding: 0 5px; line-height: 1.2; z-index: 1; }
+.tower.hub .tname { top: auto; bottom: -12px; }
+.tcell { flex: 1; min-height: 0; display: flex; align-items: center; justify-content: center; gap: 6px; border: 3px solid var(--c); background: var(--t); border-radius: 6px; font-size: 15px; font-weight: 600; color: var(--ink); }
+.tcell b { background: var(--c); color: #fff; border-radius: 3px; padding: 0 4px; }
+.tcell.active { border-width: 5px; box-shadow: 0 0 0 3px var(--ink); }
 .box { border: 4px solid var(--c); background: var(--t); border-radius: 10px; padding: 0 10px 10px; display: flex; flex-direction: column; gap: 6px; cursor: pointer; text-align: left; transform-origin: center; }
 /* štítek obálky je tlačítko (jediný ovládací prvek obálky) */
 button.lab { border: 0; font: inherit; text-align: left; cursor: pointer; width: auto; }
@@ -177,27 +224,31 @@ dialog::backdrop { background: rgba(20, 24, 28, .55); }
 .anim-travel { animation: travel calc(1500ms * var(--k)) linear both; }
 .anim-flash { animation: flash 200ms ease-out; }
 .anim-pass { animation: pass calc(500ms * var(--k)) ease-out both; }
+.anim-slide { animation: slide calc(600ms * var(--k)) ease-in-out both; }
+.anim-travel-l { animation: travel-l calc(1500ms * var(--k)) linear both; }
 @keyframes grow { from { transform: scale(.92); opacity: 0; } to { transform: none; opacity: 1; } }
 @keyframes fade { from { opacity: 0; } to { opacity: 1; } }
 @keyframes ghost { 0% { opacity: .9; } 35% { opacity: .35; } 100% { opacity: 0; } }
 @keyframes leave { 0% { transform: none; opacity: 1; } 60% { opacity: .9; } 100% { transform: translateX(30px) scale(.9); opacity: .55; } }
 @keyframes travel { from { transform: translateX(-38%); } to { transform: none; } }
+@keyframes travel-l { from { transform: translateX(38%); } to { transform: none; } }
+@keyframes slide { from { transform: translateY(var(--dy, 0)); } to { transform: none; } }
 @keyframes flash { from { opacity: .4; } to { opacity: 1; } }
 @keyframes pass { 0% { opacity: 0; } 40% { opacity: 1; } 100% { opacity: 0; } }
 /* průchod vrstvou bez obálky (L7 -> L6 -> L5): krátký rámeček přes řádek */
 .row .pass { position: absolute; inset: -6px; border: 5px solid var(--ink); border-radius: 10px; opacity: 0; pointer-events: none; }
 /* pauza zmrazí rozběhnutou animaci (ui.md kap. 4) */
 body.frozen .anim-grow, body.frozen .anim-fade, body.frozen .anim-ghost, body.frozen .anim-leave,
-body.frozen .anim-travel, body.frozen .anim-pass { animation-play-state: paused; }
+body.frozen .anim-travel, body.frozen .anim-pass, body.frozen .anim-slide, body.frozen .anim-travel-l { animation-play-state: paused; }
 
 /* omezení pohybu: jen krátké zvýraznění bez pohybu (ui.md kap. 4) */
 @media (prefers-reduced-motion: reduce) {
-  .anim-grow, .anim-fade, .anim-leave, .anim-travel { animation: flash 200ms ease-out; }
+  .anim-grow, .anim-fade, .anim-leave, .anim-travel, .anim-travel-l, .anim-slide { animation: flash 200ms ease-out; }
   .anim-ghost, .anim-pass { animation: none; opacity: 0; }
   .row, .dev { transition: none; }
 }
 body.reduce-motion .anim-grow, body.reduce-motion .anim-fade, body.reduce-motion .anim-leave,
-body.reduce-motion .anim-travel { animation: flash 200ms ease-out; }
+body.reduce-motion .anim-travel, body.reduce-motion .anim-travel-l, body.reduce-motion .anim-slide { animation: flash 200ms ease-out; }
 body.reduce-motion .anim-ghost, body.reduce-motion .anim-pass { animation: none; opacity: 0; }
 body.reduce-motion .row, body.reduce-motion .dev { transition: none; }
 
@@ -352,7 +403,17 @@ body.lvl2 .topo { display: block; padding: 30px 14px 8px; }
 
 /* výtah a obálky s adresami */
 body.lvl2 .lift h2 #env-reads { font-weight: 400; color: var(--muted); font-size: 15px; }
-body.lvl2 .nest { justify-content: flex-start; overflow: auto; padding-top: 2px; }
+body.lvl2 .lane { max-height: none; }
+/* blok úrovně 2 se musí vejít nad pruh média (rozhodnutí 38): data L7 na jednom řádku (štítek a
+   zpráva vedle sebe), vnitřní obálky mají buňky adres na jednom řádku bez popisků */
+.d2 { flex-direction: row; align-items: stretch; }
+.d2 > .lab { width: auto; flex: none; border-bottom: 0; border-right: 2px solid var(--L7); flex-direction: column; justify-content: center; }
+.d2 > .lab em { display: none; }
+.d2 .msg { flex: 1; display: flex; align-items: center; justify-content: center; }
+.b2.inner .acell { flex-direction: row; align-items: center; justify-content: flex-start; gap: 4px; padding: 0 3px; }
+.b2.inner .acell .cap > span { display: none; }
+.b2.inner .acell .val { letter-spacing: -0.7px; overflow: visible; }
+.bdev .stub { border: 2px dashed var(--L3); background: var(--panel); border-radius: 5px; font-size: 15px; padding: 0 6px; color: var(--ink); }
 .b2 { gap: 4px; padding-bottom: 6px; }
 .b2 > .lab { min-height: 24px; font-size: 16px; }
 .d2 > .lab { padding: 0 10px; }
@@ -372,9 +433,13 @@ body.lvl2 .nest { justify-content: flex-start; overflow: auto; padding-top: 2px;
 .b2 > .trail { position: absolute; right: 8px; bottom: -3px; padding: 0 6px; line-height: 1.2; }
 .b2[data-env="ethernet"] { padding-bottom: 16px; }
 .socket { margin: 6px 0 0; text-align: center; font: 16px var(--mono); }
-.arpstrip { margin: 6px 0 0; font-size: 16px; border: 3px solid var(--L2); background: var(--L2t); border-radius: 6px; padding: 2px 8px; }
-.arpstrip .mono { white-space: nowrap; }
-.arpstrip small { color: var(--muted); font-size: 15px; }
+.arpstrip { margin: 2px 0 0; font-size: 15px; border: 3px solid var(--L2); background: var(--L2t); border-radius: 6px; padding: 0 6px; line-height: 1.25; white-space: nowrap; }
+.arpstrip .mono { white-space: nowrap; letter-spacing: -0.5px; }
+/* ARP tabulka u odesílatele: jeden řádek pod kartou PC (rozhodnutí 38: pod obálkou by překryla pruh média) */
+.pc .arpstrip { position: absolute; top: calc(100% + 2px); left: 0; z-index: 2; }
+/* topologie: zvýrazněný kabel = pruh média dole v L1 (rozhodnutí 38) */
+.topo .l1note { position: absolute; bottom: 4px; left: 50%; transform: translateX(-50%); font-size: 15px; color: var(--muted); white-space: nowrap; display: flex; align-items: center; gap: 6px; background: var(--panel); padding: 0 4px; }
+.l1note .lk { display: inline-block; width: 28px; height: 6px; background: var(--L1); border-radius: 3px; box-shadow: 0 0 0 3px var(--L1t); }
 .dropmsg { margin: 0 0 6px; font-size: 16px; border: 2px dashed var(--ink); border-radius: 6px; padding: 2px 8px; }
 .dropmsg .dim, .dropmsg b { font-family: var(--mono); }
 .apps-strip .apps { display: flex; gap: 6px; justify-content: center; margin-top: 4px; flex-wrap: wrap; }
@@ -476,7 +541,7 @@ body.lvl2 .explain p.note { font-size: 16px; }
   .acell .cap > span { display: none; }
   .b2 > .lab { min-height: 22px; font-size: 15px; padding: 0 10px; }
   .b2 { gap: 3px; padding-bottom: 4px; }
-  .b2[data-env="ethernet"] { padding-bottom: 14px; }
+  .b2[data-env="ethernet"] { padding-bottom: 9px; }
   .d2 > .lab { padding: 0 10px; line-height: 1.15; }
   .d2 .msg { padding: 1px 8px; font-size: 18px; }
   .apps-strip .apps { margin-top: 2px; }
@@ -527,12 +592,6 @@ body.lvl2 .explain p.note { font-size: 16px; }
   body.lvl2 .row.pdu-long .nm, body.lvl2 .row.pdu-long .pdu { line-height: 0.92; }
   body.lvl2 .row.pdu-long .pdu { white-space: nowrap; letter-spacing: -0.5px; }
   body.lvl2 .row.pdu-long { grid-template-columns: 30px minmax(0, 1fr); gap: 4px; padding-right: 2px; }
-  /* data L7 na jednom řádku: štítek a zpráva vedle sebe */
-  .d2 { flex-direction: row; align-items: stretch; }
-  .d2 > .lab { width: auto; flex: none; border-bottom: 0; border-right: 2px solid var(--L7); flex-direction: column; justify-content: center; }
-  .d2 > .lab em { display: none; }
-  .d2 .msg { flex: 1; display: flex; align-items: center; justify-content: center; }
   .b2 > .lab { min-height: 20px; }
-  .arpstrip { margin-top: 4px; padding: 0 6px; line-height: 1.25; }
-  .arpstrip small { display: none; }
+  .arpstrip { line-height: 1.1; }
 }

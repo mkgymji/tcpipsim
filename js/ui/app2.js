@@ -7,6 +7,7 @@ import { renderStack, esc } from './render.js';
 import { topologyHtml, nestHtml, nestCaption, appsHtml, explainHtml2, summaryHtml, xrayHtml, presentTabs,
   XRAY_TABS, termLinesHtml, termTitle } from './render2.js';
 import { tipEvaluator, evalTip } from './tips.js';
+import { liftAnchor, laneEnd, mediumHtml, mediumDevice, placeLane, slideFloat } from './lift.js';
 import { frameFields } from '../wire/fields.js';
 import { execute, promptOf, dialectOf } from '../cli/shell.js';
 import { isHost } from '../devices/types.js';
@@ -29,7 +30,7 @@ export function createLevel2(host) {
     topo: document.querySelector('.topo'), stackS: $('stack-sender'), stackR: $('stack-receiver'),
     nest: $('nest'), cap: $('env-caption'), capR: $('env-reads'), explain: $('explain'), info: $('info'),
     sName: $('sender-name'), rName: $('receiver-name'), sRole: $('sender-role'), rRole: $('receiver-role'),
-    term: $('termwin'), apps: $('apps'),
+    term: $('termwin'), lane: $('lane'), medium: $('medium'),
   };
   document.querySelector('aside').classList.add('no-term');
   $('term').hidden = true;
@@ -120,10 +121,15 @@ export function createLevel2(host) {
     const cap = nestCaption(v, pair, { tip: Boolean(predictAt(cur())?.node) });
     els.cap.textContent = cap.left;
     els.capR.textContent = cap.right;
-    els.nest.innerHTML = nestHtml(v, model, { pair, sel: ui.xray.sel, animate, socket: v.step.socket, changed, arp: v.step.arpHint });
-    els.apps.innerHTML = appsHtml(v, pair.receiver);
-    els.apps.classList.toggle('has', Boolean(v.inbox[pair.receiver]));
-    if (!animate) els.nest.firstElementChild?.classList.add('anim-flash');
+    // „U“ (rozhodnutí 38): blok u aktivní vrstvy, bity v pruhu média, hub/switch jen do své vrstvy
+    const dev = mediumDevice(v);
+    const anchor = liftAnchor(v, pair);
+    const old = placeLane(els.lane, anchor, laneEnd(anchor, v.packet?.form, dev?.type));
+    const apps = v.inbox[pair.receiver] ? `<div class="apps-strip has">${appsHtml(v, pair.receiver)}</div>` : '';
+    els.nest.innerHTML = nestHtml(v, model, { pair, sel: ui.xray.sel, animate, socket: v.step.socket, changed, apps });
+    els.medium.innerHTML = mediumHtml(v, pair, { model, animate, dev });
+    slideFloat(els.lane, old, animate);
+    if (!animate) els.nest.firstElementChild?.firstElementChild?.classList.add('anim-flash');
     markSelected();
     if (ui.term.open) renderTerm();
   }

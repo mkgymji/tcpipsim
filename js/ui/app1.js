@@ -4,6 +4,7 @@ import scn from '../../scenarios/uroven1-zapouzdreni.js';
 import { buildLevel1 } from '../scenario/level1.js';
 import { convertRowId } from '../core/layers.js';
 import { renderStack, renderNest, renderTopology, renderExplain, infoHtml } from './render.js';
+import { liftAnchor, laneEnd, mediumHtml, placeLane, slideFloat } from './lift.js';
 
 const $ = (id) => document.getElementById(id);
 
@@ -11,7 +12,8 @@ export function createLevel1(host) {
   const { timeline, level } = buildLevel1(scn);
   const ui = { info: null, mapOpen: true };   // info: null | {layer} | {env} | 'wire'
   const els = {
-    sender: $('dev-sender'), receiver: $('dev-receiver'), wire: $('wire'), wireBits: $('wire-bits'),
+    sender: $('dev-sender'), receiver: $('dev-receiver'), wire: $('wire'), wireBits: $('wire-bits'), wireCap: $('wire-cap'),
+    lane: $('lane'), medium: $('medium'),
     stackS: $('stack-sender'), stackR: $('stack-receiver'), nest: $('nest'), cap: $('env-caption'),
     explain: $('explain'), info: $('info'),
   };
@@ -49,8 +51,14 @@ export function createLevel1(host) {
       const pass = (node) => (animate && view.focus?.node === node ? passedLayers(prev, view) : []);
       renderStack(els.stackS, view.nodes[view.sender], model, pass(view.sender));
       renderStack(els.stackR, view.nodes[view.receiver], model, pass(view.receiver));
+      // „U“ (rozhodnutí 38): blok u aktivní vrstvy, bity v pruhu média mezi řádky L1
+      const pair = { sender: view.sender, receiver: view.receiver };
+      const anchor = liftAnchor(view, pair);
+      const old = placeLane(els.lane, anchor, laneEnd(anchor, view.packet?.form));
       renderNest(els.nest, els.cap, view, model, scn, animate);
-      if (!animate) els.nest.firstElementChild?.classList.add('anim-flash');   // skok: jen zvýraznění
+      els.medium.innerHTML = mediumHtml(view, pair, { model, animate, capInfo: true });
+      slideFloat(els.lane, old, animate);
+      if (!animate) els.nest.firstElementChild?.firstElementChild?.classList.add('anim-flash');   // skok: jen zvýraznění
     },
     renderPanels(view, model, total) {
       renderExplain(els.explain, view, model, total);
@@ -65,9 +73,9 @@ export function createLevel1(host) {
     },
     // klik na vrstvu, obálku nebo kabel -> panel Detail
     onClick(e) {
-      const t = e.target.closest?.('[data-layer], [data-env], #wire');
+      const t = e.target.closest?.('[data-layer], [data-env], #wire, [data-wire]');
       if (!t) return;
-      if (t.id === 'wire') ui.info = 'wire';
+      if (t.id === 'wire' || t.dataset.wire !== undefined) ui.info = 'wire';
       else if (t.dataset.layer) ui.info = { layer: t.dataset.layer };
       else ui.info = { env: t.dataset.env };
       renderInfo(timeline.view(timeline.cursor));

@@ -2,7 +2,6 @@
 // nic si nepamatuje (VYVOJ.md kap. 6). Animace = CSS třídy na nově vzniklých prvcích.
 import { MODELS, osiLayer, rowOf } from '../core/layers.js';
 import { stepLabel, textFor } from '../core/timeline.js';
-import { bitString } from '../wire/encode.js';
 
 const SHAPES = {
   7: '<polygon class="s" points="10,3 30,3 38,20 30,37 10,37 2,20"/>',
@@ -90,18 +89,6 @@ function boxHtml(pdu, modelId, outerClass = '') {
     ${inner}${trail}</div>`;
 }
 
-function bitsHtml(bytes, caption, modelId) {
-  const bits = bitString(bytes, 24);
-  const cells = [];
-  for (let i = 0; i < bits.length; i += 8) {
-    cells.push(`<span class="byte">${[...bits.slice(i, i + 8)].map((b) => `<b>${b}</b>`).join('')}</span>`);
-  }
-  const name = rowLabel(modelId, 1);
-  return `<div class="bits" data-env="bits">${labButton('bits', name, 'bity', `Bity, ${name}: co to je`)}
-    <div class="bitrow" aria-label="prvních 24 bitů rámce: ${bits}">${cells.join('')}<span class="more">…</span></div>
-    <div class="cap">${esc(caption)}</div></div>`;
-}
-
 function nodeName(scn, id) {
   return scn.topology.nodes.find((n) => n.id === id)?.label ?? id;
 }
@@ -120,20 +107,22 @@ function caption(view, modelId, scn) {
   return `${who}: ${pdu === 'data' ? 'data' : `zpráva v obálkách, nyní ${pdu}`} (${modelId === 'osi' ? `L${outer}` : rowOf(modelId, outer).badge})`;
 }
 
-// Středový panel se zprávou.
+// Středový panel se zprávou: blok (`.float`) v oblasti, jejíž spodní hrana je u aktivní vrstvy
+// (rozhodnutí 38, ui/lift.js). Bity v něm nejsou: jedou v pruhu média dole, tady je jen poznámka.
 export function renderNest(el, capEl, view, modelId, scn, animate) {
   const p = view.packet;
   const kinds = animate ? view.changes.map((r) => r.kind) : [];
   capEl.textContent = caption(view, modelId, scn);
-  let html = '';
+  let html = '', extra = '';
   if (p.form === 'message') {
     html = `<div class="plain">${esc(p.text)}<small>text zprávy, zatím bez obálek</small></div>`;
   } else if (p.form === 'bits' || p.form === 'wire') {
     const ghost = p.form === 'bits' && kinds.includes('phy.tx')
       ? `<div class="ghost-frame anim-ghost" aria-hidden="true">${boxHtml(p.pdu, modelId)}</div>` : '';
-    const cap = p.form === 'wire' ? 'Obálky i zpráva jedou jako 0 a 1.' : 'Rámec přepsaný na bity (začátek).';
-    const cls = kinds.includes('phy.tx') ? 'anim-fade' : '';
-    html = `<div class="bitwrap ${cls}">${bitsHtml(p.bytes, cap, modelId)}</div>${ghost}`;
+    const note = p.form === 'wire'
+      ? 'Celý rámec, obálky i zpráva, jede jako 0 a 1.'
+      : 'Rámec přepsaný na bity jde dolů na médium.';
+    html = `${ghost}<p class="bitnote ${kinds.includes('phy.tx') ? 'anim-fade' : ''}">${note} <span aria-hidden="true">▼</span></p>`;
   } else {
     let cls = '';
     if (kinds.includes('encap')) cls = 'anim-grow';
@@ -141,19 +130,21 @@ export function renderNest(el, capEl, view, modelId, scn, animate) {
     html = boxHtml(p.pdu, modelId, cls);
     if (view.delivered !== null) {
       const same = view.delivered === view.message;
-      html += `<p class="same">${esc(nodeName(scn, view.sender))} poslala: <b>„${esc(view.message)}“</b> · ${esc(nodeName(scn, view.receiver))} dostal: <b>„${esc(view.delivered)}“</b>
-        · ${same ? 'zpráva je stejná' : 'zprávy se liší'}</p>`;
+      html += `<div class="hang"><p class="same">${esc(nodeName(scn, view.sender))} poslala: <b>„${esc(view.message)}“</b> · ${esc(nodeName(scn, view.receiver))} dostal: <b>„${esc(view.delivered)}“</b>
+        · ${same ? 'zpráva je stejná' : 'zprávy se liší'}</p></div>`;
     }
     if (view.removed) {
       const n = view.removed.layer;
       const what = view.removed.proto === 'ethernet' ? 'hlavičku i patičku' : 'hlavičku';
-      html += `<div class="removed ${animate ? 'anim-leave' : ''}" style="${cssVars(n)}">
+      extra = `<div class="removed ${animate ? 'anim-leave' : ''}" style="${cssVars(n)}">
         <b>${esc(rowLabel(modelId, n))}</b>: ${what} přečetla tato vrstva a odstranila.</div>`;
     }
   }
-  el.innerHTML = html;
+  el.innerHTML = `<div class="float">${html}</div>${extra}`;
 }
 
+// Topologie nahoře je mapa: bity se kreslí dole v pruhu média (L1), kabel se jen zvýrazní
+// stejně jako ten pruh a popisek odkáže dolů (rozhodnutí 38).
 export function renderTopology(els, view, scn, animate) {
   const dev = (el, id, role) => {
     const n = scn.topology.nodes.find((x) => x.id === id);
@@ -165,8 +156,8 @@ export function renderTopology(els, view, scn, animate) {
   dev(els.receiver, view.receiver, 'příjemce');
   const onWire = view.packet?.form === 'wire';
   els.wire.classList.toggle('act', onWire);
-  els.wireBits.innerHTML = onWire
-    ? `<span class="ribbon ${animate ? 'anim-travel' : ''}">${bitString(view.packet.bytes, 16)}…</span>` : '';
+  els.wireCap.textContent = onWire ? 'bity jedou po kabelu — viz L1 dole' : 'kabel';
+  els.wireBits.innerHTML = '';
 }
 
 export function stepTitle(step, modelId) {
@@ -227,8 +218,8 @@ export function envInfo(modelId, proto) {
 
 export function wireInfo(view) {
   return view.packet?.form === 'wire'
-    ? '<h3>Kabel</h3><p>Po kabelu jede celý rámec jako bity. Kabel nerozlišuje obálky ani zprávu.</p>'
-    : '<h3>Kabel</h3><p>Teď po kabelu nic nejede. Bity uvidíš v kroku 6.</p>';
+    ? '<h3>Kabel</h3><p>Po kabelu jede celý rámec jako bity. Kabel nerozlišuje obálky ani zprávu.</p><p class="who">Kabel je médium fyzické vrstvy (L1): proto bity jedou dole v pruhu „médium (kabel)“ mezi řádky L1.</p>'
+    : '<h3>Kabel</h3><p>Teď po kabelu nic nejede. Bity uvidíš v kroku 6 v pruhu „médium (kabel)“ dole, mezi řádky L1.</p>';
 }
 
 // Obsah panelu Detail (čistá funkce kvůli testům). `info` = null | {layer} | {env} | 'wire'.

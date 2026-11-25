@@ -63,7 +63,7 @@
         <span class="tag">TOPOLOGIE</span>
         <div class="dev" id="dev-sender"></div>
         <button type="button" class="wire" id="wire" aria-label="Kabel">
-          <span class="cap">kabel</span><span class="cable"></span><span class="wbits" id="wire-bits"></span>
+          <span class="cap" id="wire-cap">kabel</span><span class="cable"></span><span class="wbits" id="wire-bits"></span>
         </button>
         <div class="dev" id="dev-receiver"></div>
       </div>
@@ -75,8 +75,10 @@
         </div>
         <div class="env">
           <h2><span id="env-caption">Zpráva</span><small id="env-reads"></small></h2>
-          <div class="nest" id="nest"></div>
-          <div class="apps-strip" id="apps"></div>
+          <div class="lane" id="lane">
+            <div class="nest" id="nest"></div>
+            <div class="medium" id="medium"></div>
+          </div>
         </div>
         <div class="col recv">
           <h2><span id="receiver-name">Bob</span> <small id="receiver-role">příjemce, zdola nahoru</small></h2>

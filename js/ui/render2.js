@@ -7,6 +7,7 @@ import { isHost } from '../devices/types.js';
 import { frameFields, byteRegion } from '../wire/fields.js';
 import { bitString } from '../wire/encode.js';
 import { esc, badge, rowLabel } from './render.js';
+import { liftAnchor } from './lift.js';
 
 const cssVars = (n) => `--c:var(--L${n});--t:var(--L${n}t)`;
 
@@ -63,10 +64,14 @@ function pcCard(v, id, slot, ui) {
     ? `<span class="dropwhy"><span>cílová ${macShort(drop.dst)}</span><span>≠ moje ${macShort(drop.mac)}</span></span>`
     : `<span class="ip">${ipHtml(n.ip)}</span><span class="mac">${macHtml(n.mac)}</span>`;
   const sel = ui.selected === id;
+  // odkud linková vrstva vzala cílovou MAC (scénář krok 4, arpHint): ARP tabulka u odesílatele
+  const arpE = v.step?.arpHint && v.flow?.sender === id && !drop
+    ? v.nodes[id].arp_cache?.find((x) => x.ip === v.flow.dst) : null;
+  const arp = arpE ? `<span class="arpstrip" title="ARP tabulka: IP → MAC, které si počítač pamatuje"><b>ARP:</b> <span class="mono">${ipHtml(arpE.ip)} → ${macShort(arpE.mac)}</span></span>` : '';
   return `<div class="pc slot-${slot}${inPair ? ' pair' : ''}${sel ? ' sel' : ''}${v.focus?.node === id ? ' act' : ''}">
     <button type="button" class="pcbtn" data-node="${id}" aria-label="${esc(`${n.label}, IP ${n.ip}, MAC ${n.mac}${pill ? `, ${PILL[pill][0]}` : ''}. Klik: jeho pohled na zprávu a terminál`)}">
     <span class="pchead"><svg aria-hidden="true"><use href="#ico-pc"/></svg><span class="nm">${esc(n.label)}</span></span>
-    ${addr}</button>${p}
+    ${addr}${arp}</button>${p}
     ${sel ? `<button type="button" class="btn tiny-txt" data-term="${id}">Terminál <kbd>F2</kbd></button>` : ''}</div>`;
 }
 
@@ -170,7 +175,10 @@ export function topologyHtml(v, ui) {
     ? `<button type="button" class="btn small swap" id="btn-swap"${ui.canSwap ? '' : ' aria-disabled="true"'}>Vyměnit hub za switch</button>` : '';
   // při tipu se schová vše, co by prozradilo výsledek (rozhodnutí 31)
   const tip = Boolean(ui.predict && ui.predict.node === dev);
-  return `<span class="tag">TOPOLOGIE</span><span class="legend">dvojitý obrys = odesílatel a příjemce vybrané zprávy</span>${swap}
+  // rozhodnutí 38: topologie je mapa; zvýrazněný kabel = totéž co pruh média dole v řádku L1
+  const l1 = Object.keys(v.wires ?? {}).length
+    ? '<span class="l1note"><i class="lk" aria-hidden="true"></i>zvýrazněný kabel = bity dole v řádku L1</span>' : '';
+  return `<span class="tag">TOPOLOGIE</span><span class="legend">dvojitý obrys = odesílatel a příjemce vybrané zprávy</span>${swap}${l1}
     <div class="star">${parts.join('')}<div class="dslot">${deviceCard(v, dev, { ...ui, decision: dec, tip })}</div></div>`;
 }
 
@@ -201,7 +209,9 @@ function addrRow(pdu, v, sel) {
 // rozhodnutí 32: PDU transportní vrstvy u UDP je „UDP datagram“, ne segment
 const PDU_NAME = { ethernet: 'rámec', ipv4: 'paket', udp: 'UDP datagram' };
 
-function box2(pdu, model, v, sel, outerClass = '') {
+// `depth` > 0 = vnitřní obálka: buňky adres na jednom řádku bez popisků (rozhodnutí 38: blok se
+// musí vejít nad pruh média i na 720p; popisky má vždy vnější, právě přidaná nebo čtená obálka).
+function box2(pdu, model, v, sel, outerClass = '', depth = 0) {
   if (pdu.proto === 'data') {
     return `<div class="data d2 ${outerClass}" data-env="data"><button type="button" class="lab" data-env="data" data-tab="udp" data-field="udp.payload"
       aria-label="Data aplikace"><span>${model === 'osi' ? 'L7' : 'L5-7'} data</span><em>obsah zprávy</em></button>
@@ -210,10 +220,10 @@ function box2(pdu, model, v, sel, outerClass = '') {
   const n = pdu.layer;
   const name = rowLabel(model, n);
   const trail = pdu.proto === 'ethernet' ? '<span class="trail">konec rámce</span>' : '';
-  return `<div class="box b2 ${outerClass}" data-env="${pdu.proto}" style="${cssVars(n)}">
+  return `<div class="box b2${depth ? ' inner' : ''} ${outerClass}" data-env="${pdu.proto}" style="${cssVars(n)}">
     <button type="button" class="lab" data-env="${pdu.proto}" data-tab="${pdu.proto}" aria-label="${esc(`Obálka ${name}: rentgen`)}">
     <span>${esc(name)}</span><em>${PDU_NAME[pdu.proto]}</em></button>
-    <div class="addr">${addrRow(pdu, v, sel)}</div>${box2(pdu.payload, model, v, sel)}${trail}</div>`;
+    <div class="addr">${addrRow(pdu, v, sel)}</div>${box2(pdu.payload, model, v, sel, '', depth + 1)}${trail}</div>`;
 }
 
 // Nadpis výtahu; `tip` = krok tipu (u hubu se nepíše, že nic nečte: prozradilo by to výsledek).
@@ -232,48 +242,61 @@ export function nestCaption(v, pair, { tip = false } = {}) {
   return { left: `${what} ${s} → ${r}`, right };
 }
 
-/** Středový panel: obálky s adresami, socket, zahození. */
-export function nestHtml(v, model, { pair, sel, animate, socket, changed, arp } = {}) {
+// Rámec ve switchi (rozhodnutí 38): switch sahá jen do L2, proto je vidět jen obálka L2
+// s adresami (pole 1 a 2); obsah rámce zůstane zavřený.
+function frameAtDevice(pdu, model, v, sel, dev) {
+  const name = rowLabel(model, 2);
+  return `<div class="box b2 bdev" data-env="ethernet" style="${cssVars(2)}">
+    <button type="button" class="lab" data-env="ethernet" data-tab="ethernet" aria-label="${esc(`Obálka ${name}: rentgen`)}">
+    <span>${esc(name)}</span><em>rámec</em></button>
+    <div class="addr">${addrRow(pdu, v, sel)}</div>
+    <div class="stub">uvnitř paket (${esc(rowLabel(model, 3))}): ${esc(nodeLabel(v, dev))} ho neotevírá</div><span class="trail">konec rámce</span></div>`;
+}
+
+/** Středový panel: blok se spodní hranou u aktivní vrstvy (ui/lift.js), socket, zahození.
+ *  Bity jedou v pruhu média dole; tady je jen poznámka. `apps` = HTML aplikací příjemce. */
+export function nestHtml(v, model, { pair, sel, animate, socket, changed, apps = '' } = {}) {
   const p = v.packet;
   if (!p) {
     const f = v.flow;
-    return `<div class="plain">${esc(f?.text ?? 'Ahoj, Bobe!')}<small>zpráva u ${esc(nodeLabel(v, pair?.sender))}, zatím bez obálek</small></div>`;
+    return `<div class="float"><div class="plain">${esc(f?.text ?? 'Ahoj, Bobe!')}<small>zpráva u ${esc(nodeLabel(v, pair?.sender))}, zatím bez obálek</small></div>${apps ? `<div class="hang">${apps}</div>` : ''}</div>`;
   }
+  const anchor = liftAnchor(v, pair);
   let html;
   if (p.form === 'bits' || p.form === 'wire') {
-    const bits = bitString(p.bytes, 24);
-    html = `<div class="bits b2bits" data-env="bits"><button type="button" class="lab" data-env="bits" data-tab="ethernet"><span>${esc(rowLabel(model, 1))}</span><em>bity</em></button>
-      <div class="bitrow">${[0, 8, 16].map((i) => `<span class="byte">${[...bits.slice(i, i + 8)].map((b) => `<b>${b}</b>`).join('')}</span>`).join('')}<span class="more">…</span></div>
-      <div class="cap">${p.form === 'wire' ? 'Na drátě: celý rámec jako bity' : p.at && v.decision?.kind === 'repeat' ? 'Hub opakuje bity na ostatní porty'
-    : p.at ? `Bity dorazily do ${esc(nodeLabel(v, p.at))}` : 'Rámec přepsaný na bity (začátek)'}</div></div>`;
+    // blok je dole v pruhu média (jen schematicky); celý rámec bit po bitu ukáže rentgen
+    const note = p.form === 'wire' ? 'Po kabelu jede celý rámec jako bity' : p.at && v.decision?.kind === 'repeat' ? 'Hub opakuje bity na ostatní porty'
+      : p.at ? `Bity dorazily do ${esc(nodeLabel(v, p.at))}` : 'Rámec přepsaný na bity';
+    html = `<p class="bitnote">${note} <span aria-hidden="true">▼</span><small>celý rámec bajt po bajtu: rentgen vpravo</small></p>`;
+  } else if (anchor.at === 'device' && p.pdu?.proto === 'ethernet') {
+    html = frameAtDevice(p.pdu, model, v, sel, anchor.node);
   } else {
     const grow = animate && changed?.has('encap') ? 'anim-grow' : animate ? 'anim-fade' : '';
     html = box2(p.pdu, model, v, sel, grow);
   }
-  // pruh pod obálkou: odkud linková vrstva vzala cílovou MAC (scénář krok 4, arpHint)
-  if (arp && v.flow) {
-    const e = v.nodes[v.flow.sender]?.arp_cache?.find((x) => x.ip === v.flow.dst);
-    if (e) {
-      html += `<p class="arpstrip"><b>ARP tabulka ${esc(nodeLabel(v, v.flow.sender))}:</b> <span class="mono">${ipHtml(e.ip)} → ${macShort(e.mac)}</span>
-        <small>(IP → MAC, které si počítač pamatuje)</small></p>`;
-    }
-  }
+  // Doplňky pod blokem (socket, doručení, aplikace) visí pod ním (`.hang`) a neposouvají ho:
+  // spodní hrana obálky zůstane u aktivní vrstvy (rozhodnutí 38). Aplikace příjemce jen tehdy,
+  // když je blok nahoře (L4 a výš), jinak by visely přes pruh média. ARP tabulka je v topologii.
+  let hang = '';
+  const roomBelow = anchor.at === 'none' || anchor.layer >= 4;
   if (socket && v.flow) {
-    html += `<p class="socket">socket: <b>${esc(v.flow ? `${ipOf(v, v.flow.sender)}:${v.flow.sport}` : '')}</b> → <b>${esc(`${v.flow.dst}:${v.flow.dport}`)}</b></p>`;
+    hang += `<p class="socket">socket: <b>${esc(v.flow ? `${ipOf(v, v.flow.sender)}:${v.flow.sport}` : '')}</b> → <b>${esc(`${v.flow.dst}:${v.flow.dport}`)}</b></p>`;
   }
+  let extra = '';
   if (v.removed && pair && v.removed.node === pair.receiver) {
     const n = v.removed.layer;
     const what = v.removed.proto === 'ethernet' ? 'hlavičku i patičku' : 'hlavičku';
-    html += `<div class="removed ${animate ? 'anim-leave' : ''}" style="${cssVars(n)}"><b>${esc(rowLabel(model, n))}</b>: ${what} přečetla tato vrstva a odstranila.</div>`;
+    extra = `<div class="removed ${animate ? 'anim-leave' : ''}" style="${cssVars(n)}"><b>${esc(rowLabel(model, n))}</b>: ${what} přečetla tato vrstva a odstranila.</div>`;
   }
   if (v.dropped && pair?.receiver === v.dropped.node) {
     html = `<p class="dropmsg"><b>${esc(nodeLabel(v, v.dropped.node))}:</b> cílová MAC ${macHtml(v.dropped.dst)} není moje (${macHtml(v.dropped.mac)}). Síťová karta rámec zahodila.</p>${html}`;
   }
   if (v.delivered && pair?.receiver === v.delivered.node) {
     const app = v.nodes[v.delivered.node].apps.find((a) => a.name === v.delivered.app);
-    html += `<p class="same">${esc(nodeLabel(v, v.delivered.node))}: cílový port ${v.delivered.port} → aplikace <b>„${esc(app?.title ?? v.delivered.app)}“</b> dostala <b>„${esc(v.delivered.text)}“</b></p>`;
+    hang += `<p class="same">${esc(nodeLabel(v, v.delivered.node))}: cílový port ${v.delivered.port} → aplikace <b>„${esc(app?.title ?? v.delivered.app)}“</b> dostala <b>„${esc(v.delivered.text)}“</b></p>`;
   }
-  return html;
+  if (roomBelow) hang += apps;
+  return `<div class="float">${html}${hang ? `<div class="hang">${hang}</div>` : ''}</div>${extra}`;
 }
 
 const ipOf = (v, id) => v.nodes[id]?.ip ?? '';

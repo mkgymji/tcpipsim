@@ -2,7 +2,8 @@
 
 Stav: iterace 2. Úroveň 1 „Barvičky“ beze změny chování (adresy sjednocené podle rozhodnutí 25),
 úroveň 2 „Adresy“ funguje (kroky 0–17 podle `scenarios/uroven2-adresy.md`, hub a switch, MAC tabulka,
-rentgen, terminál Windows a Cisco IOS, předpověď). Autor: vývojář.
+rentgen, terminál Windows a Cisco IOS, předpověď). Přenos se v obou úrovních kreslí jako „U“
+(rozhodnutí 38, `ui/lift.js`, kap. 6). Autor: vývojář.
 Hotové: plánovač, Rng, PDU, trace, timeline (kroky + pohled), síťová simulace s více uzly
 (`core/netsim.js`: PC se zásobníkem Ethernet/IPv4/UDP, hub, switch), runner testovacích vektorů,
 kódování rámce do bajtů a pole pro rentgen, terminál nad pohledem (`cli/`), UI úrovní 1 a 2.
@@ -68,7 +69,9 @@ js/
                         (ipconfig, ipconfig /all, arp -a), ios.js (show mac address-table, zkratky, chyby IOS)
   scenario/             sestavení úrovně ze scénáře (level1.js, level2.js), později sdílení odkazem
   levels.js             profily úrovní 1–5 (protokoly, co UI ukazuje: xray, terminal)
-  ui/                   UI: render.js (úroveň 1 a společné: výtah, odznaky), render2.js (úroveň 2: hvězda
+  ui/                   UI: render.js (úroveň 1 a společné: výtah, odznaky), lift.js (přenos jako „U“,
+                        rozhodnutí 38: kotva bloku podle aktivní vrstvy, pruh média s bity, hub/switch v pruhu;
+                        čisté funkce + dvě malé DOM funkce pro polohu a posun), render2.js (úroveň 2: hvězda
                         s hubem/switchem, MAC tabulka, obálky s adresami, rentgen, vysvětlivka s předpovědí,
                         řádky terminálu; funkce vracejí HTML jako text, testují se v Node), tips.js (tip:
                         krok tipu <-> krok vyhodnocení, věta „Sedí / Nesedí: důvod“), app1.js a app2.js
@@ -405,6 +408,16 @@ texty kroků + otázky. Texty píše didaktik do `scenarios/*.md`, data jsou v `
   funkce `render(view)` nad stejným pohledem; žádný pohled si stav nedrží sám.
 - Animace jen interpoluje mezi pohledem k a k+1 (`docs/ui.md` kap. 4); přerušení animace
   nemění stav.
+- **Přenos jako „U“** (rozhodnutí 38, `ui/lift.js`): prostřední sloupec `#lane` je mřížka 7 stop
+  jako sloupec vrstev (stopa vrstvy n = 8 − n). `liftAnchor(view, pair)` řekne, kde zpráva je
+  (`sender`/`receiver`/`device`/`other`/`wire`/`none`) a u které vrstvy ISO/OSI; `laneEnd()` z toho
+  spočte `--lane-end` (blok `#nest` má `grid-row: 1 / end`, `.float` sedí dole přes `margin-top: auto`).
+  Bity se nekreslí v bloku, ale v `#medium` (`mediumHtml()`: pruh mezi řádky L1, u úrovně 2 věžička
+  hub L1 / switch L1–L2). Poloha se mění jen třídou/proměnnou; posun je `transform` (`slideFloat`),
+  jen při kroku vpřed, ne při kroku vzad, skoku a „Omezit animace“. Test: `tests/ui/lift.test.js`
+  (kotva a řádek pro kroky úrovně 1 a 2, tip nic neprozradí) a `tests/browser/interact.html`
+  (skutečná poloha bloku proti aktivnímu řádku při 1280×720). Snímky: `tmp/u38/all.sh`
+  (1400×900 a 1280×720, jen lokálně, `tmp/` se necommituje).
 - **Sekvenční diagram** = `link.tx` záznamy (osy = uzly, šipky = přenosy, čas = krok).
 - **Rentgen** = `wire/encode.js` nad PDU z vybraného záznamu (pole + hexdump; IP/ICMP/TCP
   checksumy se počítají skutečně podle RFC 1071, FCS se nepočítá, `model.md` kap. 8).

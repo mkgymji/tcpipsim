@@ -21,7 +21,7 @@ test('každý krok a model se vykreslí (topologie, obálky, vysvětlivka, rentg
     const v = timeline.view(k);
     for (const m of MODEL_IDS) {
       assert.ok(topologyHtml(v, ui(v)).includes('TOPOLOGIE'));
-      nestHtml(v, m, { pair: pair(v), arp: v.step.arpHint });
+      nestHtml(v, m, { pair: pair(v) });
       assert.match(explainHtml2(v, m, 18), /Krok \d+[abc]? z 18/);
     }
     for (const tab of presentTabs(v)) xrayHtml(v, { tab, sel: null, tabs: presentTabs(v) });
@@ -41,12 +41,14 @@ test('štítky obálek: zdroj/cíl (nikdy odesílatel/příjemce), poslední baj
   assert.doesNotMatch(h, /segment/);
 });
 
-test('krok 4: pruh ARP tabulky Alice pod obálkou (recenzent 2)', () => {
+test('krok 4: ARP tabulka Alice u Alice v topologii, ne pod obálkou (recenzent 2, rozhodnutí 38)', () => {
   const v = at('4');
   assert.equal(v.step.arpHint, true);
-  const h = nestHtml(v, 'osi', { pair: pair(v), arp: true });
-  assert.match(h, /class="arpstrip"><b>ARP tabulka Alice:<\/b>.*192\.168\.1\.<\/span><b>20<\/b> → <span class="dim">02:…:<\/span><b>02<\/b>/s);
-  assert.doesNotMatch(nestHtml(v, 'osi', { pair: pair(v) }), /arpstrip/);
+  const t = topologyHtml(v, ui(v));
+  assert.match(t, /class="arpstrip"[^>]*><b>ARP:<\/b> <span class="mono">.*192\.168\.1\.<\/span><b>20<\/b> → <span class="dim">02:…:<\/span><b>02<\/b>/s);
+  assert.equal((t.match(/arpstrip/g) ?? []).length, 1, 'jen u odesílatele');
+  assert.doesNotMatch(nestHtml(v, 'osi', { pair: pair(v) }), /arpstrip/, 'pod obálkou by překryl pruh média');
+  assert.doesNotMatch(topologyHtml(at('3'), ui(at('3'))), /arpstrip/);
 });
 
 test('topologie: MAC u každého PC, Cyril při zahození „cílová …:02 ≠ moje …:03“ (rozhodnutí 35), legenda (37)', () => {
