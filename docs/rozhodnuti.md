@@ -195,3 +195,26 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     „MAC cíle / IP cíle“), recenzenta R5 (Cyril a R1 viditelně ignorují ARP dotaz na .254), R7 (rentgen ICMP),
     R8 („další skok“), D6, D7, D9 (ARP nemá L3/L4 — řádky neaktivní bez štítku „bez portů“; ICMP: „jede přímo
     v IP paketu“), student 5 a 7 (tabulka tracert, terminál v kroku 1 nesmí ukázat budoucí odpovědi).
+
+## 2026-11-26 — připomínka Michala: kam se má divák dívat
+
+56. **Každý krok má jedno „ohnisko“ a panely se liší rolí.** Michal: „ne vždy je jasné, co a kde mám
+    jako divák sledovat“; student si krokuje fáze sám.
+    (a) **Role panelů rozliší barva záhlaví + ikona + slovo** (ne jen barva; neutrální odstíny, které se
+    nepletou s paletou vrstev L1–L7):
+    - Vysvětlivka „Krok“ — tmavé záhlaví (ink), ikona „i“.
+    - **Tip / otázka — výrazně žluté pozadí celé karty** (např. #FFE28A, tmavý text, kontrast AA), ikona „?“,
+      záhlaví „Ptám se tebe: …“. Na kroku tipu se karta jednou krátce zvětší/zatřese (bez animace
+      při „Omezit animace“) a tlačítko Vpřed říká „Potvrdit tip“.
+    - Rentgen — modrošedé záhlaví (ne L4 modrá), ikona lupy, „Rentgen: …“.
+    - Terminál — černé záhlaví (už je).
+    - Detail — světle šedé.
+    (b) **Ohnisko kroku:** scénář (nebo automatické pravidlo) určí, kam se dívat: `tip` | `rentgen` |
+    `topologie` | `vrstvy` (blok) | `terminal`. Panel ohniska dostane silný rámeček v barvě své role
+    a štítek „Sleduj tady“; ostatní panely se mírně ztlumí (opacity ~0.75, ne víc — musí být čitelné).
+    Výchozí pravidlo: krok tipu → tip; krok s vybraným polem rentgenu → rentgen; krok, kde se mění tabulka
+    (MAC, ARP, směrovací) → topologie; jinak vrstvy/blok.
+    (c) **Odkaz z textu:** vysvětlivka může mít čip „→ Rentgen: TTL“ / „→ MAC tabulka“, který po najetí
+    nebo kliknutí zvýrazní cíl.
+    Platí pro úrovně 1–3. Proč: menší kognitivní zátěž při samostatném krokování; tip je výzva
+    k akci a musí „křičet“, rentgen je místo, kam se jen občas odkazuje.
