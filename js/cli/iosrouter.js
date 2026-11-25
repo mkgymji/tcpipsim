@@ -124,7 +124,7 @@ export function routerExec(node, line, opts = {}) {
   if (w === 'enable') return { lines: [], mode: 'priv' };
   if (w === 'disable') return { lines: [], mode: 'user' };
   if (w === 'exit' || w === 'end' || w === 'logout') {
-    return mode === 'priv' && w !== 'end' ? { lines: [], mode: 'user', note: 'V simulátoru konzole zůstává otevřená, jen se vrátíš do režimu R1>.' }
+    return mode === 'priv' && w !== 'end' ? { lines: [], mode: 'user', note: 'Na skutečném routeru exit ukončí připojení; do R1> se vrátíš příkazem disable. Simulátor konzoli nechá otevřenou.' }
       : { lines: [], note: 'V simulátoru konzole zůstává otevřená; zavřeš ji tlačítkem Zavřít nebo Esc.' };
   }
   if (w === 'show ip route' || w === 'show ip route connected' || w === 'show ip route static') {
@@ -137,6 +137,7 @@ export function routerExec(node, line, opts = {}) {
     return { lines: showIpArp(node), note: 'Řádky se stářím „-“ jsou adresy rozhraní routeru samotného. MAC Cisco píše s tečkami.' };
   }
   if (w === 'show running-config' || w === 'show version') return { lines: [], note: 'Tento výpis přijde v úrovni 5.' };
+  if (w === 'show') return { lines: ['% Type "show ?" for a list of subcommands', ''] };
   if (w.startsWith('show')) return { lines: ['% Incomplete command.', ''] };
   if (w === 'traceroute') {
     return { lines: [], note: 'traceroute z routeru v této úrovni nejde, použij tracert na PC. (Cisco posílá UDP sondy, ne ICMP jako Windows; to přijde později.)' };
@@ -147,7 +148,9 @@ export function routerExec(node, line, opts = {}) {
     if (!/^\d{1,3}(\.\d{1,3}){3}$/.test(target)) return { lines: ['% Unrecognized host or address, or protocol not running.', ''] };
     const run = opts.sim?.('ping', { dst: target, count: 5 });
     if (!run) return { lines: [''] };
-    return { lines: iosPing(target, run), note: 'Skutečný Cisco router při čekání na ARP první paket zahodí (v Packet Traceru uvidíš „.!!!!“); simulátor ho drží ve frontě (rozhodnutí 9).' };
+    // poznámka o „.!!!!“ jen tehdy, když router opravdu čekal na ARP
+    const arped = run.records?.some((r) => r.kind === 'arp_queue' && r.node === node.id);
+    return { lines: iosPing(target, run), note: arped ? 'Skutečný Cisco router při čekání na ARP první paket zahodí (v Packet Traceru uvidíš „.!!!!“); simulátor ho drží ve frontě.' : undefined };
   }
   if (w.startsWith('configure')) return { lines: [], note: 'Konfigurace routeru přijde v úrovni 5. Teď si router jen prohlížíš (show).' };
   if (w === 'clear arp-cache') {

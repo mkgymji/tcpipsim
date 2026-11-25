@@ -159,3 +159,39 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     starý rámec (přerušovaný) se zahodí, nový rámec klesne. Karta „Rámec před a za R1“ ukazuje
     změněné MAC, stejné IP a TTL −1. Sítě v topologii jako neutrální podbarvené oblasti se štítkem
     adresy sítě (ne barvami vrstev).
+
+## 2026-11-25 — terminologie vrstev (Michal)
+
+49. **Popisy vrstev, PDU a „kdo se stará“ jsou podle Michalovy prezentace** („3. TCP/IP - L4“, snímky 2–6);
+    finální slovo má Michal, tým jen navrhuje. **Michal 2026-11-25 schválil tato znění** (L7 komunikace s aplikací;
+    L6 interpretace dat (kódování, šifrování, komprese); L5 řízení a koordinace relace (dialogu mezi aplikacemi);
+    L4 a) spolehlivé doručení dat (TCP; UDP ne): příjem se potvrzuje, ztracená data se pošlou znovu, velká data
+    rozdělí na části a u příjemce je složí ve správném pořadí; b) doručení dat správné aplikaci na cílovém uzlu
+    (podle portu): multiplex / demultiplex; L3 přeprava dat mezi uzly, které mohou ležet i mimo vlastní síť
+    (podle IP adresy); doručení lokální (cíl ve stejné síti, přímo) nebo vzdálené (přes router);
+    L2 přeprava dat mezi přímo spojenými uzly (ve stejné síti, i přes switch); L1 data, signály (převod bitů na signál)).
+    Rozhodnutí 18 se ruší: „kdo se stará“ o L1–L2 je **„firmware síťového rozhraní“**, u L1 v detailu
+    věta „L1 je z velké části hardware síťové karty“. PDU: ve sloupci vrstev obecně „segment“, v detailu
+    a rentgenu „UDP datagram (RFC 768), TCP segment“ (upřesnění rozh. 32). Do detailu Michalovy názvy
+    „linkový rámec“, „síťový paket (IP datagram)“, „transportní paket“.
+
+## 2026-11-25 — po kontrole úrovně 3 (tmp/review3/*.md)
+
+50. **Nadpis prostředního sloupce a „dvojice“ ukazují skutečnou zprávu**, ne dvojici scénáře:
+    „ARP dotaz · Alice → všem“, „ARP odpověď · R1 → Alice“, „Time Exceeded · R1 → Alice“, „Echo Reply · Bob → Alice“.
+51. **Tipy nesmí prozradit výsledek ani v okolí** (rozšíření 31): v části D nadpisy kroků před tipem neutrální
+    („Ping na Boba nefunguje“), žádný štítek „bez brány“, text bez diagnózy; tlačítko „Oprav bránu“ až po
+    vyhodnocení tipu. V tipu 16 pruh média neukazuje cestu (zobrazí všechna zařízení topologie nebo žádné).
+    Tip 13 nesmí obsahovat výsledek (TTL 127) v textu ani v čipu.
+52. **Rozh. 38 platí i v úrovni 3 bez výjimky:** u odesílatele a příjemce blok sedí u aktivní vrstvy; u routeru
+    stojí nad věží R1 tak, že věž (Gi0/0, Gi0/1, L1–L3) zůstane vidět; v kroku 12 jsou štítky „starý / nový rámec“.
+    Karta „Rámec před a za R1“ se vejde celá včetně věty „MAC se změnila, IP zůstala“ na 900 i 720 px.
+53. **Písmo:** min. 15 px mimo husté tabulky, v tabulkách topologie min. 14 px; čipy TTL, štítky věží,
+    „jiná/stejná“ 15 px. Topologii zjednodušit (MAC v uzlech celé, nebo jen poslední bajt tučně podle rozh. 35).
+54. **Přepínač A–D** má popisek „Části:“ a nápovědu; texty „Simulátor zjednodušuje“ a výzvy k terminálu
+    nesmí být pod ohybem — zkrátit texty kroků, ne zmenšit písmo.
+55. Opravit nálezy projektanta P1–P5 (ping na vlastní adresu / 127.0.0.1 se doručí uvnitř, RFC 1122; krok 24
+    „Alice se ARPem ptá na .254, paket míří na Boba“; krok 15 Cyril; krok 10 `Request timed out.`; ARP pole
+    „MAC cíle / IP cíle“), recenzenta R5 (Cyril a R1 viditelně ignorují ARP dotaz na .254), R7 (rentgen ICMP),
+    R8 („další skok“), D6, D7, D9 (ARP nemá L3/L4 — řádky neaktivní bez štítku „bez portů“; ICMP: „jede přímo
+    v IP paketu“), student 5 a 7 (tabulka tracert, terminál v kroku 1 nesmí ukázat budoucí odpovědi).

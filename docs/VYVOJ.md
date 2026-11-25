@@ -576,13 +576,19 @@ rentgenu skrytý (aspoň 3 pole viditelná), vysvětlivka do 40 % výšky se sv�
 
 **UI úrovně 3 (jak ladit):** `index.html#u=3&k=12`. Adaptér `ui/app3.js`, kreslení `ui/render3.js`
 (topologie dvou sítí s podbarvenými oblastmi, R1 jako karta přes hranici sítí se směrovací a ARP tabulkou;
-pruh média s věžemi zařízení na cestě dvojice: switch do L2, router do L3, rozhodnutí 48; blok končí nad
-nejvyšší věží, aby zůstala vidět; v routeru kompaktní paket s TTL `128 → 127`; vlevo od věže „starý rámec
-zahozen“, vpravo „nový rámec“). Pravý panel: karta podle `step.panel` (`mask`, `compare` = Rámec před
+pruh média s věžemi zařízení na cestě dvojice: switch do L2, router do L3 s nohami Gi0/0 a Gi0/1, rozhodnutí 48;
+blok sedí u aktivní vrstvy (rozhodnutí 52), v routeru nad věží kompaktní paket s TTL `128 → 127` nebo rámec;
+vlevo od věže „starý rámec zahozen“, vpravo „nový rámec“). Nadpis sloupce a popisek pod posuvníkem = skutečná
+zpráva (`currentMessage`, rozhodnutí 50). Tipy nic neprozradí ani v okolí (rozhodnutí 51: `hideGw`, `allDevices`,
+TTL na kabelu se v kroku tipu nekreslí; testy v `tests/ui/render3.test.js`). Pravý panel: karta podle `step.panel` (`mask`, `compare` = Rámec před
 a za R1, `tables`, `probes`) a pod ní rentgen (`wire/fields.js` `pduFields`: Ethernet, ARP, IPv4, ICMP
 včetně vložené hlavičky). Tipy úrovně 3 mají volby a správnou odpověď ve scénáři (`predict.answer`,
 `multi`); test ověřuje odpověď proti záznamu. Skok na začátek části A–D (`part3` ve scénáři) tlačítky
-v hlavičce vysvětlivky; krok s `fix` má tlačítko „Oprav bránu“ (a Vpřed se tak jmenuje). Terminál:
+v hlavičce vysvětlivky (popisek „Části:“); krok s `fix` (vyhodnocení tipu 22b, 24b) má tlačítko „Oprav bránu“ (a Vpřed se tak jmenuje).
+Ping na vlastní adresu a 127/8 se doručí uvnitř zásobníku (`ip_local`, RFC 1122). Příkaz, který scénář spustí
+až v pozdějším kroku, terminál nespustí (napíše, ve kterém kroku poběží).
+Texty vrstev (`core/layers.js`) jsou podle rozhodnutí 49: role podle Michalovy prezentace, „firmware síťového
+rozhraní“ (v řádku „firmware síť. rozhraní“), `detail` s Michalovými názvy PDU; ve sloupci vrstev L4 obecně „segment“. Terminál:
 `ping`/`tracert`, které ve scénáři v tomto kroku běží nebo začaly, se vypisují „živě“ (řádky přibývají
 krokováním); jiné se spustí jako samostatná simulace ze stavu kroku (`level3.whatIf`), `arp -d`
 a `clear arp-cache` mění jen pískoviště terminálu v daném kroku. Konzole routeru začíná v `R1>`.

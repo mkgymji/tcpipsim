@@ -45,7 +45,7 @@ function rowStatus(layers, members) {
 // Sloupec vrstev uzlu. Mřížka má vždy 7 stop (L7 nahoře); sloučené vrstvy TCP/IP zaberou víc stop.
 // `pass` = vrstvy ISO/OSI, kterými zpráva v tomto kroku jen prošla (L7 -> L6 -> L5): krátce
 // se postupně zvýrazní (ui.md kap. 3). V TCP/IP jsou uvnitř jednoho řádku, tam se nekreslí.
-// `pdu4` = jiný název PDU transportní vrstvy (úroveň 2: „segment / datagram“, rozhodnutí 32).
+// `pdu4` = jiný název PDU transportní vrstvy (od rozhodnutí 49 se nepoužívá: ve sloupci obecně „segment“).
 export function renderStack(el, nodeView, modelId, pass = [], { pdu4 = null } = {}) {
   const rows = MODELS[modelId].rows.map((r) => (pdu4 && r.members.length === 1 && r.members[0] === 4 ? { ...r, pdu: pdu4 } : r));
   el.innerHTML = rows.map((r) => {
@@ -195,7 +195,7 @@ export function layerInfo(modelId, layerId) {
   const title = r.name.startsWith('Vrstva') ? r.name.toLowerCase() : `${r.name.toLowerCase()} vrstva`;
   return `<h3>Co dělá ${esc(r.badge)}, ${esc(title)}</h3>
     <p>${esc(r.role)}</p><p class="who">Kdo se stará: <b>${esc(r.who)}</b></p>
-    <p class="who">Jak se tu jmenují data: <b>${esc(r.pdu)}</b></p>${members}`;
+    <p class="who">Jak se tu jmenují data: <b>${esc(r.pdu)}</b></p>${r.detail ? `<p class="who">${esc(r.detail)}</p>` : ''}${members}`;
 }
 
 // Panel Detail: co je obálka (nebo data, bity). Název vrstvy podle režimu přepínače.

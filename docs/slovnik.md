@@ -19,7 +19,7 @@ Když český překlad nikdo neříká, je to napsáno. V simulátoru se použí
 | payload | užitečná data, náklad | payload, „data“, „obsah“ | data (obsah) | Česky „užitečný náklad“ nikdo neříká; uvnitř vrstvy je to „data“ vyšší vrstvy. Wireshark i CCNA říkají „payload“/„data“. | schváleno |
 | frame | rámec | rámec (škola) | rámec | PDU linkové vrstvy (L2). | ne |
 | packet | paket | paket, „packet“ | paket | PDU síťové vrstvy (L3). V CCNA se „packet“ používá i volně pro cokoli. | ne |
-| segment | segment | segment | segment | PDU transportní vrstvy u TCP. CCNA (ITN) používá „segment“ i jako obecný název PDU L4, proto je na úrovni 1 (bez konkrétního protokolu) správně. | ne |
+| segment | segment | segment | segment | PDU transportní vrstvy u TCP. CCNA (ITN) používá „segment“ i jako obecný název PDU L4, proto je ve sloupci vrstev všech úrovní obecně „segment“ (rozhodnutí 49); v detailu a rentgenu „UDP datagram (RFC 768), TCP segment“, Michalův název „transportní paket“. | upraveno (rozh. 49) |
 | datagram | datagram | datagram, „UDP datagram“ | datagram (u UDP); na L3 „paket“, v rentgenu podtitul „IP datagram“ | RFC 768 „User Datagram“, RFC 791 „Internet datagram“. Samotné „datagram“ je dvojznačné, proto na L3 vždy „paket“ (shoda s `docs/spec/model.md` kap. 1). | schváleno; upraveno: doplněno použití na L3 |
 | bit | bit | bit, „bity na drátě“ | bity | PDU fyzické vrstvy. Signál na drátě je jejich fyzikální podoba. | ne |
 | MAC address | MAC adresa, fyzická adresa | MAC adresa, „mac“, ve Windows „fyzická adresa“ | MAC adresa | `ipconfig /all` ve Windows česky zobrazuje „Fyzická adresa“, anglicky „Physical Address“. | ne |
@@ -122,3 +122,12 @@ Nově navrhuji:
 - Jazyk výstupů terminálu (Windows česky/anglicky): podle `docs/rozhodnuti.md` bod 10 se rozhodne
   v iteraci 2, předběžně anglicky s českou poznámkou simulátoru. České popisky Windows („Fyzická
   adresa“, „Maska podsítě“, „Výchozí brána“) uvádět ve slovníku jako ekvivalent.
+
+## Doplnění po rozhodnutí 49 (schválil Michal 2026-11-25)
+
+- **„Kdo se stará“ o L1 a L2:** „firmware síťového rozhraní“ (jako Michalova prezentace); rozhodnutí 18
+  („síťová karta (hardware a firmware)“) je zrušené. V řádku vrstvy zkráceně „firmware síť. rozhraní“,
+  u L1 v detailu věta „L1 je z velké části hardware síťové karty“.
+- **Názvy PDU v detailu (Michal):** „linkový rámec“ (L2), „síťový paket (IP datagram)“ (L3), „transportní paket“
+  (L4; UDP datagram podle RFC 768, TCP segment). Ve sloupci vrstev zůstávají krátké tvary rámec, paket, segment.
+

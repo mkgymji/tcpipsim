@@ -467,7 +467,7 @@ export function xrayHtml(v, xs) {
     : '<p class="fexp muted">Klikni na pole v tabulce, na bajty nebo na buňku adresy v obálce (číslo pole na klávesnici, 12 = 1 a 2 rychle po sobě; Esc zruší výběr).</p>';
   let ctx = '';
   if (tab === 'udp') {
-    ctx += '<p class="xnote">Obálka transportní vrstvy se u UDP jmenuje datagram (UDP datagram), u TCP segment.</p>';
+    ctx += '<p class="xnote">Obálka transportní vrstvy (transportní paket) se u UDP jmenuje UDP datagram (RFC 768), u TCP segment.</p>';
   }
   if (tab === 'ethernet') {
     ctx += '<p class="xnote">V rámci je cílová MAC před zdrojovou. Na štítku obálky je pořadí odkud → kam, aby se dobře četlo.</p>';

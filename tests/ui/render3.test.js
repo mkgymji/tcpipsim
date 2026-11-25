@@ -6,7 +6,7 @@ import scenario from '../../scenarios/uroven3-smerovani.js';
 import { buildLevel3 } from '../../js/scenario/level3.js';
 import { stepIndex } from '../../js/core/timeline.js';
 import { topologyHtml3, nestHtml3, mediumHtml3, explainHtml3, xrayHtml3, compareCard, tablesCard, probesCard, maskCard,
-  laneEnd3, liftAnchor3, mediumDevices3, pathOf } from '../../js/ui/render3.js';
+  laneEnd3, liftAnchor3, mediumDevices3, pathOf, nestCaption3 } from '../../js/ui/render3.js';
 import { tipEvaluator, evalTip } from '../../js/ui/tips.js';
 
 const { timeline } = buildLevel3(scenario);
@@ -57,6 +57,32 @@ test('vyhodnocení tipů: věta Tvůj tip / Skutečnost / Sedí | Nesedí s dův
   assert.equal(ev.evaluatorOf(k22), stepIndex(timeline.steps, '22b'));
 });
 
+test('rozhodnutí 51: část D před tipem bez diagnózy, Oprav bránu až po vyhodnocení; tip 13 bez 127; tip 16 bez cesty', () => {
+  const steps = timeline.steps;
+  for (const l of ['21', '22a', '23', '24a']) {
+    const v = at(l);
+    const s = v.step;
+    const html = topologyHtml3(v, { pair: pairOf(v), hideGw: s.hideGw }) + nestHtml3(v, 'osi', { pair: pairOf(v) })
+      + explainHtml3(v, 'osi', 25, { predict: s.predict, tips: new Set() }).replace(/<div class="predict"[\s\S]*?<\/div>/, '');
+    assert.doesNotMatch(`${s.title} ${s.text} ${s.note ?? ''}`, /brán|gateway/i, `krok ${l}: text`);
+    assert.doesNotMatch(html.replace(/<details>[\s\S]*?<\/details>/g, ''), /bez brány|brána 192\.168\.1\.254|data-fix|Žádná cesta/i, `krok ${l}: HTML`);
+  }
+  assert.ok(steps[stepIndex(steps, '22b')].fix && steps[stepIndex(steps, '24b')].fix);
+  const v13 = at('13');
+  const h13 = topologyHtml3(v13, { pair: pairOf(v13), tip: true }) + nestHtml3(v13, 'osi', { pair: pairOf(v13), tip: true })
+    + mediumHtml3(v13, pairOf(v13)) + xrayHtml3(v13, { tab: 'ipv4' }) + v13.step.text;
+  assert.doesNotMatch(h13, /TTL 127|TTL=127|>127</, 'tip 13 bez výsledku');
+  const v16 = at('16');
+  assert.deepEqual(mediumDevices3(v16, pairOf(v16)), ['SW1', 'R1'], 'tip 16: všechna zařízení, ne cesta');
+});
+
+test('rozhodnutí 50: nadpis a popisek podle skutečné zprávy', () => {
+  assert.match(nestCaption3(at('5')).left, /^ARP dotaz · Alice → všem/);
+  assert.match(nestCaption3(at('7')).left, /^ARP odpověď · R1 → Alice/);
+  assert.match(nestCaption3(at('19')).left, /^Time Exceeded · R1 → Alice/);
+  assert.match(nestCaption3(at('14')).left, /^Echo Reply · Bob → Alice/);
+});
+
 test('pruh média: Alice -> Bob má věže SW1 (L2) a R1 (L3), Alice -> Cyril jen SW1; blok v routeru sedí na věži', () => {
   const v = at('9');
   assert.deepEqual(pathOf(v, 'PC1', 'PC2'), ['PC1', 'SW1', 'R1', 'PC2']);
@@ -76,7 +102,8 @@ test('ICMP bez L4 (rozhodnutí 47): řádek L4 přeskočený, v obálce pruh „
   const v = at('3');
   assert.equal(v.nodes.PC1.layers[4], 'skip');
   assert.match(nestHtml3(v, 'osi', { pair: pairOf(v) }), /ICMP nemá porty/);
-  assert.match(xrayHtml3(at('5'), { tab: 'arp' }), /Hledaná IP[\s\S]*192\.168\.1\.1/);
+  assert.match(xrayHtml3(at('5'), { tab: 'arp' }), /IP cíle[\s\S]*192\.168\.1\.1 \(k ní se hledá MAC\)/);
+  assert.doesNotMatch(xrayHtml3(at('19'), { tab: 'icmp' }), /class="[^"]*\bnoport\b/, 'R7: bez kolize třídy');
   assert.match(xrayHtml3(at('19'), { tab: 'icmp' }), /11 = Time Exceeded/);
   assert.match(xrayHtml3(at('19'), { tab: 'icmp' }), /Původní paket/);
 });

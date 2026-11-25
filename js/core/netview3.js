@@ -12,7 +12,7 @@ export function netViewAt3(records, upto, from = 0) {
     nodes: {}, links: {}, order: [], flow: null, packet: null, focus: null, removed: null,
     delivered: null, dropped: null, ended: false, decision: null, route: null, portState: {},
     newEntries: {}, wires: {}, pills: {}, mark: null, frame: null, pkt: null, hop: null,
-    arpWait: null, arpFail: null, apps: {}, config: null, ignored: [], dropsInStep: [], routeOf: {},
+    arpWait: null, arpFail: null, apps: {}, config: null, ignored: [], dropsInStep: [], routeOf: {}, probe: null,
   };
   const mark = (node, key, op) => { (v.newEntries[node] ??= {})[key] = op; };
   for (let i = 0; i <= upto && i < records.length; i++) {
@@ -84,6 +84,8 @@ export function netViewAt3(records, upto, from = 0) {
         break;
       case 'arp_request':
       case 'arp_reply':
+        // ARP jede přímo v rámci: L3 a výš nejsou aktivní ani „bez portů“ (D9)
+        if (nv.layers) { for (const L of [3, 4, 5, 6, 7]) nv.layers[L] = 'wait'; nv.pos = 2; }
         move(nv, 2);
         v.focus = { node: r.node, layer: 2 };
         if (cur) v.pills[r.node] = r.kind === 'arp_request' ? 'arpq' : 'arpr';
@@ -154,6 +156,11 @@ export function netViewAt3(records, upto, from = 0) {
       case 'arp_flush':
         v.arpWait = null;
         v.focus = { node: r.node, layer: 3 };
+        if (isHost(nv.type)) {
+          for (const L of [5, 6, 7]) nv.layers[L] = 'done';
+          nv.layers[4] = r.pdu?.payload?.proto === 'icmp' ? 'skip' : 'done';
+          nv.layers[3] = 'active'; nv.layers[2] = 'wait'; nv.layers[1] = 'wait'; nv.pos = 3;
+        }
         if (r.pdu) v.packet = { form: 'pdu', pdu: r.pdu, at: r.node };
         break;
       case 'arp_fail':

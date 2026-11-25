@@ -38,14 +38,14 @@ function pcCard(v, id, ui) {
   const pill = v.pills[id];
   const inPair = ui.pair && (ui.pair.sender === id || ui.pair.receiver === id);
   const gwChanged = v.newEntries[id]?.gateway;
-  const gw = n.gateway ? `brána ${ipHtml(n.gateway)}` : '<b class="nogw">bez brány</b>';
+  const gw = ui.hideGw && id === 'PC1' ? '' : n.gateway ? `brána ${ipHtml(n.gateway)}` : '<b class="nogw">bez brány</b>';
   const arp = n.arp_cache.length
     ? `<span class="arp3" title="${esc(`ARP tabulka: ${n.arp_cache.map((e) => `${e.ip} → ${e.mac}`).join(', ')}`)}">${n.arp_cache.map((e, i) => `<span class="${v.newEntries[id]?.[e.ip] ? 'new' : ''}">${i ? '' : '<b class="al">ARP</b>'}<span class="dim">…</span>${esc(e.ip.split('.').slice(2).join('.'))} → <span class="dim">…</span>${esc(macTail(e.mac))}</span>`).join('')}</span>`
     : '<span class="arp3 empty">ARP: prázdná</span>';
   return `<div class="pc3 a-${id}${inPair ? ' pair' : ''}${ui.selected === id ? ' sel' : ''}${v.focus?.node === id ? ' act' : ''}">
-    <button type="button" class="pcbtn" data-node="${id}" aria-label="${esc(`${n.label}, IP ${n.ip}/${n.prefix}, brána ${n.gateway ?? 'žádná'}, MAC ${n.mac}. Klik: terminál`)}">
+    <button type="button" class="pcbtn" data-node="${id}" aria-label="${esc(`${n.label}, IP ${n.ip}/${n.prefix}${gw ? `, brána ${n.gateway ?? 'žádná'}` : ''}, MAC ${n.mac}. Klik: terminál`)}">
     <span class="pchead"><svg aria-hidden="true"><use href="#ico-pc"/></svg><span class="nm">${esc(n.label)}</span></span>
-    <span class="ip">${ipHtml(n.ip)}</span><span class="mac">${macHtml(n.mac)}</span><span class="gw${gwChanged ? ' new' : ''}">${gw}</span>${arp}</button>
+    <span class="ip">${ipHtml(n.ip)}</span><span class="mac">MAC <span class="dim">…:</span><b>${esc(n.mac.split(':').at(-1))}</b></span>${gw ? `<span class="gw${gwChanged ? ' new' : ''}">${gw}</span>` : ''}${arp}</button>
     ${pill ? `<span class="pill ${pill}">${PILL[pill]}</span>` : ''}
     ${ui.selected === id ? `<button type="button" class="btn tiny-txt" data-term="${id}">Terminál <kbd>F2</kbd></button>` : ''}</div>`;
 }
@@ -87,6 +87,7 @@ function routerCard(v, id, ui) {
   const fresh = v.newEntries[id] ?? {};
   const arp = n.arp_cache.map((e) => `<tr class="${fresh[e.ip] ? 'new' : ''}"><td class="mono">${ipHtml(e.ip)}</td><td class="mono">${macShort(e.mac)}</td><td>${esc(e.if)}</td></tr>`).join('');
   return `<div class="r3${v.focus?.node === id ? ' act' : ''}${ui.selected === id ? ' sel' : ''}">
+    ${v.ignored.includes(id) ? '<span class="pill arpign r3pill">ARP: není pro mě</span>' : ''}
     <div class="r3h">${ifc(n.interfaces[0])}<button type="button" class="devhead r3b" data-node="${id}" aria-label="${esc(`${n.label}, router (L3). Klik: konzole`)}">
       <svg aria-hidden="true"><use href="#ico-router"/></svg><b>${esc(n.label)}</b></button>${ifc(n.interfaces[1])}</div>
     ${routeTableHtml(n.routing_table, { pick: r ? { dst: r.dst, prefix: r.route.prefix } : null, title: `Směrovací tabulka ${esc(n.label)}`, compact: true })}
@@ -96,14 +97,14 @@ function routerCard(v, id, ui) {
 
 const bitsOnL1 = (v) => Boolean(v.packet && (v.packet.form === 'bits' || v.packet.form === 'wire') && v.packet.bytes);
 
-function wire3(v, link, area, leftNode) {
+function wire3(v, link, area, leftNode, tip = false) {
   const w = v.wires[link];
   let tag = '';
   if (w) {
     const toRight = w.from === leftNode;
     const p = w.pdu.payload;
     const what = p?.proto === 'arp' ? 'ARP' : 'rámec';
-    const ttl = p?.proto === 'ipv4' ? `<span class="ttl3">TTL ${p.h.ttl}</span>` : '';
+    const ttl = p?.proto === 'ipv4' && !tip ? `<span class="ttl3">TTL ${p.h.ttl}</span>` : '';   // tip 13: TTL nic neprozradí
     tag = `<span class="ftag3 ${toRight ? 'r' : 'l'}${p?.proto === 'arp' ? ' arp' : ''}">${toRight ? '' : '◀ '}${what}${toRight ? ' ▶' : ''}</span>${ttl}`;
   }
   return `<div class="w3 ${area}${w && bitsOnL1(v) ? ' on' : ''}" data-link="${link}"><span class="cable"></span>${tag}</div>`;
@@ -116,9 +117,9 @@ export function topologyHtml3(v, ui) {
     ? '<span class="l1note"><i class="lk" aria-hidden="true"></i>zvýrazněný kabel = pruh „médium“ dole (L1)</span>' : '';
   return `<div class="t3">${net('n1', '192.168.1.0/24', '.1')}${net('n2', '192.168.2.0/24', '.1')}
     ${pcCard(v, 'PC1', ui)}${pcCard(v, 'PC3', ui)}
-    ${wire3(v, 'L1', 'wa', 'PC1')}${wire3(v, 'L2', 'wc', 'PC3')}
-    <div class="swslot">${switchCard(v, 'SW1', ui)}</div>${wire3(v, 'L3', 'ws', 'SW1')}
-    <div class="rslot">${routerCard(v, 'R1', ui)}</div>${wire3(v, 'L4', 'wb', 'R1')}
+    ${wire3(v, 'L1', 'wa', 'PC1', ui.tip)}${wire3(v, 'L2', 'wc', 'PC3', ui.tip)}
+    <div class="swslot">${switchCard(v, 'SW1', ui)}</div>${wire3(v, 'L3', 'ws', 'SW1', ui.tip)}
+    <div class="rslot">${routerCard(v, 'R1', ui)}</div>${wire3(v, 'L4', 'wb', 'R1', ui.tip)}
     ${pcCard(v, 'PC2', ui)}</div>
     <span class="legend">dvojitý obrys = odesílatel a příjemce zprávy</span>${l1}`;
 }
@@ -157,6 +158,7 @@ export function pathOf(v, a, b) {
 }
 
 export function mediumDevices3(v, pair) {
+  if (v.step?.allDevices) return v.order.filter((id) => DEV.has(v.nodes[id].type));   // tip 16 (rozhodnutí 51)
   return pathOf(v, pair.sender, pair.receiver).filter((id) => DEV.has(v.nodes[id]?.type));
 }
 
@@ -165,9 +167,10 @@ export function laneEnd3(anchor, form, devs) {
   const bits = form === 'bits' || form === 'wire';
   const hasR = devs.includes('router'), hasDev = devs.length > 0;
   if (bits) return hasR ? 5 : hasDev ? 6 : 7;
-  if (anchor.at === 'device') return anchor.type === 'router' ? 5 : 6;   // anchor.type doplní volající
-  // věže zařízení v pruhu musí zůstat vidět (rozhodnutí 48): blok končí nad nejvyšší věží
-  return Math.min(hasR ? 5 : hasDev ? 6 : 7, 9 - Math.max(2, anchor.layer));
+  // rámec ve switchi stojí nad věží switche, a je-li na cestě router, i nad věží routeru (zůstane vidět L3)
+  if (anchor.at === 'device') return anchor.type === 'router' || hasR ? 5 : 6;   // anchor.type doplní volající
+  // rozhodnutí 52: u odesílatele a příjemce spodní hrana u aktivní vrstvy (jako rozh. 38)
+  return Math.min(7, 9 - Math.max(2, anchor.layer));
 }
 
 // Úsek kabelu, kde jsou bity: úsek i vede mezi path[i] a path[i+1]. Kabel mimo cestu dvojice
@@ -188,8 +191,8 @@ function segOf(path, anchor) {
 
 /** Pruh média s věžemi zařízení na cestě (HTML). */
 export function mediumHtml3(v, pair, { model = 'osi', animate = false } = {}) {
-  const path = pathOf(v, pair.sender, pair.receiver);
-  const devs = path.slice(1, -1);
+  const devs = mediumDevices3(v, pair);
+  const path = [pair.sender, ...devs, pair.receiver];
   const anchor = liftAnchor3(v, pair);
   const p = v.packet;
   const bits = p && (p.form === 'bits' || p.form === 'wire') && p.bytes;
@@ -217,7 +220,7 @@ export function mediumHtml3(v, pair, { model = 'osi', animate = false } = {}) {
     const names = { 3: 'Síťová', 2: 'Linková', 1: 'Fyzická' };
     let t = '';
     for (let L = top; L >= 1; L--) t += `<span class="tcell${act === L ? ' active' : ''}" style="${cssVars(L)}"><b>L${L}</b> ${names[L]}</span>`;
-    const arrows = n.type === 'router' ? '<i class="up" aria-hidden="true">▲</i><i class="down" aria-hidden="true">▼</i>' : '';
+    const arrows = n.type === 'router' ? `<i class="up" aria-hidden="true">▲</i><i class="down" aria-hidden="true">▼</i><span class="leg l">${esc(n.interfaces[0].name)}</span><span class="leg r">${esc(n.interfaces[1].name)}</span>` : '';
     // rozhodnutí 48: věž routeru sahá do L3 (L4–L7 router pro tranzitní paket nečte)
     cells.push(`<div class="tower3 ${n.type}${act ? ' act' : ''}" style="grid-column:${2 * k + 2}" aria-label="${esc(`${n.label}: vrstvy L1 až L${top}`)}"><span class="tname">${esc(n.label)}</span>${t}${arrows}</div>`);
   });
@@ -243,7 +246,7 @@ const ICMP_NAME = { 0: 'Echo Reply (typ 0)', 8: 'Echo Request (typ 8)', 11: 'Tim
 function icmpBlock(pdu, compact = false) {
   const h = pdu.h;
   if (compact) return `<button type="button" class="icmpb" data-field="icmp.type" data-tab="icmp"><b>ICMP ${esc(ICMP_NAME[h.type] ?? h.type)}</b></button>`;
-  const extra = h.orig ? `uvnitř kopie hlavičky původního paketu ${h.orig.h.src} → ${h.orig.h.dst}` : `přímo uvnitř IP paketu, pořadí ${h.seq}`;
+  const extra = h.orig ? `uvnitř kopie hlavičky původního paketu ${h.orig.h.src} → ${h.orig.h.dst}` : 'jede přímo v IP paketu (protokol 1)';
   return `<button type="button" class="icmpb" data-field="icmp.type" data-tab="icmp"><b>ICMP ${esc(ICMP_NAME[h.type] ?? h.type)}</b><small>${esc(extra)}</small></button>`;
 }
 
@@ -277,17 +280,36 @@ function box3(pdu, model, v, sel, depth = 0, extra = '', compact = false) {
     <div class="addr">${addr}</div>${chips}${inner}${trail}</div>`;
 }
 
-/** Nadpis prostředního sloupce. */
-export function nestCaption3(v, pair) {
+const MSG_NAME = { 0: 'Echo Reply', 8: 'Echo Request', 11: 'Time Exceeded', 3: 'Destination Unreachable' };
+
+/** Skutečná zpráva v aktuálním místě (rozhodnutí 50): { name, from, to } podle hlaviček, ne podle dvojice. */
+export function currentMessage(v) {
+  let x = v.packet?.pdu;
+  if (!x) return null;
+  if (x.proto === 'ethernet') x = x.payload;
+  if (x?.proto === 'arp') {
+    const h = x.h;
+    return h.op === 1 ? { name: 'ARP dotaz', from: label(v, byIp(v, h.spa)), to: 'všem' }
+      : { name: 'ARP odpověď', from: label(v, byIp(v, h.spa)), to: label(v, byIp(v, h.tpa)) };
+  }
+  const ip = x?.proto === 'ipv4' ? x : v.pkt;
+  const icmp = x?.proto === 'icmp' ? x : ip?.payload?.proto === 'icmp' ? ip.payload : null;
+  if (ip && icmp) return { name: MSG_NAME[icmp.h.type] ?? 'ICMP', from: label(v, byIp(v, ip.h.src)), to: label(v, byIp(v, ip.h.dst)) };
+  if (v.flow) return { name: v.flow.app === 'tracert' ? 'Echo Request (sonda)' : 'Echo Request', from: label(v, v.flow.sender), to: label(v, byIp(v, v.flow.dst)) };
+  return null;
+}
+
+/** Nadpis prostředního sloupce: skutečná zpráva a kde je. */
+export function nestCaption3(v) {
   const p = v.packet;
-  if (!p) return { left: v.flow ? `${v.flow.app} ${v.flow.dst}` : 'Zpráva', right: '' };
+  const m = currentMessage(v);
+  if (!p || !m) return { left: v.flow ? `${v.flow.app} ${v.flow.dst}` : 'Zpráva', right: '' };
   const outer = p.pdu?.proto;
-  const inner = p.pdu?.payload?.proto;
-  const what = p.form === 'bits' || p.form === 'wire' ? 'Bity' : outer === 'ethernet' ? (inner === 'arp' ? 'Rámec s ARP' : 'Rámec') : outer === 'ipv4' ? 'Paket' : outer === 'icmp' ? 'ICMP' : 'Data';
+  const what = p.form === 'bits' || p.form === 'wire' ? 'bity na kabelu' : outer === 'ethernet' ? 'rámec' : outer === 'ipv4' ? 'paket' : '';
   const dev = v.nodes[v.focus?.node];
-  const where = DEV.has(dev?.type) ? ` v ${dev.label}` : '';
+  const where = DEV.has(dev?.type) ? `${what} v ${dev.label}` : what;
   const right = dev?.type === 'switch' ? `${dev.label} čte MAC (L2)` : dev?.type === 'router' ? `${dev.label} čte L1–L3` : '';
-  return { left: `${what}${where} · ${label(v, pair.sender)} → ${label(v, pair.receiver)}`, right };
+  return { left: `${m.name} · ${m.from} → ${m.to}${where ? ` (${where})` : ''}`, right };
 }
 
 /** Prostřední blok: obálky u aktivní vrstvy, v routeru paket s TTL a starý / nový rámec. */
@@ -295,8 +317,8 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
   const p = v.packet;
   if (!p) {
     const f = v.flow;
-    const txt = v.config ? `${label(v, v.config.node)}: výchozí brána ${v.config.gateway ?? '(žádná)'}` : f ? `${f.app} ${f.dst}` : 'Zatím se nic neposílá';
-    return `<div class="float"><div class="plain small">${esc(txt)}<small>${v.arpFail ? `ARP na ${esc(v.arpFail.ip)} bez odpovědi: paket zahozen` : v.dropped?.kind === 'no_route' ? 'žádná cesta: z Alice nic nevyšlo' : 'stav sítě'}</small></div></div>`;
+    const txt = f ? `${label(v, f.sender)}: ${f.app} ${f.dst}` : v.config ? `${label(v, v.config.node)}: nová konfigurace` : 'Zatím se nic neposílá';
+    return `<div class="float"><div class="plain small">${esc(txt)}<small>${v.arpFail ? `ARP dotaz na ${esc(v.arpFail.ip)}: nikdo neodpověděl` : v.dropped?.kind === 'no_route' ? 'z Alice nevyšel žádný rámec' : 'stav sítě'}</small></div></div>`;
   }
   const anchor = liftAnchor3(v, pair);
   let html;
@@ -310,14 +332,19 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
     html = box3(p.pdu, model, v, sel, 0, dropTtl ? `TTL ${v.dropped.ttl} → 0 <span class="m1">zahodit</span>` : ttl, true).replace('<div class="box', '<div class="inrouter box');
   } else if (anchor.at === 'device' && p.pdu?.proto === 'ethernet') {
     const dev = v.nodes[anchor.node];
-    html = `<div class="box b2 b3 bdev" data-env="ethernet" style="${cssVars(2)}"><button type="button" class="lab" data-env="ethernet" data-tab="ethernet"><span>${esc(rowLabel(model, 2))}</span><em>rámec v ${esc(dev.label)}</em></button>
+    const inner = p.pdu.payload;
+    const isNew = v.hop?.out === p.pdu;
+    const pk = inner?.proto === 'ipv4' ? `paket ${inner.h.src} → ${inner.h.dst}, TTL ${inner.h.ttl}` : '';
+    html = `<div class="box b2 b3 bdev" data-env="ethernet" style="${cssVars(2)}"><button type="button" class="lab" data-env="ethernet" data-tab="ethernet"><span>${esc(rowLabel(model, 2))}</span><em>${isNew ? 'nový rámec' : 'rámec'} v ${esc(dev.label)}</em></button>
       <div class="addr">${cell('zdroj MAC', ifOfMac(v, p.pdu.h.src), macHtml(p.pdu.h.src), 'eth.src', 'ethernet', sel)}<span class="arr">→</span>${cell('cíl MAC', ifOfMac(v, p.pdu.h.dst), macHtml(p.pdu.h.dst), 'eth.dst', 'ethernet', sel)}</div>
-      <div class="stub">${p.pdu.payload?.proto === 'arp' ? `uvnitř ARP zpráva: ${dev.type === 'switch' ? `${esc(dev.label)} ji neotevírá` : 'router ji přečte'}` : `uvnitř paket (L3): ${dev.type === 'switch' ? `${esc(dev.label)} ho neotevírá` : 'router rámec rozbalí'}`}</div></div>`;
+      <div class="stub">${inner?.proto === 'arp' ? `uvnitř ARP zpráva: ${dev.type === 'switch' ? `${esc(dev.label)} ji neotevírá` : 'router ji přečte'}`
+    : dev.type === 'switch' ? `uvnitř paket (L3): ${esc(dev.label)} ho neotevírá`
+      : isNew ? `uvnitř stejný ${esc(pk)}` : `uvnitř ${esc(pk)}: router rámec rozbalí`}</div></div>`;
   } else {
     html = box3(p.pdu, model, v, sel);
   }
   if (v.dropped?.kind === 'no_route' && v.dropped.node === pair.sender && anchor.at === 'sender') {
-    html = `<p class="dropmsg">Žádná cesta: paket zůstal u ${esc(label(v, pair.sender))}, nevyšel ani ARP dotaz.</p>${html}`;
+    html = `<p class="dropmsg">Z ${esc(label(v, pair.sender))} nevyšel na síť žádný rámec.</p>${html}`;
   }
   let note = '';
   if (v.dropped && (v.dropped.node === pair.receiver || v.dropped.node === pair.sender) && v.dropped.kind === 'nic') {
@@ -336,7 +363,7 @@ export function nestHtml3(v, model, { pair, sel, tip = false } = {}) {
 export function explainHtml3(v, model, total, { predict, tips, evalLines = [], termHint, parts = [], curPart = null, tipLocked = false } = {}) {
   const s = v.step;
   const out = [];
-  out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části">${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
+  out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="Úroveň má čtyři části: A ping do jiné sítě, B soused ve stejné síti, C TTL a tracert, D najdi chybu. Klik = skok na začátek části.">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
   out.push(`<h3>${esc(predict ? `Tip: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
   out.push(`<p>${esc(textFor(s.text, model))}</p>`);
@@ -345,18 +372,18 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
       data-pick="${esc(c)}" aria-pressed="${tips?.has(c) ? 'true' : 'false'}"${tipLocked ? ' disabled' : ''}>${esc(c)}</button>`).join('')}
       <small>${predict.multi ? 'Vyber (i víc) a dej Vpřed.' : 'Vyber a dej Vpřed.'}</small></div>`);
   }
-  for (const line of evalLines) out.push(`<p class="evalline">${line}</p>`);
-  const note = textFor(s.note, model);
-  if (note) out.push(`<p class="note">${esc(note)}</p>`);
   if (s.fix) out.push('<p class="fixline"><button type="button" class="btn small main" data-fix>Oprav bránu</button><small>nastaví výchozí bránu 192.168.1.1</small></p>');
+  for (const line of evalLines) out.push(`<p class="evalline">${line}</p>`);
   if (termHint) {
     out.push(`<p class="termhint"><button type="button" class="btn small" data-run="${esc(termHint.node)}" data-cmd="${esc(termHint.cmd)}">Spustit za mě</button>
-      <code>${esc(termHint.cmd)}</code> <small>v terminálu: ${esc(termHint.label)}</small></p>`);
+      <code>${esc(termHint.cmd)}</code> <small>(${esc(termHint.label)})</small></p>`);
   }
+  if (s.simplifies) out.push(`<p class="simpl"><b>Simulátor zjednodušuje:</b> ${esc(textFor(s.simplifies, model))}</p>`);
+  const note = textFor(s.note, model);
+  if (note) out.push(`<p class="note">${esc(note)}</p>`);
   if (Array.isArray(s.hint)) {
     out.push(`<div class="hints">${s.hint.map((h, i) => `<details><summary>Nápověda ${i + 1}</summary><p class="hint">${esc(h)}</p></details>`).join('')}</div>`);
   } else if (s.hint) out.push(`<p class="hint">${esc(textFor(s.hint, model))}</p>`);
-  if (s.simplifies) out.push(`<p class="simpl"><b>Simulátor zjednodušuje:</b> ${esc(textFor(s.simplifies, model))}</p>`);
   return out.join('');
 }
 
@@ -373,13 +400,13 @@ export function maskCard(v) {
     const html = oct.map((o, k) => `<span class="oct">${[...o].map((c, j) => `<i class="${k * 8 + j < prefix ? 'net' : 'host'}">${c}</i>`).join('')}</span>`).join('');
     const netA = (ipToInt(ip) & prefixMask(prefix)) >>> 0;
     const net = [24, 16, 8, 0].map((s) => (netA >>> s) & 255).join('.');
-    return `<tr><th>${esc(name)}<small>${esc(ip)}</small></th><td class="bits">${html}</td><td class="mono">${net}</td></tr>`;
+    return `<tr><th>${esc(name)}<small>${esc(ip)}</small>${name.startsWith('maska') ? '' : `<small>síť ${net}</small>`}</th><td class="bits">${html}</td></tr>`;
   };
   const same = (ip) => ((ipToInt(ip) ^ ipToInt(a.ip)) & prefixMask(prefix)) === 0;
   return `<div class="card3"><h3>Maska: je cíl v mé síti?</h3>
-    <table class="mask3"><thead><tr><th></th><th>adresa v bitech (síťová část podbarvená)</th><th>síť</th></tr></thead><tbody>
+    <table class="mask3"><thead><tr><th></th><th>adresa v bitech</th></tr></thead><tbody>
     ${row('Alice', a.ip)}${row('maska /24', '255.255.255.0')}${row('Cyril', v.nodes.PC3.ip)}${row('Bob', v.nodes.PC2.ip)}</tbody></table>
-    <p class="m3res">Cyril: síť ${same(v.nodes.PC3.ip) ? '<b>stejná</b> → přímo' : 'jiná'}. Bob: síť ${same(v.nodes.PC2.ip) ? 'stejná' : '<b>jiná</b> → přes bránu'}.</p></div>`;
+    <p class="m3res">Podbarvené = síťová část (prvních 24 bitů). Cyril: síť ${same(v.nodes.PC3.ip) ? '<b>stejná</b> → přímo' : 'jiná'}. Bob: síť ${same(v.nodes.PC2.ip) ? 'stejná' : '<b>jiná</b> → přes bránu'}.</p></div>`;
 }
 
 /** Rámec před a za routerem (krok 12, rozhodnutí 48): MAC jiné, IP stejné, TTL −1. */
@@ -391,19 +418,21 @@ export function compareCard(v) {
     return `<div class="card3"><h3>Rámec, který dorazil k ${esc(label(v, hop.node))}</h3>
       <p class="mono">${macHtml(a.h.src)} → ${macHtml(a.h.dst)}</p><p class="mono">IP ${esc(a.payload.h.src)} → ${esc(a.payload.h.dst)}, TTL ${a.payload.h.ttl}</p></div>`;
   }
-  const row = (name, x, y, who) => {
+  // rozhodnutí 52: karta se vejde celá i při 720 px; hlavní věta nahoře, jedno pole = jeden řádek
+  const row = (name, x, y, mac = false) => {
     const same = x === y;
-    return `<div class="cmp"><div class="cn">${esc(name)}${who ? ` <small>(${esc(who)})</small>` : ''}<span class="${same ? 'same3' : 'diff3'}">${same ? '✓ stejná' : name.startsWith('TTL') ? '−1' : 'jiná'}</span></div>
-      <div class="cv"><span class="mono">${esc(String(x))}</span><span>${same ? '=' : '→'}</span><span class="mono${same ? '' : ' chg'}">${esc(String(y))}</span></div></div>`;
+    const val = (z) => (mac ? macShort(String(z)) : esc(String(z)));
+    const tag = `<span class="${same ? 'same3' : 'diff3'}">${same ? '✓ stejná' : name === 'TTL' ? '−1' : 'jiná'}</span>`;
+    return `<div class="cr ${same ? 'same' : 'chg'}"><span class="cl">${esc(name)}</span><span class="mono">${val(x)}</span><span class="mono${same ? '' : ' chgv'}">${val(y)}</span>${tag}</div>`;
   };
-  return `<div class="card3 cmp3"><h3>Rámec před a za ${esc(label(v, hop.node))} <small>stejný paket, jiný rámec</small></h3>
-    <div class="grp" style="${cssVars(2)}"><div class="gh">${badge(2, 'L2')} L2 rámec <small>platí jen na jednom kabelu</small></div>
-    ${row('Cílová MAC', a.h.dst, b.h.dst, `${ifOfMac(v, a.h.dst)} → ${ifOfMac(v, b.h.dst)}`)}
-    ${row('Zdrojová MAC', a.h.src, b.h.src, `${ifOfMac(v, a.h.src)} → ${ifOfMac(v, b.h.src)}`)}</div>
-    <div class="grp" style="${cssVars(3)}"><div class="gh">${badge(3, 'L3')} L3 paket <small>platí na celé cestě</small></div>
-    ${row('Zdrojová IP', a.payload.h.src, b.payload.h.src)}${row('Cílová IP', a.payload.h.dst, b.payload.h.dst)}
-    ${row('TTL (zbývá skoků)', a.payload.h.ttl, b.payload.h.ttl)}</div>
-    <p class="m3res"><b>MAC se změnila, IP zůstala.</b> V IP hlavičce se mění jen TTL (a s ním kontrolní součet hlavičky).</p></div>`;
+  return `<div class="card3 cmp3"><h3>Rámec před a za ${esc(label(v, hop.node))} <small>(vlevo před, vpravo za)</small></h3>
+    <p class="m3res key"><b>MAC se změnila, IP zůstala.</b> V IP hlavičce se mění jen TTL (a s ním kontrolní součet).</p>
+    <div class="cgrid">
+    <div class="cg" style="${cssVars(2)}"><div class="gh">${badge(2, 'L2')} rámec: platí jen na jednom kabelu</div>
+    ${row('cíl MAC', a.h.dst, b.h.dst, true)}${row('zdroj MAC', a.h.src, b.h.src, true)}</div>
+    <div class="cg" style="${cssVars(3)}"><div class="gh">${badge(3, 'L3')} paket: platí na celé cestě</div>
+    ${row('zdroj IP', a.payload.h.src, b.payload.h.src)}${row('cíl IP', a.payload.h.dst, b.payload.h.dst)}
+    ${row('TTL', a.payload.h.ttl, b.payload.h.ttl)}</div></div></div>`;
 }
 
 /** Tabulky: směrovací tabulka Alice (vybraný řádek, shoda) a ARP tabulky všech. */
@@ -424,17 +453,23 @@ export function tablesCard(v) {
 export function probesCard(v) {
   const run = Object.values(v.apps).filter((a) => a.app === 'tracert').at(-1);
   if (!run) return '';
-  const rows = run.events.map((e, i) => {
-    const r = e.result;
-    const who = r.from ? `${r.from} <small>${esc(label(v, byIp(v, r.from)))}</small>` : '*';
-    const msg = r.kind === 'time_exceeded' ? 'Time Exceeded (11)' : r.kind === 'echo_reply' ? 'Echo Reply (0)' : r.kind === 'timeout' ? 'bez odpovědi' : r.kind;
-    return `<tr class="${i === run.events.length - 1 && run.events.length && !v.probe?.pending ? 'cur' : ''}"><td>${e.ttl}.${e.probe}</td><td><span class="ttlb">${e.ttl}</span></td><td class="mono">${who}</td><td>${esc(msg)}</td></tr>`;
+  // student 5: jeden řádek = jeden skok (TTL), sondy jako 3 značky, zpráva krátce
+  const hops = [];
+  for (const e of run.events) {
+    let h = hops.find((x) => x.ttl === e.ttl);
+    if (!h) { h = { ttl: e.ttl, res: [] }; hops.push(h); }
+    h.res.push(e.result);
+  }
+  if (!run.done && v.probe && !hops.some((h) => h.ttl === v.probe.ttl)) hops.push({ ttl: v.probe.ttl, res: [] });
+  const rows = hops.map((h, i) => {
+    const r = h.res.find((x) => x.kind !== 'timeout');
+    const who = r?.from ? `${r.from} <small>${esc(label(v, byIp(v, r.from)))}</small>` : '<span class="dim">zatím nic</span>';
+    const msg = !r ? '' : r.kind === 'time_exceeded' ? 'Time Exceeded' : r.kind === 'echo_reply' ? 'Echo Reply' : esc(r.kind);
+    const probes = [0, 1, 2].map((k) => (h.res[k] ? (h.res[k].kind === 'timeout' ? '*' : '✓') : '·')).join(' ');
+    return `<tr class="${i === hops.length - 1 ? 'cur' : ''}"><td><span class="ttlb">${h.ttl}</span></td><td class="mono">${who}</td><td>${msg}</td><td class="pr">${probes}</td></tr>`;
   }).join('');
-  const lastEv = run.events.at(-1);
-  const pending = !run.done && v.probe && !(lastEv && lastEv.ttl === v.probe.ttl && lastEv.probe === v.probe.probe);
-  const waiting = pending ? `<tr class="wait cur"><td>${v.probe.ttl}.${v.probe.probe}</td><td><span class="ttlb">${v.probe.ttl}</span></td><td colspan="2">zatím nic</td></tr>` : '';
-  return `<div class="card3"><h3>Sondy tracert ${esc(run.dst)}</h3><table class="probes3"><thead><tr><th>#</th><th>TTL</th><th>Odpověděl</th><th>Zpráva</th></tr></thead><tbody>${rows}${waiting}</tbody></table>
-    <p class="xnote">Windows pošle na každý skok 3 sondy; animace ukazuje průběh, tabulka všechny.</p></div>`;
+  return `<div class="card3"><h3>Sondy tracert ${esc(run.dst)}</h3><table class="probes3"><thead><tr><th>TTL</th><th>Odpověděl</th><th>Zpráva</th><th title="3 sondy na skok">sondy</th></tr></thead><tbody>${rows}</tbody></table>
+    <p class="xnote">Jeden řádek = jeden skok. Windows posílá na každý skok 3 sondy (✓ = odpověď).</p></div>`;
 }
 
 /** Shrnutí úrovně (krok 25). */
@@ -468,7 +503,7 @@ export function xrayHtml3(v, xs) {
   const blk = ff.blocks.find((b) => b.id === tab);
   const sel = blk.fields.find((f) => f.id === xs.sel) ?? null;
   const tabsHtml = ff.blocks.map((b) => `<button type="button" class="xtab${b.id === tab ? ' on' : ''}" data-xtab="${b.id}" style="${cssVars(TAB_LAYER[b.id])}" aria-pressed="${b.id === tab}">${badge(TAB_LAYER[b.id], `L${TAB_LAYER[b.id]}`)}${esc(b.tab)}</button>`).join('');
-  const row = (f) => `<tr class="${f.key ? 'key' : 'dimrow'}${sel?.id === f.id ? ' selected' : ''}${f.id === 'icmp.noport' ? ' noport' : ''}" data-field="${f.id}" data-tab="${tab}" tabindex="0" aria-selected="${sel?.id === f.id}">
+  const row = (f) => `<tr class="${f.key ? 'key' : 'dimrow'}${sel?.id === f.id ? ' selected' : ''}${f.id === 'icmp.noport' ? ' xnoport' : ''}" data-field="${f.id}" data-tab="${tab}" tabindex="0" aria-selected="${sel?.id === f.id}">
     <td><i class="fno">${f.n || '–'}</i></td><td><b>${esc(f.name)}</b>${sel?.id === f.id ? `<small>${esc(f.ws)}</small>` : ''}</td><td class="num">${f.bits || ''}</td><td class="mono">${esc(f.value)}</td></tr>`;
   const many = blk.fields.length > 6;
   const main = many ? blk.fields.filter((f) => f.key || f.id === sel?.id || f.id === 'icmp.noport') : blk.fields;

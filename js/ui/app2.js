@@ -115,8 +115,8 @@ export function createLevel2(host) {
     els.rName.textContent = rN?.label ?? '';
     els.sRole.textContent = 'odesílatel, shora dolů';
     els.rRole.textContent = v.dropped?.node === pair.receiver ? 'zahodil rámec' : 'příjemce, zdola nahoru';
-    renderStack(els.stackS, sN, model, [], { pdu4: 'segment / datagram' });
-    renderStack(els.stackR, rN, model, [], { pdu4: 'segment / datagram' });
+    renderStack(els.stackS, sN, model);   // rozhodnutí 49: ve sloupci vrstev „segment“
+    renderStack(els.stackR, rN, model);
     const changed = new Set(v.changes.map((r) => r.kind));
     const cap = nestCaption(v, pair, { tip: Boolean(predictAt(cur())?.node) });
     els.cap.textContent = cap.left;

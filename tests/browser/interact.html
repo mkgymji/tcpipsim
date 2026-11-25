@@ -264,16 +264,25 @@ f.onload = async () => {
     check(fl3 && tw3 && fl3.bottom <= tw3.top + 4, `blok sedí na věži routeru (${Math.round(fl3?.bottom)} <= ${Math.round(tw3?.top)})`);
     check(q3('.rt3 tr.hit')?.textContent.includes('192.168.2.0/24'), 'směrovací tabulka R1: vybraný řádek');
     // skok na začátek části C
-    q3('[data-part]:nth-child(3)').click();
+    d3.querySelectorAll('[data-part]')[2].click();
     await wait(150);
     check(lab3().startsWith('Krok 18 z 25'), `část C začíná krokem 18 (${lab3()})`);
-    // část D: Oprav bránu = přechod na opravený krok
+    // část D (rozhodnutí 51): tip bez tlačítka opravy a bez brány v topologii, oprava až po vyhodnocení
     w3.location.hash = '#u=3&k=22a&m=osi';
     await wait(250);
+    check(!q3('[data-fix]') && !q3('.pc3.a-PC1 .gw'), 'krok 22a: žádné Oprav bránu, brána Alice skrytá');
+    q3('#explain [data-pick="brána"]').click();
+    key3('ArrowRight');
+    await wait(250);
+    check(lab3().startsWith('Krok 22b') && q3('#explain .evalline')?.textContent.includes('Sedí'), `22b vyhodnotí tip (${lab3()})`);
     check(q3('#fwd-label').textContent === 'Oprav bránu', `Vpřed = Oprav bránu (${q3('#fwd-label').textContent})`);
     q3('[data-fix]').click();
     await wait(250);
-    check(lab3().startsWith('Krok 22b') && q3('.pc3.a-PC1 .gw').textContent.includes('192.168.1.1'), `Oprav bránu nastaví bránu (${lab3()})`);
+    check(lab3().startsWith('Krok 22c') && q3('.pc3.a-PC1 .gw').textContent.includes('192.168.1.1'), `Oprav bránu nastaví bránu (${lab3()})`);
+    // rozhodnutí 52: u odesílatele blok sedí u aktivní vrstvy
+    w3.location.hash = '#u=3&k=3&m=osi';
+    await wait(250);
+    liftCheck(d3, 'úroveň 3 krok 3 (Alice L3)');
     // terminál Windows: živý ping se doplňuje krokováním
     w3.location.hash = '#u=3&k=3&m=osi';
     await wait(250);

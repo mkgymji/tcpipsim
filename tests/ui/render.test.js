@@ -143,3 +143,17 @@ test('adresa stránky: #k=8b&m=tcpip tam i zpět pro všechny kroky a modely', (
   assert.equal(formatHash(timeline.steps[9], 'osi', 2), '#u=2&k=8b&m=osi');
   assert.equal(parseHash('#k=4&anim&q=1', timeline.steps).questions, true);
 });
+
+test('rozhodnutí 49: texty vrstev podle prezentace, firmware síťového rozhraní, PDU v detailu', async () => {
+  const { layerInfo } = await import('../../js/ui/render.js');
+  const { MODELS } = await import('../../js/core/layers.js');
+  const l1 = layerInfo('osi', 'L1');
+  assert.match(l1, /firmware síťového rozhraní/);
+  assert.match(l1, /L1 je z velké části hardware síťové karty/);
+  assert.match(layerInfo('osi', 'L4'), /\(TCP; UDP ne\)[\s\S]*multiplex \/ demultiplex[\s\S]*UDP datagram \(RFC 768\), u TCP segment/);
+  assert.match(layerInfo('tcpip', 'internet'), /síťový paket \(IP datagram\)/);
+  assert.match(layerInfo('osi', 'L2'), /linkový rámec/);
+  assert.equal(MODELS.osi.rows.find((r) => r.id === 'L4').pdu, 'segment');
+  assert.equal(MODELS.osi.rows.find((r) => r.id === 'L2').whoShort, 'firmware síť. rozhraní');
+  assert.doesNotMatch(JSON.stringify(MODELS), /hardware a firmware/);
+});

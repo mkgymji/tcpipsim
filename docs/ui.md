@@ -374,18 +374,19 @@ Nadpis karty „Tip: Co R1 s paketem udělá?“, volby **Fa0/0 zpět, Fa0/1, za
 ### 12.11 Čitelnost a rozměry
 Ověřeno snímky 1400x900 a 1280x720: nic se nepřekrývá, nic neuniká z okna (tělo stránky má `grid-template-columns:minmax(0,1fr)`, protože bez toho se širší obsah promítl za okraj okna). Při 720 px se skrývá: MAC u zařízení v topologii (vždy), podnadpisy sloupců vrstev, záhlaví sloupců a vysvětlující druhá věta v kartě porovnání. Nejmenší písmo 15 px, kromě šedých pomocných popisků všude tmavý text. Písmo MAC v kartě porovnání má mírně stažený řez (`letter-spacing:-.04em`), aby se 17 znaků vešlo do buňky na šířku 380 px; na Windows s Consolas je pohodlně.
 
-### 12.12 Implementace (iterace 3): odchylky od návrhu
-Platí rozhodnutí 39–48; prototyp je jen vizuální vzor. Rozhraní routeru jsou Gi0/0 a Gi0/1, MAC `02:00:00:00:01:01` a `…:01:02` (rozh. 39, 40); body 12.12.1 a 12.12.2 níže jsou tím rozhodnuté.
-- **Topologie** má i Cyrila (síť 1: Alice nahoře, Cyril dole, SW1 s MAC tabulkou). U PC jméno, IP, MAC (při 720 px skrytá), výchozí brána a ARP tabulka (zkráceně `…1.1 → …01:01`, celá v popisku). Výška 316 px (900) a 264 px (720; o 20 px víc než návrh, jinak se karty PC nevešly).
-- **Směrovací tabulka R1** ukazuje i řádky L (rozh. 39 a cmd.md kap. 12.3; při 720 px skryté). Sloupec Shoda jen v kroku, kdy router vybírá. `show ip route` vypisuje i řádky L (návrh v 12.10 „bez řádků L“ neplatí).
-- **Věže v pruhu média** se kreslí pro zařízení na cestě vybrané dvojice (Alice → Bob: SW1 a R1, Alice → Cyril: jen SW1). Blok se zprávou končí nad nejvyšší věží (aby R1 do L3 zůstal vidět), proto je u odesílatele a příjemce o řádek výš než aktivní vrstva. V routeru je paket kompaktní (bez pruhu „L4: žádný segment“), aby se vešel nad věž i při 720 px.
-- **Řádek L4 u pingu** (rozh. 47): šrafovaný, tečkovaný, PDU „segment / datagram“ zůstává; štítek na horním okraji řádku zní „bez portů“ (delší „ICMP nemá porty“ se do 170–192 px nevejde, celé znění je v obálce a v rentgenu).
-- **Pravý panel:** karta kroku (Maska, Rámec před a za R1, Tabulky po kroku, Sondy tracert, Shrnutí) a pod ní rentgen. Časová osa (sekvenční diagram, 12.8) a karta „Shoda po bitech“ (LPM s víc řádky) se v iteraci 3 nedělají: scénář má LPM jen u Alice (/24 proti /0) a tracert přes jeden router; sondy ukazuje tabulka.
-- **Tip na routeru** (12.9) se ve scénáři netipuje (rozh. 43: tipy 3, 5, 11, 13, 16, 18, 22a, 24a); tipy mají volby ze scénáře se správnou odpovědí, kterou test ověřuje proti simulaci.
-- **Části A–D:** tlačítka A B C D v hlavičce vysvětlivky (skok na začátek části). Kroky 22 a 24 mají části a/b: a = diagnóza (tip „Kde je chyba?“), b = po „Oprav bránu“.
-- Písmo 13–14 px v hustých tabulkách topologie (MAC, ARP, směrovací tabulka) je pod minimem 15 px z kap. 5; ověřit na projektoru.
+### 12.12 Implementace (iterace 3, po opravách podle rozhodnutí 49–55): odchylky od návrhu
+Platí rozhodnutí 39–55; prototyp je jen vizuální vzor. Rozhraní routeru jsou Gi0/0 a Gi0/1, MAC `02:00:00:00:01:01` a `…:01:02` (rozh. 39, 40); body 12.13.1 a 12.13.2 níže jsou tím rozhodnuté.
+- **Topologie** má i Cyrila (síť 1: Alice nahoře, Cyril dole, SW1 s MAC tabulkou). U PC jméno, IP, MAC jako „MAC …:01“ (poslední bajt tučně, rozh. 35 a 53; při 720 px skrytá), výchozí brána a ARP tabulka (zkráceně `…1.1 → …01:01`). V krocích části D před diagnózou se brána Alice neukazuje (rozh. 51). Výška 316 px (900) a 264 px (720).
+- **Směrovací tabulka R1** ukazuje i řádky L (cmd.md kap. 12.3; při 720 px skryté). Sloupec Shoda jen v kroku, kdy router vybírá. `show ip route` vypisuje i řádky L (návrh 12.10 „bez řádků L“ neplatí).
+- **Věže v pruhu média** pro zařízení na cestě vybrané dvojice (Alice → Bob: SW1 a R1, Alice → Cyril: jen SW1); v kroku tipu 16 vždy obě zařízení (rozh. 51). Pod věží R1 jsou nohy Gi0/0 a Gi0/1. Blok sedí u aktivní vrstvy (rozh. 52); u odesílatele a příjemce může věže zakrýt, v routeru stojí nad věží (paket i rámec kompaktně). Krok 12 končí novým rámcem ve věži R1 se štítky „starý rámec“ / „nový rámec“.
+- **Nadpis prostředního sloupce a popisek pod posuvníkem** ukazují skutečnou zprávu („ARP dotaz · Alice → všem“, rozh. 50).
+- **Řádek L4 u pingu** (rozh. 47): šrafovaný, tečkovaný, štítek „bez portů“ na horním okraji (celé znění „ICMP nemá porty“ je v obálce a v rentgenu). U ARP jsou L3 a L4 jen neaktivní, bez štítku (D9). PDU ve sloupci vrstev je od rozhodnutí 49 obecně „segment“.
+- **Pravý panel:** karta kroku (Maska, Rámec před a za R1, Tabulky po kroku, Sondy tracert, Shrnutí) a pod ní rentgen. Karta „Rámec před a za R1“ má hlavní větu nahoře a jedno pole na řádek, vejde se při 720 px. Sondy: jeden řádek = jeden skok, tři značky sond. Časová osa (12.8) a karta „Shoda po bitech“ se v iteraci 3 nedělají.
+- **Tipy** 3, 5, 11, 13, 16, 18, 22a, 24a (rozh. 43, 51); volby ze scénáře se správnou odpovědí, kterou test ověřuje proti simulaci. Kroky 22 a 24: a = tip, b = vyhodnocení s tlačítkem „Oprav bránu“, c = po opravě.
+- **Části A–D:** tlačítka s popiskem „Části:“ (nápověda v titulku) v hlavičce vysvětlivky. Ve vysvětlivce je pořadí: text, tip, výzva k terminálu, „Simulátor zjednodušuje“, poznámka, nápovědy (rozh. 54).
+- Písmo 14 px jen v hustých tabulkách topologie a v rentgenu (rozh. 53); čipy TTL, štítky věží, jiná/stejná a pilulky 15 px.
 
-### 12.13 Otevřené body k rozhodnutí
+### 12.13 Otevřené body k rozhodnutí (1–3 rozhodnuté: rozh. 39, 49)
 1. **MAC rozhraní R1** (`…:11` a `…:12`): potvrdit s projektantem.
 2. **Výchozí TTL 128** (Windows) místo 64: potvrdit s projektantem a didaktikem (sedí s výstupem ping `TTL=127`).
 3. **Název PDU u L4** v řádku vrstvy: „datagram“ pro UDP, „segment“ pro TCP, „bez portů“ pro ICMP (úroveň 2 měla „segment / datagram“, v užším sloupci se nevejde). Dopad na rozh. 32.

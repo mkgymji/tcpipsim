@@ -8,7 +8,7 @@ import { buildLevel3, whatIf } from '../scenario/level3.js';
 import { renderStack, esc } from './render.js';
 import { termLinesHtml, termTitle } from './render2.js';
 import { topologyHtml3, nestHtml3, nestCaption3, mediumHtml3, liftAnchor3, laneEnd3, mediumDevices3, explainHtml3,
-  maskCard, compareCard, tablesCard, probesCard, summaryCard3, xrayHtml3, xrayTarget } from './render3.js';
+  maskCard, compareCard, tablesCard, probesCard, summaryCard3, xrayHtml3, xrayTarget, currentMessage } from './render3.js';
 import { tipEvaluator, evalTip } from './tips.js';
 import { placeLane, slideFloat } from './lift.js';
 import { pduFields } from '../wire/fields.js';
@@ -82,15 +82,15 @@ export function createLevel3(host) {
   function render(v, { animate, model }) {
     const pair = pairOf(v);
     const tip = Boolean(predictAt(cur()));
-    els.topo.innerHTML = topologyHtml3(v, { pair, selected: ui.selected });
+    els.topo.innerHTML = topologyHtml3(v, { pair, selected: ui.selected, hideGw: Boolean(v.step.hideGw), tip });
     const sN = v.nodes[pair.sender], rN = v.nodes[pair.receiver];
     els.sName.textContent = sN?.label ?? '';
     els.rName.textContent = rN?.label ?? '';
     els.sRole.textContent = 'odesílatel, shora dolů';
     els.rRole.textContent = 'příjemce, zdola nahoru';
-    renderStack(els.stackS, sN, model, [], { pdu4: 'segment / datagram' });
-    renderStack(els.stackR, rN, model, [], { pdu4: 'segment / datagram' });
-    const cap = nestCaption3(v, pair);
+    renderStack(els.stackS, sN, model);   // rozhodnutí 49: ve sloupci vrstev „segment“
+    renderStack(els.stackR, rN, model);
+    const cap = nestCaption3(v);
     els.cap.textContent = cap.left;
     els.capR.textContent = cap.right;
     const devs = mediumDevices3(v, pair).map((id) => v.nodes[id].type);
@@ -159,6 +159,7 @@ export function createLevel3(host) {
     for (const e of ui.term.log[node.id] ?? []) {
       if (e.kind !== 'live') { out.push(e); continue; }
       out.push({ kind: 'cmd', prompt: e.prompt, text: e.text });
+      if (!view().apps[e.run]) { out.push({ kind: 'note', text: 'V tomto kroku příkaz ještě neběží (spustí se později ve scénáři).' }); continue; }
       const res = execute(nodeWithOverlay(node), e.text, optsFor(node, e.run));
       for (const l of res.lines) out.push({ kind: 'out', line: l });
       if (res.note) out.push({ kind: 'note', text: res.note });
@@ -210,6 +211,18 @@ export function createLevel3(host) {
       const n = /-n\s+(\d+)/.exec(line);
       if (live && (word === 'tracert' || Number(n?.[1] ?? 4) === live.count)) {
         log.push({ kind: 'live', prompt, text: line.trim(), run: live.run });
+        (ui.term.hist[node.id] ??= []).push(line);
+        renderTerm(); $('term-input')?.focus();
+        return;
+      }
+      // student 7: stejný příkaz scénář spustí až později – terminál nesmí ukázat budoucí odpovědi
+      const v = view();
+      const future = dst && timeline.records.findIndex((r, i) => i > v.step.last && r.kind === 'app.start' && r.node === node.id && r.app === word && r.dst === dst);
+      const nextCfg = timeline.records.findIndex((r, i) => i > v.step.last && r.kind === 'config');
+      if (future > 0 && (nextCfg < 0 || future < nextCfg)) {
+        const k = timeline.steps.findIndex((st) => st.first <= future && future <= st.last);
+        log.push({ kind: 'cmd', prompt, text: line });
+        log.push({ kind: 'note', text: `Tento příkaz ${node.label} ve scénáři spustí v kroku ${stepLabel(timeline.steps[k])}. Krokuj Vpřed, výpis se pak bude doplňovat.` });
         (ui.term.hist[node.id] ??= []).push(line);
         renderTerm(); $('term-input')?.focus();
         return;
@@ -372,9 +385,10 @@ export function createLevel3(host) {
         for (const c of p.getAll('c')) runCmd(c);
       }
     },
+    // rozhodnutí 50: skutečná zpráva, ne dvojice scénáře
     dir(v) {
-      const pair = pairOf(v);
-      return `dvojice: ${v.nodes[pair.sender]?.label ?? ''} → ${v.nodes[pair.receiver]?.label ?? ''}`;
+      const m = currentMessage(v);
+      return m ? `zpráva: ${m.name} ${m.from} → ${m.to}` : '';
     },
   };
 }

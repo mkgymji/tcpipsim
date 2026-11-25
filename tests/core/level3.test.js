@@ -20,10 +20,10 @@ const inStep = (label) => at(label).changes;
 const txs = (label) => inStep(label).filter((r) => r.kind === 'link.tx');
 const vec = (f) => JSON.parse(readFileSync(new URL(`../vectors/${f}`, import.meta.url), 'utf8'));
 
-test('scénář je čistá data, kroky 0–25 (22 a 24 dvě části), části A–D', () => {
+test('scénář je čistá data, kroky 0–25 (22 a 24 tři části), části A–D', () => {
   assert.deepEqual(JSON.parse(JSON.stringify(scenario)), scenario);
   assert.equal(Math.max(...timeline.steps.map((s) => s.num)), 25);
-  assert.equal(timeline.length, 28);
+  assert.equal(timeline.length, 30);
   assert.deepEqual(timeline.steps.filter((s) => s.part3).map((s) => [s.part3, s.num]), [['A', 0], ['B', 16], ['C', 18], ['D', 21]]);
 });
 
@@ -71,7 +71,9 @@ test('rámec Alice -> R1 (8), R1 TTL 127 a nový rámec (12), IP beze změny, so
   assert.deepEqual(txs('8').map((r) => r.link), ['L1', 'L3'], 'SW1 jen na Fa0/4, Cyril nic');
   assert.ok(inStep('10').some((r) => r.kind === 'arp_request' && r.node === 'R1' && r.if === 'Gi0/1'));
   assert.ok(!inStep('11').some((r) => r.kind === 'encap'), 'tip: nový rámec ještě není');
-  const n = txs('12')[0];
+  const n = { pdu: inStep('12').find((r) => r.kind === 'encap' && r.node === 'R1').pdu };
+  n.bytes = encode(n.pdu);
+  assert.equal(at('12').focus.node, 'R1', 'krok 12 končí novým rámcem v R1 (D4)');
   assert.deepEqual([n.pdu.h.src, n.pdu.h.dst, n.pdu.payload.h.ttl, n.pdu.payload.h.src, n.pdu.payload.h.dst],
     ['02:00:00:00:01:02', '02:00:00:00:00:02', 127, '192.168.1.10', '192.168.2.20']);
   assert.equal(checksum(n.bytes.subarray(14, 34)), 0);
@@ -79,7 +81,7 @@ test('rámec Alice -> R1 (8), R1 TTL 127 a nový rámec (12), IP beze změny, so
 });
 
 test('Echo Reply: TTL 128 u Boba, 127 u Alice, bez ARP; ping 4/4 TTL=127', () => {
-  assert.ok(!inStep('13').some((r) => r.kind === 'link.tx'), 'tip: odpověď ještě neodešla');
+  assert.ok(!inStep('13').some((r) => r.kind === 'link.tx' && r.from === 'PC2'), 'tip: odpověď ještě neodešla');
   const reply = R.find((r) => r.kind === 'link.tx' && r.from === 'PC2' && r.pdu.payload?.proto === 'ipv4');
   assert.equal(reply.pdu.payload.h.ttl, 128);
   assert.ok(!inStep('14').some((r) => r.kind === 'arp_request'));
@@ -116,13 +118,42 @@ test('část D: bez brány nic nevyjde (General failure), .254 = 3 ARP bez odpov
   const a21 = Object.values(at('21').apps).at(-1);
   assert.ok(a21.events.every((e) => e.result.kind === 'no_route'));
   assert.equal(at('21').nodes.PC1.gateway, null);
-  assert.ok(Object.values(at('22b').apps).at(-1).events.every((e) => e.result.kind === 'reply'));
+  assert.ok(Object.values(at('22c').apps).at(-1).events.every((e) => e.result.kind === 'reply'));
   const arps = inStep('23').filter((r) => r.kind === 'arp_request');
   assert.ok(arps.length >= 3 && arps.every((r) => r.ip === '192.168.1.254'));
   assert.ok(inStep('23').some((r) => r.kind === 'arp_fail'));
   assert.ok(!inStep('23').some((r) => r.kind === 'link.tx' && r.pdu.payload?.proto === 'ipv4'), 'paket nikdy neodešel');
   assert.ok(Object.values(at('23').apps).at(-1).events.every((e) => e.result.kind === 'arp_failed' && e.result.from === '192.168.1.10'));
-  assert.ok(Object.values(at('24b').apps).at(-1).events.every((e) => e.result.kind === 'reply'));
+  assert.ok(Object.values(at('24c').apps).at(-1).events.every((e) => e.result.kind === 'reply'));
+  // R5: Cyril i R1 dotaz na .254 viditelně odmítnou (i když Alici už znají)
+  const ign = inStep('23').filter((r) => r.kind === 'arp_ignore' && r.ip === '192.168.1.254').map((r) => r.node);
+  assert.ok(ign.includes('PC3') && ign.includes('R1'), ign.join());
+});
+
+test('tipy 13, 16, 22a, 24a: odpověď ze scénáře = skutečnost v simulaci', () => {
+  const ans = (l) => timeline.steps[idx(l)].predict.answer;
+  const reply = R.find((r) => r.kind === 'app.event' && r.result.kind === 'reply');
+  assert.equal(String(reply.result.ttl), ans('13'));
+  const route17 = inStep('17').find((r) => r.kind === 'ip_route');
+  assert.equal(ans('16'), route17.route.next_hop ? 'Ano, přes bránu' : 'Ne, přímo Cyrilovi');
+  // 22a: bez brány chybí výchozí cesta; po opravě brány ping projde -> chyba byla v bráně
+  assert.ok(!at('22a').nodes.PC1.routing_table.some((r) => r.prefix === '0.0.0.0/0'));
+  assert.ok(Object.values(at('22c').apps).at(-1).events.every((e) => e.result.kind === 'reply'));
+  assert.equal(ans('22a'), 'brána');
+  // 24a: ARP dotaz na adresu brány, kterou nikdo nemá
+  assert.ok(inStep('23').some((r) => r.kind === 'arp_fail' && r.ip === at('23').nodes.PC1.gateway));
+  assert.equal(ans('24a'), 'brána');
+});
+
+test('ping na vlastní adresu a loopback se doručí uvnitř, na kabel nic (P1, RFC 1122)', () => {
+  const v = at('15');
+  for (const dst of ['127.0.0.1', '192.168.1.10']) {
+    const r = whatIf(scenario, v, 'PC1', 'ping', { dst, count: 2 });
+    assert.ok(!r.records.some((x) => x.kind === 'link.tx'), dst);
+    assert.deepEqual(r.events.map((e) => [e.result.kind, e.result.from, e.result.ttl]), [['reply', dst, 128], ['reply', dst, 128]]);
+  }
+  const r1 = whatIf(scenario, v, 'R1', 'ping', { dst: '192.168.1.1', count: 5 });
+  assert.ok(!r1.records.some((x) => x.kind === 'link.tx'));
 });
 
 test('krok vzad vrací přesně předchozí pohled (ARP, MAC, směrovací tabulky)', () => {

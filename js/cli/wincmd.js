@@ -46,7 +46,7 @@ function ipconfig(node, all, level = 2) {
   out.push('');
   const note = ['Na školním PC uvidíš navíc řádek s adresou IPv6, tu simulátor nemá.'];
   if (!node.gateway && level < 3) note.push('Výchozí brána (Default Gateway) je prázdná: síť je jen jedna, bez routeru (úroveň 3).');
-  if (!node.gateway && level >= 3) note.push('Výchozí brána (Default Gateway) je prázdná: pro cíl mimo vlastní síť nemá počítač komu paket předat.');
+  // úroveň 3: bez diagnózy (rozhodnutí 51), student ji má najít sám
   return { lines: out, note: note.join(' ') };
 }
 
@@ -103,7 +103,7 @@ export function formatPing(dst, events, done) {
 /** Výpis Windows tracert -d (events: [{ ttl, probe, result }]); řádek skoku až po všech sondách. */
 export function formatTracert(dst, events, done, probes = 3) {
   const lines = ['', `Tracing route to ${dst} over a maximum of 30 hops`, ''];
-  if (events[0]?.result.kind === 'no_route') return [...lines.slice(0, 1), 'Unable to contact IP driver. General failure.', ''];
+  if (events[0]?.result.kind === 'no_route') return [...lines, 'General failure.', ''];   // cmd.md kap. 9: znění ověřit
   const hops = [];
   for (const e of events) {
     let h = hops.find((x) => x.ttl === e.ttl);
@@ -143,7 +143,8 @@ function routePrint(node) {
   if (def) lines.push('  Network Address          Netmask  Gateway Address  Metric', `${'0.0.0.0'.padStart(17)}${'0.0.0.0'.padStart(17)}${def.next_hop.padStart(17)}  Default`);
   else lines.push('  None');
   lines.push(bar, '');
-  return { lines, note: 'Simulátor zjednodušuje: jen sekce IPv4 a jen dva skutečné řádky (síť a výchozí cesta). Skutečný Windows vypíše navíc seznam rozhraní, řádky pro loopback, multicast a broadcast a tabulku IPv6; rozhodování je stejné.' };
+  const n = rows.length === 1 ? 'jeden skutečný řádek (síť)' : `${rows.length} skutečné řádky (síť a výchozí cesta)`;
+  return { lines, note: `Simulátor zjednodušuje: jen sekce IPv4 a ${n}. Skutečný Windows vypíše navíc seznam rozhraní, řádky pro loopback, multicast a broadcast a tabulku IPv6; rozhodování je stejné.` };
 }
 
 // Úroveň 3: příkazy, které potřebují simulaci nebo jsou až od úrovně 3.
@@ -160,6 +161,9 @@ function winExec3(node, cmd, lc, opts) {
       return { lines: ['', word === 'ping' ? 'Usage: ping [-n count] target_name' : 'Usage: tracert [-d] target_name', ''],
         note: `Simulátor zkracuje nápovědu. Zkus například „${word} 192.168.2.20“.` };
     }
+    if (word === 'ping' && isIp(target) && (target.endsWith('.255') || /\.0$/.test(target))) {
+      return { lines: [''], note: 'Ping na adresu sítě nebo broadcast simulátor zatím neumí.' };
+    }
     if (!isIp(target)) {
       return { lines: [word === 'ping' ? `Ping request could not find host ${target}. Please check the name and try again.`
         : `Unable to resolve target system name ${target}.`, ''], note: 'Jména počítačů překládá DNS; to přijde v úrovni 4. Zadej IP adresu.' };
@@ -170,7 +174,7 @@ function winExec3(node, cmd, lc, opts) {
       const lines = formatPing(target, run.events, run.done);
       const notes = [];
       if (!run.done) notes.push('Ping běží: odpovědi se doplní, jak budeš krokovat (Vpřed).');
-      if (run.events.some((e) => e.result.kind === 'arp_failed')) notes.push('Pozor: Windows tu počítá jako přijaté i chybové hlášení, ne odpověď cíle. Ping se nepovedl. (Znění ověřujeme při pilotu.)');
+      if (run.done && run.events.some((e) => ['arp_failed', 'unreachable', 'ttl_exceeded'].includes(e.result.kind))) notes.push('Pozor: Windows tu počítá jako přijaté i chybové hlášení, ne odpověď cíle. Ping se nepovedl. (Znění ověřujeme při pilotu.)');
       if (run.events.some((e) => e.result.kind === 'no_route')) notes.push('Přesné znění hlášky bez brány ověřujeme při pilotu.');
       if (run.done && run.events.some((e) => e.result.kind === 'reply')) notes.push('Simulátor zjednodušuje: časy <1 ms jsou orientační.');
       return { lines, note: notes.join(' ') || undefined };

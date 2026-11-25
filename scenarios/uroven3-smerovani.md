@@ -97,7 +97,7 @@ v pruhu média má výšku do své vrstvy. Pro router to znamená:
 
 ## Kroky
 
-Číslování `0–25` (UI „Krok n z 25“). Každý krok: co student vidí, co dělá, text vysvětlivky (max. 2–3 věty,
+Číslování `0–25` (UI „Krok n z 25“; 22 a 24 mají části a, b, c). Každý krok: co student vidí, co dělá, text vysvětlivky (max. 2–3 věty,
 případně „note“ a „Simulátor zjednodušuje“).
 
 **Tip (rozhodnutí 31)** = samostatný krok se stavem **před** událostí; volby se odvozují z topologie; následující krok
@@ -141,7 +141,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Note: „Adresa sítě = IP adresa AND maska. Zápis 192.168.1.0/24 říká totéž: prvních 24 bitů je síť.“
 - Proč zde: bez tohoto kroku je brána nevysvětlená „třetí adresa“. Student musí vidět, že rozhodnutí
   „sám, nebo přes bránu“ je mechanický výpočet z masky, ne hádání.
-- Simulátor zjednodušuje: „Maska se tu píše jako /24. Jiné délky masky (/16, /26 …) a podsítě procvičíš v úrovni 5.“
+- Simulátor zjednodušuje: „Všechny sítě v této úrovni mají masku /24 (255.255.255.0). Jiné délky masky (/16, /26 …) a podsítě procvičíš v úrovni 5.“
 
 #### Krok 3: Ping vzniká (tip)
 
@@ -150,6 +150,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   Protocol 1). Rámec zatím neexistuje, MAC adresy nejsou napsané. L4 přeskočené (ICMP).
 - Text: „Alice vytvořila paket pro Boba (192.168.2.20). Teď potřebuje rámec. Kdo bude v rámci uvedený
   jako příjemce?“
+- Note: „ICMP nejede v segmentu: je přímo uvnitř IP paketu (protokol 1), proto nemá porty.“
 - **Terminál (Alice): `ping 192.168.2.20`.** Student ho spustí tady (a výstup uvidí až v kroku 14: ping je
   „rozjetý“, terminál čeká na odpověď). Do doby odpovědi terminál ukazuje `Pinging 192.168.2.20 with 32 bytes of data:`.
 - **Tip:** „Čí MAC adresa bude v rámci jako cílová?“ Volby: **MAC Boba** (`…:00:02`) / **MAC brány** (router,
@@ -163,7 +164,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Dělá: **`arp -a`** na Alici: prázdná tabulka (jen statické řádky broadcastu; připomínka z úrovně 2).
 - Text: „Tvůj tip: <volba>. Skutečnost: MAC brány. Alice posílá paket bráně a ta ho dál doručí. Cíl je Bob, ale
   rámec míří na router. MAC brány Alice zatím nezná, proto se zeptá.“
-- Note: „Cílová IP v paketu zůstane Bobova. Cílová MAC v rámci je jen adresa dalšího kroku na cestě (next hop).“
+- Note: „Cílová IP v paketu zůstane Bobova. Cílová MAC v rámci je jen adresa dalšího skoku na cestě (next hop).“
 - Simulátor zjednodušuje: „V úrovni 2 byla ARP tabulka předvyplněná. Teď je prázdná, jak to bývá po zapnutí
   počítače.“ (navazuje na rozhodnutí 14.)
 
@@ -189,7 +190,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Text: „Tvůj tip: <volba>. Skutečnost: Cyril a R1. Cyril dotaz zahodil, protože hledaná adresa není jeho.
   Router odpoví, protože 192.168.1.1 je adresa jeho rozhraní. Bob dotaz nedostal: broadcast se přes router nepřenáší.“
 - Note: „ARP se ptá jen v jedné síti. Nikdy se neptá na adresu v jiné síti (za routerem).“
-- Hint: „Klikni na Cyrila: `arp -a` ukáže, že si Alici nezapamatoval (zapisuje jen ten, kdo odpovídá).“
+- Hint: „Klikni na Cyrila: `arp -a` ukáže, že si Alici nezapamatoval (nový záznam si zapíše jen ten, koho se ptala).“
 
 #### Krok 7: ARP odpověď
 
@@ -208,7 +209,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   L3 zdroj = 192.168.1.10, L3 cíl = **192.168.2.20 (Bob)**. Tabulka „co je kde“ se naplní.
 - Text: „V rámci je cílová MAC adresa brány, v paketu cílová IP adresa Boba. Rámec doručí paket k bráně,
   paket putuje dál k Bobovi.“
-- Note: „Dvě různé cílové adresy v jedné zprávě: L2 říká, kam jít teď (příští krok), L3, kam jít nakonec.“
+- Note: „Dvě různé cílové adresy v jedné zprávě: L2 říká, kam jít teď (další skok), L3, kam jít nakonec.“
 - Poznámka k rozložení: tady začíná „U“ s kopečkem (viz rozvržení výše): rámec klesne na L1, jede po médiu,
   u SW1 vystoupá do L2 a zase klesne.
 
@@ -222,8 +223,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Text: „Router rámec rozbalil (cílová MAC byla jeho), přečetl cílovou IP adresu 192.168.2.20 a hledá ji ve
   směrovací tabulce. Odpovídá síť 192.168.2.0/24 přes rozhraní Gi0/1. Sníží TTL o 1.“
 - Note: „Router rozhoduje podle cílové IP adresy, ne podle MAC. MAC se použila jen k tomu, aby rámec přijal.“
-- Simulátor zjednodušuje: „V reálné směrovací tabulce je víc kódů a řádků; tady jsou jen přímo připojené sítě (C)
-  a adresy rozhraní routeru (L).“
+- Simulátor zjednodušuje: „Router tu zná jen přímo připojené sítě (C) a své adresy (L). Statické a výchozí cesty (S, S*) přijdou v úrovni 5.“
 - Longest prefix match (jednoduše): tabulka routeru má jen dva řádky, které sedí na tvar `/24`; pravidlo
   „vyhrává nejdelší shoda“ se tu ještě netestuje. Poprvé ho vidí student u Alice v kroku 17.
 
@@ -235,8 +235,8 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   odpoví. Stejné ARP jako před chvílí, jen v jiné síti.“
 - Note: „ARP běží v každé síti zvlášť. Alice se ptala v síti 1 na bránu, router se ptá v síti 2 na Boba.“
 - Pozn. pro učitele: tady student vidí, že router je také „hostitel“ ve své síti: chová se k Bobovi jako Alice k bráně.
-- Simulátor zjednodušuje: „Skutečný Cisco router by první paket při čekání na ARP zahodil (první ping vyjde `.`); simulátor
-  ho drží ve frontě (rozhodnutí 9). Označená „věrnost Cisco“ přijde v úrovni 5.“
+- Simulátor zjednodušuje: „Skutečný Cisco router první paket při čekání na ARP zahodí: Alice by u prvního dotazu viděla Request timed out.
+  Simulátor paket drží ve frontě, ať je vidět celý průběh.“ (projektant P4: tečka „.“ je jen u pingu z routeru)
 
 #### Krok 11: Nový rámec (tip)
 
@@ -251,6 +251,8 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - (TTL se tu netipuje, student ho viděl snížit v kroku 9; kontrolní otázka 5.)
 
 #### Krok 12: Nový rámec, nové MAC; IP beze změny (vyhodnotí tip z kroku 11)
+
+- Implementace (didaktik D4, rozhodnutí 52): krok končí novým rámcem ve věži R1 (L2), štítky „starý rámec“ / „nový rámec“; k Bobovi rámec dojede v kroku 13.
 
 - Vidí: paket klesne, dostane novou hnědou obálku, vyrazí z Gi0/1 přímo k Bobovi. Rentgen: dva sloupce
   „před routerem“ (z kroku 8) / „po routeru“: **cílová MAC** `…:01:01` → `…:00:02` (změna), **zdrojová MAC** `…:00:01` → `…:01:02`
@@ -268,8 +270,8 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Vidí: Bob přijal rámec (cíl = jeho MAC), rozbalil do L3 (cílová IP je jeho), ICMP Echo Request
   → aplikace `ping` v OS odpovídá. Vzniká **Echo Reply**: nový paket od Boba s výchozím TTL **128** (Bob má
   Windows, jako Alice; reálný Windows používá 128). Odpověď ještě neodešla.
-- Text: „Bob přijal Echo Request a odpovídá. Odpověď je nový paket, který Bob odešle s TTL 128. Alice ho uvidí
-  po cestě přes router. Jaké TTL v odpovědi uvidí?“
+- Text: „Bob přijal Echo Request a odpovídá novým paketem. Bobův systém dává novým paketům TTL 128. Jaké TTL uvidí Alice?“
+  (rozhodnutí 51: tip nesmí obsahovat výsledek; TTL na kabelu se v kroku tipu nevypisuje)
 - **Tip:** „Jaké TTL uvidí Alice v odpovědi?“ Volby: **128** / **127** / **126**. Správně: 127. Důvod při nesouladu:
   „Odpověď je nový paket, který má TTL 128, a při cestě zpět projde jedním routerem: 127. TTL z cesty tam se nepřičítá ani
   neodčítá.“
@@ -283,7 +285,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
   Odpověď má zdrojovou IP 192.168.2.20, cílovou 192.168.1.10; MAC adresy se opět mění na každém úseku.
 - **Terminál (Alice):** dokončí se výpis `ping`: `Reply from 192.168.2.20: bytes=32 time<1ms TTL=127` (4×, viz Terminál),
   statistika 4 odeslané, 4 přijaté.
-- Text: „Tvůj tip: <volba>. Skutečnost: 127. Odpověď je nový paket s TTL 128, router ho snížil o 1. Alice vidí
+- Text: „Tvůj tip: <volba>. Skutečnost: 127. Odpověď je nový paket s TTL 128, router ho cestou sníží o 1. Alice vidí
   v pingu TTL=127.“
 - Note: „Přes router se paket vrací stejným způsobem: nový rámec na každém úseku, IP adresy prohozené, TTL −1.“
 - Simulátor zjednodušuje: „Animace ukazuje jen první ze čtyř Echo Request. Zbylé tři proběhnou stejně, jen už s naplněnými
@@ -298,7 +300,8 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 - Text: „Alice nezná MAC adresu Boba a nikdy ji nezjistí: MAC adresy jsou platné jen v jedné síti. Každý
   pozná jen adresy sousedů ve své síti. Router je v obou sítích, a proto zná obě strany.“
 - Note: „Z tohoto důvodu nelze přes internet zjistit MAC adresu cizího počítače z jiné sítě.“
-- Hint: „Zkus zadat `arp -a` na Cyrilovi: v jeho tabulce není nic, protože s nikým z jiné sítě nemluvil.“
+- Hint: „Zkus `arp -a` na Cyrilovi: tabulka je prázdná. ARP dotaz Alice sice dostal, ale neptala se na něj, a tak si ji nezapsal.
+  Sám zatím s nikým nemluvil.“
 
 ### Část B: Cíl ve stejné síti
 
@@ -334,7 +337,7 @@ navazující scénář o TTL a `tracert`, **část D (21–24)** je diagnostika.
 
 - Vidí: Alice spustí `tracert 192.168.2.20`. První ICMP Echo Request má **TTL = 1**, leží na vstupu Gi0/0 routeru
   (rámec dorazil, paket v L3 se ještě nezpracoval). Terminál: `Tracing route to 192.168.2.20 over a maximum of 30 hops`.
-- Text: „`tracert` posílá pakety s tím nejmenším TTL: první má TTL 1. Co s ním udělá router?“
+- Text: „`tracert` posílá pakety s postupně rostoucím TTL, první má TTL 1. Co s ním udělá router?“
 - **Tip:** „Co udělá router s paketem, který má TTL = 1?“ Volby: **přepošle ho Bobovi** / **zahodí ho** / **zahodí
   ho a ozve se Alici**. Správně: zahodí ho a ozve se Alici. Důvod při nesouladu (přepošle): „TTL se snižuje o 1. Když
   by kleslo na nulu, router paket zahodí.“ (zahodí a mlčí): „Router pošle odesílateli ICMP zprávu Time Exceeded.“
@@ -373,50 +376,67 @@ Student nic nenastavuje (konfigurace je úroveň 5), ale hledá chybu příkazy,
 má výchozí proxy ARP, takže by ping se špatnou maskou prošel; maska se vysvětluje v kroku 2). Oprava je tlačítko (rozhodnutí 42).
 Obě chyby mají jiný příznak, a to je lekce: hledat po vrstvách zdola nahoru (kabel → adresa, maska, brána → trasa).
 
-#### Krok 21: Chyba 1: chybí výchozí brána
+Rozhodnutí 51: nadpisy a texty kroků před tipem neprozrazují diagnózu; brána Alice se v topologii v krocích 21, 22a, 23, 24a
+neukazuje (student ji najde `ipconfig`); tlačítko „Oprav bránu“ je až v kroku vyhodnocení (22b, 24b). Kroky 22 a 24 mají
+tři části: a = tip „Kde je chyba?“, b = vyhodnocení a diagnóza s tlačítkem, c = po opravě.
 
-- Vidí: banner „Alice po restartu už nedosáhne na Boba.“ Alice má správnou IP i masku, ale **Default Gateway je prázdná**.
+#### Krok 21: Ping na Boba nefunguje
+
+- Vidí: Alice má správnou IP i masku, ale **Default Gateway je prázdná** (v topologii se brána neukazuje).
   `ping 192.168.2.20` selže okamžitě, **na drát nevyjde žádný rámec ani ARP dotaz** (příznak: ticho). Výpis (Windows):
   `PING: transmit failed. General failure.` (znění **ověřit při pilotu**, rozhodnutí 46). `ping 192.168.1.1` a `ping 192.168.1.30`
   fungují (síť 1, kabel i switch jsou v pořádku).
-- Text: „Do vlastní sítě Alice dosáhne, ven ne. Tentokrát nevyšel z Alice ani ARP dotaz: nemá kam paket poslat.“
-- Hint 1: „Funguje ping na Cyrila a na bránu? A na Boba?“
-- Hint 2: „V ipconfig zkontroluj řádek Default Gateway.“
-- Hint 3: „V animaci nevyjde z Alice žádný rámec. Proč by si Alice nepoložila ani ARP dotaz?“
+- Text: „Alice se po restartu počítače nedostane k Bobovi. Do vlastní sítě dosáhne, ven ne. Podívej se, co z Alice vyšlo na síť.“
+- Hint 1: „Funguje ping na Cyrila a na 192.168.1.1? A na Boba?“
 
-#### Krok 22: Diagnóza 1 a oprava
+#### Krok 22a: Kde je chyba? (1) (tip)
 
-- Dělá: vybere příčinu (**kabel** / **maska** / **brána** / **router** / **Bob**), zdůvodní jednou větou: „Bob není v mé síti (maska),
-  a protože nemám výchozí bránu, nevím, komu paket předat.“ Příkazy: `ipconfig` (Default Gateway prázdné), `netstat -nr`
-  (chybí řádek `0.0.0.0`; zbývá jen `192.168.1.0/24`), `ping 192.168.1.1` (v pořádku).
-- Oprava: tlačítko „Oprav bránu“ (nastaví 192.168.1.1). Potom ping projde jako v kroku 14.
+- Text: „Najdi příčinu příkazy, které znáš, a pak vyber, kde je chyba.“
+- **Tip:** „Kde je chyba?“ Volby: **kabel** / **maska** / **brána** / **router** / **Bob**. Správně: brána. Důvod při nesouladu:
+  „Bob není v síti Alice (maska) a Alice nemá výchozí bránu, takže neví, komu paket předat.“
+- Hint 1: „Zkus ipconfig a netstat -nr.“ Hint 2: „V ipconfig zkontroluj řádek Default Gateway.“
+  Hint 3: „V animaci nevyšel z Alice žádný rámec. Proč by si Alice nepoložila ani ARP dotaz?“
+
+#### Krok 22b: Diagnóza 1: chybí výchozí brána (vyhodnotí tip 22a)
+
 - Text: „Bez brány má Alice v tabulce jen svou síť. Pro cíl mimo ni nemá žádný řádek a paket nikam neodejde.“
 - Note: „Příznak: z Alice nevyjde nic. Hledej v konfiguraci Alice, ne v síti.“
+- Tlačítko „Oprav bránu“ (nastaví 192.168.1.1, rozhodnutí 42). Terminál: `netstat -nr` (chybí řádek `0.0.0.0`).
 - Tip pro učitele: nechat studenty napsat postup zdola nahoru: 1. kabel/rozhraní, 2. IP/maska/brána, 3. směrovací tabulka, 4. cíl.
 
-#### Krok 23: Chyba 2: špatná brána (.254)
+#### Krok 22c: Oprava 1: brána 192.168.1.1
 
-- Vidí: banner „Jiná Alice, jiná chyba.“ Alice má **Default Gateway 192.168.1.254** (v síti 1 takovou adresu nikdo nemá; správně je .1).
-  `ping 192.168.2.20` po chvíli vypíše `Reply from 192.168.1.10: Destination host unreachable.` (4×, 0 přijatých; z `arp.md` kap. 6).
-  V animaci vyšle Alice **ARP dotaz na 192.168.1.254** (broadcast, SW1 ho rozešle, Cyril i R1 ho zahodí, protože adresa není jejich),
+- Text: „Alice má výchozí bránu 192.168.1.1. Ping na Boba projde jako v kroku 14 (ARP tabulka byla po restartu prázdná, proto se ptá znovu).“
+
+#### Krok 23: Ping na Boba zase nefunguje
+
+- Vidí: Alice má **Default Gateway 192.168.1.254** (v síti 1 takovou adresu nikdo nemá; v topologii se brána neukazuje).
+  `ping 192.168.2.20` vypíše `Reply from 192.168.1.10: Destination host unreachable.` (4×; z `arp.md` kap. 6).
+  V animaci vyšle Alice **ARP dotaz na 192.168.1.254** (broadcast, SW1 ho rozešle, Cyril i R1 ho viditelně odmítnou: „ARP: není pro mě“),
   odpověď nepřijde, po třech pokusech se ARP vzdá. Paket pro Boba neodešel.
-- Text: „Ping na Boba selhal a nic nepřišlo zpátky. Tentokrát Alice nějaký rámec poslala. Podívej se, na koho se ptala.“
-- Hint 1: „Zkus `ping 192.168.1.1` a `ping 192.168.1.30`. Funguje?“ (Ano: síť 1 je v pořádku.)
-- Hint 2: „Porovnej výchozí bránu v `ipconfig` s adresou routeru, kterou vidíš v topologii.“
-- Hint 3: „Podívej se na animaci: na koho se Alice ptala v ARP dotazu? Odpověděl někdo?“
-- Důležité: stopa je „ARP dotaz na bránu, která neodpovídá“. Odlišuje se od kroku 21 (nevyšlo nic) i od správného případu
-  (ARP na bránu dostane odpověď).
+- Text: „Jiná Alice, ping na Boba zase selhal. Tentokrát Alice nějaký rámec poslala: podívej se, na koho se ptala. Hlášku
+  „Reply from 192.168.1.10“ vypsal Alicin vlastní systém, ze sítě nic nepřišlo.“
+- Hint 1: „Zkus ping 192.168.1.1 a ping 192.168.1.30. Funguje?“
 
-#### Krok 24: Diagnóza 2 a oprava
+#### Krok 24a: Kde je chyba? (2) (tip)
 
-- Dělá: vybere příčinu (**brána**) a zdůvodní: „Alice posílá paket na adresu, kterou v síti nikdo nemá, a tak nezíská MAC
-  dalšího skoku.“ Příkazy: `ipconfig` (brána 192.168.1.254), `arp -a` (u 192.168.1.254 žádný záznam), `netstat -nr`
-  (výchozí cesta ukazuje na .254), `ping 192.168.1.254` (nepřijde odpověď).
-- Oprava: tlačítko „Oprav bránu“ (192.168.1.254 → 192.168.1.1). Potom ping projde.
-- Text: „Výchozí brána musí být adresa routeru v tvé síti. Alice poslala paket na adresu, kterou nemá nikdo, a ARP zůstal bez odpovědi.“
+- Text: „Najdi příčinu příkazy, které znáš, a pak vyber, kde je chyba.“
+- **Tip:** volby jako 22a, správně: brána. Důvod: „Alice chce paket předat bráně 192.168.1.254, ale tu adresu v síti nikdo nemá.
+  Na ARP dotaz nikdo neodpoví a Alice nezíská MAC dalšího skoku.“ (projektant P2: paket pořád míří na Boba, .254 je jen next hop.)
+- Hint 1: „Porovnej výchozí bránu v ipconfig s adresou routeru, kterou vidíš v topologii.“
+  Hint 2: „Podívej se na animaci: na koho se Alice ptala v ARP dotazu? Odpověděl někdo?“
+
+#### Krok 24b: Diagnóza 2: špatná brána (.254) (vyhodnotí tip 24a)
+
+- Text: „Výchozí brána musí být adresa routeru v tvé síti. Alice se ARPem ptala na 192.168.1.254, kterou nikdo nemá, a dotaz zůstal
+  bez odpovědi. Paket pro Boba proto ani neodešel.“
 - Note: „Rozdíl obou chyb: chybí brána → z Alice nevyjde nic; špatná brána → ARP dotaz bez odpovědi.“
-- Pozn. pro učitele (odkaz na úroveň 5): **chybějící brána na Bobovi** (nemá 192.168.2.1): Alicin Echo Request dojde, odpověď ne;
-  Alice vidí `Request timed out`. Chyba je na druhém konci („Chybu opravím tam, kde ji vidím“).
+- Tlačítko „Oprav bránu“ (192.168.1.254 → 192.168.1.1). Terminál: `arp -a` (u 192.168.1.254 žádný záznam).
+- Pozn. pro učitele (odkaz na úroveň 5): **chybějící brána na Bobovi**: Alicin Echo Request dojde, odpověď ne; Alice vidí `Request timed out`.
+
+#### Krok 24c: Oprava 2: brána 192.168.1.1
+
+- Text: „Alice má správnou bránu 192.168.1.1, ARP dotaz na ni dostane odpověď a ping na Boba projde.“
 
 #### Krok 25: Shrnutí: co se mění a co ne
 
@@ -427,6 +447,11 @@ Obě chyby mají jiný příznak, a to je lekce: hledat po vrstvách zdola nahor
   IP adresy a směrovací tabulky.“
 - Note: „Na závěr si zkus odpovědět: kolik různých rámců potkal ping z kroku 3? (Odpověď v kontrolních otázkách.)“
 - Hint: „Nezapomeň: ARP se ptá jen v jedné síti, na adresu dalšího skoku, ne na cíl.“
+
+## Popisky směru (rozhodnutí 50)
+
+Nadpis prostředního sloupce a popisek pod posuvníkem ukazují skutečnou zprávu (zdroj → cíl podle hlaviček): „ARP dotaz · Alice → všem“,
+„ARP odpověď · R1 → Alice“, „Echo Reply · Bob → Alice“, „Time Exceeded · R1 → Alice“, ne dvojici scénáře.
 
 ## „Aha“ chvíle
 

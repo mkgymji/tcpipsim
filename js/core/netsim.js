@@ -191,11 +191,10 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     delete node.state.arpq[key];
     emit('arp_fail', { node: nodeId, ip: q.ip, if: q.if, count: q.items.length,
       detail: `${q.ip} neodpověděl na ${ARP_PARAMS.retries} ARP dotazy: ${q.items.length} paket(y) z fronty zahozeny` });
-    if (node.type === 'router' && !q.items.some((it) => it.owner)) {
-      // RFC 1812 3.3.2: ICMP 3/1 jen pro jeden z paketů ve frontě, ostatní bez hlášení
-      const first = q.items[0];
-      if (first) sendIcmpError(nodeId, first.pkt, ICMP.UNREACH, 1);
-      return;
+    if (node.type === 'router') {
+      // RFC 1812 3.3.2: ICMP 3/1 jen pro jeden z přeposílaných paketů ve frontě, ostatní bez hlášení
+      const fwd = q.items.find((it) => !it.owner);
+      if (fwd) sendIcmpError(nodeId, fwd.pkt, ICMP.UNREACH, 1);
     }
     for (const it of q.items) if (it.owner) appFail(it.owner, { kind: 'arp_failed', from: iface.ip });
   });
@@ -207,10 +206,9 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     const known = node.state.arp_cache.find((x) => x.ip === h.spa);
     if (known && known.type !== 'static') arpStore(node, h.spa, h.sha, ifName, 'z ARP zprávy');
     if (h.tpa !== iface.ip) {
-      if (!known) {
-        emit('arp_ignore', { node: node.id, ip: h.tpa, op: h.op, pdu: frame.payload,
-          detail: `hledaná adresa ${h.tpa} není moje (${iface.ip}): zahodit, nic si nezapisuje` });
-      }
+      // RFC 826: známého odesílatele jen obnoví (výše), nový záznam nevzniká; dotaz není pro mě
+      emit('arp_ignore', { node: node.id, ip: h.tpa, op: h.op, pdu: frame.payload, refreshed: Boolean(known),
+        detail: `hledaná adresa ${h.tpa} není moje (${iface.ip}): neodpovídá${known ? ', jen obnoví existující záznam' : ', nic si nezapisuje'}` });
       return;
     }
     if (!known) arpStore(node, h.spa, h.sha, ifName, h.op === 1 ? 'z dotazu' : 'z odpovědi');
@@ -336,6 +334,12 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     emit('encap', { node: run.node, layer: 3, proto: 'ipv4', pdu: pkt });
     const owner = { run: run.id, seq: run.seq };
     run.pending = run.seq;
+    // vlastní adresa a loopback 127/8 se doručí uvnitř zásobníku, na kabel nic nejde (RFC 1122 3.2.1.3)
+    if (run.dst.startsWith('127.') || myIps(node).includes(run.dst)) {
+      emit('ip_local', { node: run.node, dst: run.dst, pdu: pkt, detail: `${run.dst} je vlastní adresa: doručeno uvnitř, nic se neodeslalo` });
+      appResult(owner, { kind: 'reply', from: run.dst, ttl: ttlOf(node), bytes: encode(pdu.payload).length });
+      return;
+    }
     run.timer = sched.schedule({ type: 'app.timeout', delay: run.app === 'ping' ? PING_PARAMS.timeout : TRACERT_PARAMS.timeout,
       payload: owner });
     const res = ipOutput(run.node, pkt, owner);

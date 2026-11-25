@@ -14,10 +14,10 @@ Simulátor používá terminologii z Michalových prezentací (viz `CLAUDE.md`).
 | Aplikační | L7 | Aplikační | data | (jméno, URL) | aplikace |
 | Prezentační | L6 | Aplikační | data | | aplikace |
 | Relační | L5 | Aplikační | data | | aplikace |
-| Transportní | L4 | Transportní | segment (TCP), datagram (UDP) | port | operační systém |
-| Síťová | L3 | Síťová | paket (IP datagram) | IP adresa | operační systém |
-| Linková | L2 | Vrstva síťového rozhraní | rámec | MAC adresa | síťová karta (hardware a firmware); hlavičku sestaví ovladač v OS |
-| Fyzická | L1 | Vrstva síťového rozhraní | bity | | síťová karta (hardware a firmware) |
+| Transportní | L4 | Transportní | segment (ve sloupci vrstev obecně; v detailu „transportní paket“: UDP datagram (RFC 768), TCP segment) | port | operační systém |
+| Síťová | L3 | Síťová | paket (v detailu „síťový paket (IP datagram)“) | IP adresa | operační systém |
+| Linková | L2 | Vrstva síťového rozhraní | rámec (v detailu „linkový rámec“) | MAC adresa | firmware síťového rozhraní; hlavičku sestaví ovladač v OS |
+| Fyzická | L1 | Vrstva síťového rozhraní | bity | | firmware síťového rozhraní (L1 je z velké části hardware síťové karty) |
 
 Poznámky k přesnosti (nic, co by se student musel odnaučit, jen zpřesnění):
 
@@ -26,8 +26,9 @@ Poznámky k přesnosti (nic, co by se student musel odnaučit, jen zpřesnění)
   v simulátoru na L3 primárně „paket“, v rentgenu podtitul „IP datagram“.
 - **Kdo sestavuje ethernetovou hlavičku:** v reálném PC ji sestaví ovladač síťové karty v OS,
   karta (firmware/hardware) přidá preambuli a FCS, odvysílá bity a u příchozích rámců
-  filtruje podle cílové MAC. Simulátor u L1 i L2 píše „síťová karta (hardware a firmware)“
-  (rozhodnuti.md bod 18; prezentace říká „firmware síťového rozhraní“). Je to
+  filtruje podle cílové MAC. Simulátor u L1 i L2 píše „firmware síťového rozhraní“ jako Michalova
+  prezentace (rozhodnutí 49, ruší bod 18), v řádku vrstvy zkráceně „firmware síť. rozhraní“; u L1 detail dodá
+  „L1 je z velké části hardware síťové karty“. Je to
   zjednodušení, které platí v tom podstatném: o rámce se aplikace ani IP vrstva nestarají.
 - **ARP** stojí mezi L2 a L3 (ptá se na MAC podle IP). Implementuje ho operační systém (ARP
   cache je v jádře OS, `arp -a`), nikoli firmware karty. Rámec s ARP nenese IP paket:
