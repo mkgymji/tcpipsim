@@ -402,7 +402,7 @@ se s paletou vrstev L1–L7 (tokeny `--role-*` v `css/app.css`):
 | Panel | Záhlaví | Ikona | Slovo |
 |---|---|---|---|
 | Vysvětlivka | tmavý pruh (ink) s „Krok N z M“ | i | Krok |
-| Tip / otázka | celá karta žlutá #FFE28A, pruh tmavě okrový #6B4E00 | ? | „Ptám se tebe: …“ |
+| Tip / otázka | celá karta žlutá #FFE28A, pruh tmavě okrový #6B4E00 | ? | „Otázka: …“ |
 | Rentgen | ocelově modrá #2F4A6B (ne L4 #1B5FAA, ne L1 #4A5A66) | lupa | „Rentgen: …“ |
 | Terminál | černé (Windows), tmavě modré (Cisco IOS) | >_ | název okna (např. „Konzole: R1“) |
 | Detail (úroveň 1) | světle šedé #E4E6E9 | i | Detail |

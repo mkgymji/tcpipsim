@@ -898,7 +898,7 @@ body.lvl3 .row .xmark { top: -12px; bottom: auto; right: 4px; border: 2px solid 
 .explain > .stephead .plab { color: #E5E7EB; }
 .explain > .stephead .pbtn { background: transparent; color: #fff; border-color: #fff; }
 .explain > .stephead .pbtn.on { background: #fff; color: var(--ink); }
-/* tip: celá karta žlutá, ikona „?“, nadpis „Ptám se tebe: …“ */
+/* tip: celá karta žlutá, ikona „?“, nadpis „Otázka: …“ */
 .explain.tip { background: var(--role-tip-bg); border-color: var(--role-tip); }
 .explain.tip > .stepno, .explain.tip > .stephead { background: var(--role-tip); }
 .explain.tip > .stepno::before, .explain.tip > .stephead .stepno::before { content: "?"; font-family: var(--font); }

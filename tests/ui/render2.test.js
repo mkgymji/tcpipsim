@@ -147,11 +147,11 @@ test('hexdump před vznikem rámce: jen existující bajty, posun od začátku o
 const ev = tipEvaluator(timeline.steps);
 const TIPS = ['5', '9', '11', '13', '16'];
 
-test('každý krok tipu: nadpis „Ptám se tebe:“, volby z topologie (vstupní port zamčený), nic neprozrazuje', () => {
+test('každý krok tipu: nadpis „Otázka:“, volby z topologie (vstupní port zamčený), nic neprozrazuje', () => {
   for (const l of TIPS) {
     const v = at(l), pred = v.step.predict;
     const e = explainHtml2(v, 'osi', 18, { predict: pred, tips: new Set() });
-    assert.match(e, new RegExp(`<h3>Ptám se tebe: ${pred.q.replace('?', '\\?')}</h3>`), `krok ${l}`);
+    assert.match(e, new RegExp(`<h3>Otázka: ${pred.q.replace('?', '\\?')}</h3>`), `krok ${l}`);
     assert.doesNotMatch(e, /Předpověz|evalline/, `krok ${l}`);
     if (!pred.node) continue;
     const opts = tipOptions(v, pred);

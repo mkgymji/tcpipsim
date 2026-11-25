@@ -230,3 +230,5 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     nadpis sloupce se změní a krátce zvýrazní („Teď Bob“), text začne „Mezitím u Boba: …“.
     (c) V topologii jsou přijímající uzel i zahazující uzel odlišené (Bob „přijal“, Cyril „zahodil“) — to už platí.
     Kontrola týmu nově ověřuje u každého kroku shodu „o kom mluví text = čí sloupec je vidět“.
+
+58. **Nadpis karty tipu je „Otázka: …“** (Michal: „Ptám se tebe“ zní česky divně). Mění 56a.

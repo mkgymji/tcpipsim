@@ -369,7 +369,7 @@ export function explainHtml3(v, model, total, { predict, tips, evalLines = [], t
   const s = v.step;
   const out = [];
   out.push(`<div class="stephead"><span class="stepno">Krok ${stepLabel(s)} z ${total}</span><span class="parts" role="group" aria-label="Skok na začátek části"><span class="plab" title="Úroveň má čtyři části: A ping do jiné sítě, B soused ve stejné síti, C TTL a tracert, D najdi chybu. Klik = skok na začátek části.">Části:</span>${parts.map((p) => `<button type="button" class="pbtn${p.id === curPart ? ' on' : ''}" data-part="${p.k}" aria-pressed="${p.id === curPart}" title="${esc(p.title)}">${p.id}</button>`).join('')}</span></div>`);
-  out.push(`<h3>${esc(predict ? `Ptám se tebe: ${predict.q}` : textFor(s.title, model))}</h3>`);
+  out.push(`<h3>${esc(predict ? `Otázka: ${predict.q}` : textFor(s.title, model))}</h3>`);
   if (predict) out.push(`<p class="ptitle">${esc(textFor(s.title, model))}</p>`);
   out.push(`<p>${chipsHtml(textFor(s.text, model), esc)}</p>`);
   if (predict) {
