@@ -1,0 +1,787 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "uloha-web-rst",
+  "level": 4,
+  "seed": 1,
+  "skip": "jádro zatím neumí klíče modelových situací (ulohy.md kap. 5)",
+  "title": "Modelová situace 10: web na SRV1 neběží, SYN na port 80 dostane RST, ACK",
+  "description": "Topologie úrovně 4 (routing.md kap. 9) jako základ modelové situace (ulohy.md kap. 1). Aplikace web na SRV1 má running: false (nginx zastavený), DNS běží; ARP cache a MAC tabulky předvyplněné jako ve vektorech úrovně 4. Alice pošle SYN na 192.168.2.10:80, SRV1 odpoví RST, ACK (seq 0, ack = ISN Alice + 1, okno 0; RFC 9293 kap. 3.10.7.1, tcp.md kap. 7.3). L3 je v pořádku (TTL 64 -> 63 přes R1), selhává L4. Simulátor zjednodušuje: Windows po RST zkouší SYN ještě dvakrát, simulátor ne.",
+  "spec_refs": [
+    "docs/spec/ulohy.md",
+    "docs/spec/vektory.md kap. 10",
+    "docs/rozhodnuti.md bod 66, 68",
+    "docs/spec/tcp.md kap. 7.3"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "curl",
+            "proto": "tcp",
+            "port": null
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ]
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "SW2",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000,
+            "auto_reply": "Ahoj, Alice!"
+          },
+          {
+            "name": "poznamky",
+            "proto": "udp",
+            "port": 6000
+          }
+        ]
+      },
+      {
+        "id": "SRV1",
+        "type": "server",
+        "label": "Server",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:04",
+            "ip": "192.168.2.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "apps": [
+          {
+            "name": "dns",
+            "proto": "udp",
+            "port": 53
+          },
+          {
+            "name": "dns",
+            "proto": "tcp",
+            "port": 53
+          },
+          {
+            "name": "web",
+            "proto": "tcp",
+            "port": 80,
+            "running": false
+          }
+        ],
+        "dns_zone": {
+          "zone": "skola.lan",
+          "records": [
+            {
+              "name": "www.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            },
+            {
+              "name": "srv1.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            }
+          ]
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/4"
+        }
+      },
+      {
+        "id": "L4",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L5",
+        "a": {
+          "node": "PC2",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/2"
+        }
+      },
+      {
+        "id": "L6",
+        "a": {
+          "node": "SRV1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/3"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [
+        {
+          "ip": "192.168.1.1",
+          "mac": "02:00:00:00:01:01",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "PC2": [],
+      "PC3": [],
+      "SRV1": [
+        {
+          "ip": "192.168.2.1",
+          "mac": "02:00:00:00:01:02",
+          "if": "eth0",
+          "type": "dynamic"
+        }
+      ],
+      "R1": [
+        {
+          "ip": "192.168.1.10",
+          "mac": "02:00:00:00:00:01",
+          "if": "Gi0/0",
+          "type": "dynamic"
+        },
+        {
+          "ip": "192.168.2.10",
+          "mac": "02:00:00:00:00:04",
+          "if": "Gi0/1",
+          "type": "dynamic"
+        }
+      ]
+    },
+    "mac_table": {
+      "SW1": [
+        {
+          "mac": "02:00:00:00:00:01",
+          "port": "Fa0/1",
+          "vlan": 1,
+          "type": "dynamic"
+        },
+        {
+          "mac": "02:00:00:00:01:01",
+          "port": "Fa0/4",
+          "vlan": 1,
+          "type": "dynamic"
+        }
+      ],
+      "SW2": [
+        {
+          "mac": "02:00:00:00:01:02",
+          "port": "Fa0/1",
+          "vlan": 1,
+          "type": "dynamic"
+        },
+        {
+          "mac": "02:00:00:00:00:04",
+          "port": "Fa0/3",
+          "vlan": 1,
+          "type": "dynamic"
+        }
+      ]
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "SRV1": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    },
+    "udp_sockets": {
+      "SRV1": [
+        {
+          "app": "dns",
+          "port": 53
+        }
+      ],
+      "PC2": [
+        {
+          "app": "zpravy",
+          "port": 5000
+        },
+        {
+          "app": "poznamky",
+          "port": 6000
+        }
+      ]
+    },
+    "tcp_connections": {
+      "SRV1": [
+        {
+          "local": "0.0.0.0:53",
+          "remote": "0.0.0.0:0",
+          "state": "LISTEN"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "http_get",
+      "args": {
+        "dst": "192.168.2.10",
+        "host": "www.skola.lan",
+        "path": "/",
+        "port": 80,
+        "client": "curl"
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [
+      {
+        "n": 1,
+        "step": 1,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "TCP SYN: Alice chce spojení na 192.168.2.10:80",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 128,
+            "protocol": 6,
+            "total_length": 44
+          },
+          "tcp": {
+            "sport": 49152,
+            "dport": 80,
+            "seq": 4108129950,
+            "ack": 0,
+            "rel_seq": 0,
+            "rel_ack": 0,
+            "flags": "SYN",
+            "hdr_len": 24,
+            "window": 64240,
+            "payload_len": 0,
+            "options": [
+              {
+                "kind": 2,
+                "name": "MSS",
+                "value": 1460
+              }
+            ]
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 2,
+        "step": 2,
+        "link": "L3",
+        "from": "SW1",
+        "to": "R1",
+        "summary": "TCP SYN: Alice chce spojení na 192.168.2.10:80 (SW1 -> R1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:01",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 128,
+            "protocol": 6,
+            "total_length": 44
+          },
+          "tcp": {
+            "sport": 49152,
+            "dport": 80,
+            "seq": 4108129950,
+            "ack": 0,
+            "rel_seq": 0,
+            "rel_ack": 0,
+            "flags": "SYN",
+            "hdr_len": 24,
+            "window": 64240,
+            "payload_len": 0,
+            "options": [
+              {
+                "kind": 2,
+                "name": "MSS",
+                "value": 1460
+              }
+            ]
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 3,
+        "step": 3,
+        "link": "L4",
+        "from": "R1",
+        "to": "SW2",
+        "summary": "TCP SYN: Alice chce spojení na 192.168.2.10:80 (R1 -> SW2)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 127,
+            "protocol": 6,
+            "total_length": 44
+          },
+          "tcp": {
+            "sport": 49152,
+            "dport": 80,
+            "seq": 4108129950,
+            "ack": 0,
+            "rel_seq": 0,
+            "rel_ack": 0,
+            "flags": "SYN",
+            "hdr_len": 24,
+            "window": 64240,
+            "payload_len": 0,
+            "options": [
+              {
+                "kind": 2,
+                "name": "MSS",
+                "value": 1460
+              }
+            ]
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 4,
+        "step": 4,
+        "link": "L6",
+        "from": "SW2",
+        "to": "SRV1",
+        "summary": "TCP SYN: Alice chce spojení na 192.168.2.10:80 (SW2 -> SRV1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:04",
+            "src": "02:00:00:00:01:02",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.2.10",
+            "ttl": 127,
+            "protocol": 6,
+            "total_length": 44
+          },
+          "tcp": {
+            "sport": 49152,
+            "dport": 80,
+            "seq": 4108129950,
+            "ack": 0,
+            "rel_seq": 0,
+            "rel_ack": 0,
+            "flags": "SYN",
+            "hdr_len": 24,
+            "window": 64240,
+            "payload_len": 0,
+            "options": [
+              {
+                "kind": 2,
+                "name": "MSS",
+                "value": 1460
+              }
+            ]
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 5,
+        "step": 5,
+        "link": "L6",
+        "from": "SRV1",
+        "to": "SW2",
+        "summary": "TCP RST, ACK: na portu 80 nikdo nenaslouchá (nginx neběží)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 6,
+            "total_length": 40
+          },
+          "tcp": {
+            "sport": 80,
+            "dport": 49152,
+            "seq": 0,
+            "ack": 4108129951,
+            "flags": "RST, ACK",
+            "hdr_len": 20,
+            "window": 0,
+            "payload_len": 0
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 6,
+        "step": 6,
+        "link": "L4",
+        "from": "SW2",
+        "to": "R1",
+        "summary": "TCP RST, ACK: na portu 80 nikdo nenaslouchá (nginx neběží) (SW2 -> R1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:01:02",
+            "src": "02:00:00:00:00:04",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 6,
+            "total_length": 40
+          },
+          "tcp": {
+            "sport": 80,
+            "dport": 49152,
+            "seq": 0,
+            "ack": 4108129951,
+            "flags": "RST, ACK",
+            "hdr_len": 20,
+            "window": 0,
+            "payload_len": 0
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 7,
+        "step": 7,
+        "link": "L3",
+        "from": "R1",
+        "to": "SW1",
+        "summary": "TCP RST, ACK: na portu 80 nikdo nenaslouchá (nginx neběží) (R1 -> SW1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 6,
+            "total_length": 40
+          },
+          "tcp": {
+            "sport": 80,
+            "dport": 49152,
+            "seq": 0,
+            "ack": 4108129951,
+            "flags": "RST, ACK",
+            "hdr_len": 20,
+            "window": 0,
+            "payload_len": 0
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 8,
+        "step": 8,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "TCP RST, ACK: na portu 80 nikdo nenaslouchá (nginx neběží) (SW1 -> PC1)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:01:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.2.10",
+            "dst": "192.168.1.10",
+            "ttl": 63,
+            "protocol": 6,
+            "total_length": 40
+          },
+          "tcp": {
+            "sport": 80,
+            "dport": 49152,
+            "seq": 0,
+            "ack": 4108129951,
+            "flags": "RST, ACK",
+            "hdr_len": 20,
+            "window": 0,
+            "payload_len": 0
+          },
+          "frame_len": 60
+        }
+      }
+    ],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "tcp_state",
+        "detail": "CLOSED -> SYN-SENT; port 49152; ISN 4108129950"
+      },
+      {
+        "step": 4,
+        "node": "SRV1",
+        "event": "tcp_state",
+        "detail": "port 80: žádný socket (služba web zastavená) -> RST, ACK"
+      },
+      {
+        "step": 8,
+        "node": "PC1",
+        "event": "tcp_state",
+        "detail": "SYN-SENT -> CLOSED (RST přijat): curl Connection refused"
+      }
+    ],
+    "final_state": {
+      "tcp_connections": {
+        "PC1": [],
+        "SRV1": [
+          {
+            "local": "0.0.0.0:53",
+            "remote": "0.0.0.0:0",
+            "state": "LISTEN"
+          }
+        ]
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "http_get",
+      "status": null,
+      "error": "connection_refused",
+      "local": "192.168.1.10:49152",
+      "remote": "192.168.2.10:80",
+      "retransmissions": 0
+    }
+  }
+}

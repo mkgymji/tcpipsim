@@ -291,3 +291,14 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     z 1, 3, 5, 7, 10, 11, postup od L1 nahoru.
     Odložené (zeptat se Michala později): 2 kabel ve špatném portu, 6 špatná maska (proxy ARP),
     8 konfigurace routeru v IOS, 9 chybějící trasa zpět, 12 špatný DNS záznam.
+69. **Modelové situace — sjednocení** (scenarios/ulohy.md didaktika × docs/spec/ulohy.md projektanta):
+    - **Situace 3: tiskárna PRT1 má omylem IP brány 192.168.1.1** (ne Cyrila). Na Alicin ARP dotaz na bránu
+      odpoví R1 i tiskárna; podle toho, čí odpověď platí, jde provoz k routeru (web jde), nebo k tiskárně
+      (web nejde). `arp -a` ukáže u 192.168.1.1 střídající se MAC — tím sedí didaktikův příběh „web střídavě
+      jde a nejde“. Oprava: změnit IP tiskárny. Jestli Windows přepíše záznam druhou odpovědí — „ověřit“.
+    - Situace 10: oprava `sudo systemctl start nginx` na SRV1 (projektant).
+    - Situace 4: výchozí stav APIPA 169.254.x.x; špatnou masku vyhodnocovač odmítne s vysvětlením bez
+      simulace (proxy ARP se nemodeluje, rozh. 41).
+    - Po zapojení kabelu (situace 1) se žádný ARP Announcement nekreslí — označené zjednodušení.
+    - Odkaz `#uloha=N&seed=S`; pořadí v hodině podle didaktika (4, 1, 5, 7, 10; doma 11, 3, 13).
+    - Nejistá místa (situace 7 brána mimo podsíť, výstupy Windows) zůstávají „ověřit“ (rozh. 46).

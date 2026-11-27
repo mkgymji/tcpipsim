@@ -1,0 +1,958 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "uloha-konflikt-ip",
+  "level": 4,
+  "skip": "jádro zatím neumí klíče modelových situací (ulohy.md kap. 5)",
+  "title": "Modelová situace 3: tiskárna bez detekce konfliktu má IP Cyrila, ARP cache Alice se přepíše",
+  "description": "Topologie úrovně 4 (routing.md kap. 9) jako základ modelové situace (ulohy.md kap. 1). Na SW1 Fa0/2 (linka L7) je tiskárna PRN1 se statickou 192.168.1.30 (IP Cyrila), bez RFC 5227 (acd: false), TTL 64, odpovídá o 1 krok později (proc_delay_steps: 1; ve skutečnosti rozhoduje náhoda). ARP cache a MAC tabulky jsou prázdné. Alice pošle ping -n 2 na 192.168.1.30: na jeden ARP request přijdou dvě odpovědi s různou MAC. Alice pošle seq 1 Cyrilovi (první odpověď), druhá odpověď záznam přepíše (RFC 826 merge, arp.md kap. 4), takže seq 2 jde tiskárně: odpovědi TTL 128 a pak TTL 64. Cyril konflikt nevidí (odpověď tiskárny je unicast pro Alici).",
+  "spec_refs": [
+    "docs/spec/ulohy.md",
+    "docs/spec/vektory.md kap. 10",
+    "docs/rozhodnuti.md bod 66, 68",
+    "docs/spec/arp.md kap. 4",
+    "RFC 5227 kap. 2.4"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "curl",
+            "proto": "tcp",
+            "port": null
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ]
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "SW2",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000,
+            "auto_reply": "Ahoj, Alice!"
+          },
+          {
+            "name": "poznamky",
+            "proto": "udp",
+            "port": 6000
+          }
+        ]
+      },
+      {
+        "id": "SRV1",
+        "type": "server",
+        "label": "Server",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:04",
+            "ip": "192.168.2.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "apps": [
+          {
+            "name": "dns",
+            "proto": "udp",
+            "port": 53
+          },
+          {
+            "name": "dns",
+            "proto": "tcp",
+            "port": 53
+          },
+          {
+            "name": "web",
+            "proto": "tcp",
+            "port": 80
+          }
+        ],
+        "dns_zone": {
+          "zone": "skola.lan",
+          "records": [
+            {
+              "name": "www.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            },
+            {
+              "name": "srv1.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            }
+          ]
+        }
+      },
+      {
+        "id": "PRN1",
+        "type": "pc",
+        "label": "Tiskárna",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:05",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "device": "printer",
+        "acd": false,
+        "proc_delay_steps": 1
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/4"
+        }
+      },
+      {
+        "id": "L4",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L5",
+        "a": {
+          "node": "PC2",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/2"
+        }
+      },
+      {
+        "id": "L6",
+        "a": {
+          "node": "SRV1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L7",
+        "a": {
+          "node": "PRN1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/2"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [],
+      "PC2": [],
+      "PC3": [],
+      "R1": [],
+      "SRV1": [],
+      "PRN1": []
+    },
+    "mac_table": {
+      "SW1": [],
+      "SW2": []
+    },
+    "routing_table": {
+      "PC1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "SRV1": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PRN1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "ping",
+      "args": {
+        "dst": "192.168.1.30",
+        "count": 2
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [
+      {
+        "n": 1,
+        "step": 1,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "ARP request: kdo má 192.168.1.30? Ptá se 192.168.1.10",
+        "pdu": {
+          "eth": {
+            "dst": "ff:ff:ff:ff:ff:ff",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "request",
+            "sha": "02:00:00:00:00:01",
+            "spa": "192.168.1.10",
+            "tha": "00:00:00:00:00:00",
+            "tpa": "192.168.1.30"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 2,
+        "step": 2,
+        "link": "L2",
+        "from": "SW1",
+        "to": "PC3",
+        "summary": "flooding broadcastu -> PC3",
+        "pdu": {
+          "eth": {
+            "dst": "ff:ff:ff:ff:ff:ff",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "request",
+            "sha": "02:00:00:00:00:01",
+            "spa": "192.168.1.10",
+            "tha": "00:00:00:00:00:00",
+            "tpa": "192.168.1.30"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 3,
+        "step": 2,
+        "link": "L3",
+        "from": "SW1",
+        "to": "R1",
+        "summary": "flooding broadcastu -> R1",
+        "pdu": {
+          "eth": {
+            "dst": "ff:ff:ff:ff:ff:ff",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "request",
+            "sha": "02:00:00:00:00:01",
+            "spa": "192.168.1.10",
+            "tha": "00:00:00:00:00:00",
+            "tpa": "192.168.1.30"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 4,
+        "step": 2,
+        "link": "L7",
+        "from": "SW1",
+        "to": "PRN1",
+        "summary": "flooding broadcastu -> PRN1",
+        "pdu": {
+          "eth": {
+            "dst": "ff:ff:ff:ff:ff:ff",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "request",
+            "sha": "02:00:00:00:00:01",
+            "spa": "192.168.1.10",
+            "tha": "00:00:00:00:00:00",
+            "tpa": "192.168.1.30"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 5,
+        "step": 3,
+        "link": "L2",
+        "from": "PC3",
+        "to": "SW1",
+        "summary": "ARP reply od Cyrila: 192.168.1.30 má 02:00:00:00:00:03",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:03",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "reply",
+            "sha": "02:00:00:00:00:03",
+            "spa": "192.168.1.30",
+            "tha": "02:00:00:00:00:01",
+            "tpa": "192.168.1.10"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 6,
+        "step": 4,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "ARP reply od Cyrila",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:03",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "reply",
+            "sha": "02:00:00:00:00:03",
+            "spa": "192.168.1.30",
+            "tha": "02:00:00:00:00:01",
+            "tpa": "192.168.1.10"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 7,
+        "step": 4,
+        "link": "L7",
+        "from": "PRN1",
+        "to": "SW1",
+        "summary": "ARP reply od TISKÁRNY: 192.168.1.30 má 02:00:00:00:00:05 (o krok později)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:05",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "reply",
+            "sha": "02:00:00:00:00:05",
+            "spa": "192.168.1.30",
+            "tha": "02:00:00:00:00:01",
+            "tpa": "192.168.1.10"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 8,
+        "step": 5,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "Echo Request seq 1 na MAC Cyrila (první odpověď)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:03",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.30",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "id": 1,
+            "seq": 1,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 9,
+        "step": 5,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "ARP reply od tiskárny: druhá odpověď na tentýž dotaz",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:05",
+            "ethertype": "0x0806"
+          },
+          "arp": {
+            "op": "reply",
+            "sha": "02:00:00:00:00:05",
+            "spa": "192.168.1.30",
+            "tha": "02:00:00:00:00:01",
+            "tpa": "192.168.1.10"
+          },
+          "frame_len": 60
+        }
+      },
+      {
+        "n": 10,
+        "step": 6,
+        "link": "L2",
+        "from": "SW1",
+        "to": "PC3",
+        "summary": "Echo Request seq 1",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:03",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.30",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "id": 1,
+            "seq": 1,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 11,
+        "step": 7,
+        "link": "L2",
+        "from": "PC3",
+        "to": "SW1",
+        "summary": "Echo Reply seq 1 od Cyrila (TTL 128)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:03",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.30",
+            "dst": "192.168.1.10",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "id": 1,
+            "seq": 1,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 12,
+        "step": 8,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "Echo Reply seq 1 (TTL 128)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:03",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.30",
+            "dst": "192.168.1.10",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "id": 1,
+            "seq": 1,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 13,
+        "step": 1009,
+        "link": "L1",
+        "from": "PC1",
+        "to": "SW1",
+        "summary": "Echo Request seq 2 — ARP cache už ukazuje na tiskárnu",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:05",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.30",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "id": 1,
+            "seq": 2,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 14,
+        "step": 1010,
+        "link": "L7",
+        "from": "SW1",
+        "to": "PRN1",
+        "summary": "Echo Request seq 2 -> Fa0/2 (tiskárna)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:05",
+            "src": "02:00:00:00:00:01",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.10",
+            "dst": "192.168.1.30",
+            "ttl": 128,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 8,
+            "code": 0,
+            "id": 1,
+            "seq": 2,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 15,
+        "step": 1012,
+        "link": "L7",
+        "from": "PRN1",
+        "to": "SW1",
+        "summary": "Echo Reply seq 2 od tiskárny (TTL 64)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:05",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.30",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "id": 1,
+            "seq": 2,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      },
+      {
+        "n": 16,
+        "step": 1013,
+        "link": "L1",
+        "from": "SW1",
+        "to": "PC1",
+        "summary": "Echo Reply seq 2 (TTL 64)",
+        "pdu": {
+          "eth": {
+            "dst": "02:00:00:00:00:01",
+            "src": "02:00:00:00:00:05",
+            "ethertype": "0x0800"
+          },
+          "ip": {
+            "src": "192.168.1.30",
+            "dst": "192.168.1.10",
+            "ttl": 64,
+            "protocol": 1,
+            "total_length": 60
+          },
+          "icmp": {
+            "type": 0,
+            "code": 0,
+            "id": 1,
+            "seq": 2,
+            "data_len": 32
+          },
+          "frame_len": 74
+        }
+      }
+    ],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "arp_queue",
+        "detail": "192.168.1.30 je v mé síti -> ARP přímo na cíl"
+      },
+      {
+        "step": 1,
+        "node": "SW1",
+        "event": "flood",
+        "detail": "broadcast -> Fa0/2, Fa0/3, Fa0/4"
+      },
+      {
+        "step": 2,
+        "node": "PC3",
+        "event": "arp_learn",
+        "detail": "TPA je moje -> záznam 192.168.1.10, odpověď"
+      },
+      {
+        "step": 2,
+        "node": "PRN1",
+        "event": "arp_learn",
+        "detail": "TPA 192.168.1.30 je (taky) moje -> záznam 192.168.1.10, odpověď o 1 krok později"
+      },
+      {
+        "step": 2,
+        "node": "R1",
+        "event": "arp_ignore",
+        "detail": "TPA není moje, Alici v cache nemám"
+      },
+      {
+        "step": 4,
+        "node": "PC1",
+        "event": "arp_learn",
+        "detail": "192.168.1.30 -> 02:00:00:00:00:03 (Cyril); Echo Request z fronty"
+      },
+      {
+        "step": 5,
+        "node": "PC1",
+        "event": "arp_learn",
+        "detail": "192.168.1.30 už v cache je -> RFC 826 merge: přepis na 02:00:00:00:00:05 (tiskárna)"
+      },
+      {
+        "step": 8,
+        "node": "PC1",
+        "event": "ip_deliver",
+        "detail": "Echo Reply seq 1, TTL 128 (Windows)"
+      },
+      {
+        "step": 1013,
+        "node": "PC1",
+        "event": "ip_deliver",
+        "detail": "Echo Reply seq 2, TTL 64 — stejná IP, jiné zařízení"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [
+          {
+            "ip": "192.168.1.30",
+            "mac": "02:00:00:00:00:05",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "PC2": [],
+        "PC3": [
+          {
+            "ip": "192.168.1.10",
+            "mac": "02:00:00:00:00:01",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ],
+        "R1": [],
+        "SRV1": [],
+        "PRN1": [
+          {
+            "ip": "192.168.1.10",
+            "mac": "02:00:00:00:00:01",
+            "if": "eth0",
+            "type": "dynamic"
+          }
+        ]
+      },
+      "mac_table": {
+        "SW1": [
+          {
+            "mac": "02:00:00:00:00:01",
+            "port": "Fa0/1",
+            "vlan": 1,
+            "type": "dynamic"
+          },
+          {
+            "mac": "02:00:00:00:00:03",
+            "port": "Fa0/3",
+            "vlan": 1,
+            "type": "dynamic"
+          },
+          {
+            "mac": "02:00:00:00:00:05",
+            "port": "Fa0/2",
+            "vlan": 1,
+            "type": "dynamic"
+          }
+        ],
+        "SW2": []
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "ping",
+      "sent": 2,
+      "received": 2,
+      "replies": [
+        {
+          "from": "192.168.1.30",
+          "bytes": 32,
+          "ttl": 128
+        },
+        {
+          "from": "192.168.1.30",
+          "bytes": 32,
+          "ttl": 64
+        }
+      ]
+    }
+  }
+}

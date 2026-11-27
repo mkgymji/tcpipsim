@@ -1,0 +1,378 @@
+{
+  "format": "tcpipsim-vector/1",
+  "id": "uloha-kabel",
+  "level": 4,
+  "skip": "jádro zatím neumí klíče modelových situací (ulohy.md kap. 5)",
+  "title": "Modelová situace 1: kabel Alice vytažený, ping na bránu bez jediného přenosu",
+  "description": "Topologie úrovně 4 (routing.md kap. 9) jako základ modelové situace (ulohy.md kap. 1). Linka L1 (Alice - SW1) má connected: false. Rozhraní eth0 Alice je bez linky (ipconfig: Media State . . . : Media disconnected), Windows mu odebere adresu i cesty, proto odvozená směrovací tabulka Alice je prázdná. Ping na 192.168.1.1 nemá kudy odejít: žádný ARP, žádný přenos; chyba link_down (Windows: PING: transmit failed. General failure., ověřit).",
+  "spec_refs": [
+    "docs/spec/ulohy.md",
+    "docs/spec/vektory.md kap. 10",
+    "docs/rozhodnuti.md bod 66, 68",
+    "docs/spec/cmd.md kap. 8.2"
+  ],
+  "topology": {
+    "nodes": [
+      {
+        "id": "PC1",
+        "type": "pc",
+        "label": "Alice",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:01",
+            "ip": "192.168.1.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "curl",
+            "proto": "tcp",
+            "port": null
+          }
+        ]
+      },
+      {
+        "id": "PC3",
+        "type": "pc",
+        "label": "Cyril",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:03",
+            "ip": "192.168.1.30",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.1.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ]
+      },
+      {
+        "id": "SW1",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "R1",
+        "type": "router",
+        "label": "R1",
+        "ttl_default": 255,
+        "interfaces": [
+          {
+            "name": "Gi0/0",
+            "mac": "02:00:00:00:01:01",
+            "ip": "192.168.1.1",
+            "prefix": 24
+          },
+          {
+            "name": "Gi0/1",
+            "mac": "02:00:00:00:01:02",
+            "ip": "192.168.2.1",
+            "prefix": 24
+          }
+        ]
+      },
+      {
+        "id": "SW2",
+        "type": "switch",
+        "ports": [
+          "Fa0/1",
+          "Fa0/2",
+          "Fa0/3",
+          "Fa0/4"
+        ]
+      },
+      {
+        "id": "PC2",
+        "type": "pc",
+        "label": "Bob",
+        "ttl_default": 128,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:02",
+            "ip": "192.168.2.20",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "dns_servers": [
+          "192.168.2.10"
+        ],
+        "apps": [
+          {
+            "name": "zpravy",
+            "proto": "udp",
+            "port": 5000,
+            "auto_reply": "Ahoj, Alice!"
+          },
+          {
+            "name": "poznamky",
+            "proto": "udp",
+            "port": 6000
+          }
+        ]
+      },
+      {
+        "id": "SRV1",
+        "type": "server",
+        "label": "Server",
+        "ttl_default": 64,
+        "interfaces": [
+          {
+            "name": "eth0",
+            "mac": "02:00:00:00:00:04",
+            "ip": "192.168.2.10",
+            "prefix": 24
+          }
+        ],
+        "gateway": "192.168.2.1",
+        "apps": [
+          {
+            "name": "dns",
+            "proto": "udp",
+            "port": 53
+          },
+          {
+            "name": "dns",
+            "proto": "tcp",
+            "port": 53
+          },
+          {
+            "name": "web",
+            "proto": "tcp",
+            "port": 80
+          }
+        ],
+        "dns_zone": {
+          "zone": "skola.lan",
+          "records": [
+            {
+              "name": "www.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            },
+            {
+              "name": "srv1.skola.lan",
+              "type": "A",
+              "ttl": 3600,
+              "data": "192.168.2.10"
+            }
+          ]
+        }
+      }
+    ],
+    "links": [
+      {
+        "id": "L1",
+        "a": {
+          "node": "PC1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/1"
+        },
+        "connected": false
+      },
+      {
+        "id": "L2",
+        "a": {
+          "node": "PC3",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/3"
+        }
+      },
+      {
+        "id": "L3",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/0"
+        },
+        "b": {
+          "node": "SW1",
+          "if": "Fa0/4"
+        }
+      },
+      {
+        "id": "L4",
+        "a": {
+          "node": "R1",
+          "if": "Gi0/1"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/1"
+        }
+      },
+      {
+        "id": "L5",
+        "a": {
+          "node": "PC2",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/2"
+        }
+      },
+      {
+        "id": "L6",
+        "a": {
+          "node": "SRV1",
+          "if": "eth0"
+        },
+        "b": {
+          "node": "SW2",
+          "if": "Fa0/3"
+        }
+      }
+    ]
+  },
+  "initial_state": {
+    "arp_cache": {
+      "PC1": [],
+      "PC2": [],
+      "PC3": [],
+      "R1": [],
+      "SRV1": []
+    },
+    "mac_table": {
+      "SW1": [],
+      "SW2": []
+    },
+    "routing_table": {
+      "PC1": [],
+      "PC3": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.1.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "PC2": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ],
+      "R1": [
+        {
+          "prefix": "192.168.1.0/24",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.1.1/32",
+          "next_hop": null,
+          "if": "Gi0/0",
+          "type": "local"
+        },
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "connected"
+        },
+        {
+          "prefix": "192.168.2.1/32",
+          "next_hop": null,
+          "if": "Gi0/1",
+          "type": "local"
+        }
+      ],
+      "SRV1": [
+        {
+          "prefix": "192.168.2.0/24",
+          "next_hop": null,
+          "if": "eth0",
+          "type": "connected"
+        },
+        {
+          "prefix": "0.0.0.0/0",
+          "next_hop": "192.168.2.1",
+          "if": "eth0",
+          "type": "default"
+        }
+      ]
+    }
+  },
+  "actions": [
+    {
+      "time": 0,
+      "node": "PC1",
+      "command": "ping",
+      "args": {
+        "dst": "192.168.1.1",
+        "count": 1
+      }
+    }
+  ],
+  "expected": {
+    "transmissions": [],
+    "events": [
+      {
+        "step": 0,
+        "node": "PC1",
+        "event": "ip_drop",
+        "detail": "eth0 bez linky (Media disconnected) -> žádná cesta k 192.168.1.1"
+      }
+    ],
+    "final_state": {
+      "arp_cache": {
+        "PC1": [],
+        "PC2": [],
+        "PC3": [],
+        "R1": [],
+        "SRV1": []
+      }
+    },
+    "app_result": {
+      "node": "PC1",
+      "command": "ping",
+      "sent": 1,
+      "received": 0,
+      "replies": [],
+      "errors": [
+        {
+          "seq": 1,
+          "kind": "link_down"
+        }
+      ]
+    }
+  }
+}
