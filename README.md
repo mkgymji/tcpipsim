@@ -30,6 +30,7 @@ Jádro simulace je bez DOM a testuje se v Node (`node --test`), celé testy `bas
 (potřebuje Node a Chromium). Chování protokolů se ověřuje proti RFC testovacími vektory
 v `tests/vectors/`.
 
+- Pro učitele: příručka `prirucka/` (tahák příkazů terminálu `prirucka/tahak.md`)
 - Vývoj a architektura: `docs/VYVOJ.md`
 - Rozhodnutí (mají přednost před ostatními dokumenty): `docs/rozhodnuti.md`
 - Didaktika a úrovně: `docs/didaktika.md`, scénáře `scenarios/`

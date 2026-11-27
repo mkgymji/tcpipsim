@@ -213,11 +213,6 @@ export function winExec(node, line, opts = {}) {
   if (lc === '') return { lines: [] };
   if (lc === 'ipconfig') return ipconfig(node, false, level);
   if (lc === 'ipconfig /all' || lc === 'ipconfig -all') return ipconfig(node, true, level);
-  if (lc.startsWith('ipconfig ')) {
-    // skutečný Windows pod chybou vypíše ještě dlouhou nápovědu (USAGE)
-    return { lines: ['', 'Error: unrecognized or incomplete command line.', ''],
-      note: 'Simulátor zkracuje: skutečný Windows pod chybou vypíše ještě nápovědu. Zkus „ipconfig“ nebo „ipconfig /all“.' };
-  }
   if (lc === 'arp -a' || lc === 'arp -g' || lc === 'arp /a') return arpA(node, level);
   if (lc === 'cls') return { lines: [], clear: true };
   if (lc === 'help' || lc === '?' || lc === '/?') {
@@ -230,6 +225,11 @@ export function winExec(node, line, opts = {}) {
   if (level >= 3) {
     const r = winExec3(node, cmd, lc, opts);
     if (r) return r;
+  }
+  if (lc.startsWith('ipconfig ')) {
+    // skutečný Windows pod chybou vypíše ještě dlouhou nápovědu (USAGE)
+    return { lines: ['', 'Error: unrecognized or incomplete command line.', ''],
+      note: 'Simulátor zkracuje: skutečný Windows pod chybou vypíše ještě nápovědu. Zkus „ipconfig“ nebo „ipconfig /all“.' };
   }
   if (lc.startsWith('arp')) {
     return { lines: [''], note: 'Tento příkaz zpřístupní úroveň 3. Na úrovni 2 zkus „arp -a“.' };

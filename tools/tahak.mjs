@@ -18,7 +18,7 @@ export function tahakMarkdown() {
     '## Jak otevřít terminál',
     '',
     '- Klikni na uzel (PC, switch, router, server) a stiskni **F2** nebo tlačítko **Terminál**.',
-    '- `help` nebo `?` vypíše příkazy, které terminál v dané úrovni umí.',
+    '- Nápověda: `help` nebo `?` (Windows), `?` (IOS), `help` (Linux) vypíše příkazy, které terminál v dané úrovni umí.',
     '- Odkaz rovnou na krok s otevřeným terminálem a zadaným příkazem:',
     '  `#u=<úroveň>&k=<krok>&t=<uzel>&c=<příkaz>`, například',
     '  https://mkgymji.github.io/tcpipsim/#u=3&k=9&t=R1&c=enable&c=show%20ip%20route',

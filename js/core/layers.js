@@ -12,7 +12,6 @@ const L4_DOES = [
   { key: 'b) Doručení dat správné aplikaci', text: 'na cílovém uzlu (podle portu): multiplex / demultiplex.' },
 ];
 const L4_PDU = 'transportní paket; u UDP je to UDP datagram (RFC 768), u TCP segment.';
-const L4_NOTE = 'Bod a) platí jen pro TCP.';
 const L3_DOES = [
   { key: 'Přeprava dat mezi uzly', text: 'které mohou ležet i mimo vlastní síť (podle IP adresy).' },
   { key: 'Doručení', text: 'lokální nebo vzdálené:', items: ['lokální: cíl ve stejné síti, přímo', 'vzdálené: přes router'] },
@@ -33,7 +32,7 @@ export const OSI_LAYERS = [
   { n: 5, name: 'Relační', gen: 'relační vrstvy', pdu: 'data', who: 'aplikace', shape: 'diamond',
     does: [{ key: 'Řízení a koordinace relace', text: '(dialogu mezi aplikacemi).' }], note: IN_APP },
   { n: 4, name: 'Transportní', gen: 'transportní vrstvy', pdu: 'segment', who: 'operační systém', shape: 'triangle',
-    does: L4_DOES, note: L4_NOTE, pduNote: L4_PDU },
+    does: L4_DOES, pduNote: L4_PDU },
   { n: 3, name: 'Síťová', gen: 'síťové vrstvy', pdu: 'paket', who: 'operační systém', shape: 'circle',
     does: L3_DOES, pduNote: L3_PDU },
   { n: 2, name: 'Linková', gen: 'linkové vrstvy', pdu: 'rámec', who: NIC, shape: 'square',
@@ -48,7 +47,7 @@ export const TCPIP_LAYERS = [
     does: [{ key: 'Komunikace s aplikací' }, { key: 'Interpretace dat', text: '(kódování, šifrování, komprese)' }, { key: 'Řízení relace' }],
     note: 'V TCP/IP to všechno řeší sama aplikace.' },
   { id: 'transport', name: 'Transportní', gen: 'transportní vrstvy', members: [4], pdu: 'segment', who: 'operační systém',
-    does: L4_DOES, note: L4_NOTE, pduNote: L4_PDU },
+    does: L4_DOES, pduNote: L4_PDU },
   { id: 'internet', name: 'Síťová', gen: 'síťové vrstvy', members: [3], pdu: 'paket', who: 'operační systém',
     does: L3_DOES, pduNote: L3_PDU },
   { id: 'netif', name: 'Vrstva síťového rozhraní', gen: 'vrstvy síťového rozhraní', members: [2, 1], pdu: 'rámec, bity',

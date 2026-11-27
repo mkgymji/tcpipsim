@@ -83,7 +83,8 @@ js/
                         kabelu se nefloodují); router je v core/netsim.js (routerIp), protože potřebuje ARP a plánovač
   wire/                 převod PDU na bajty (bez DOM): encode.js [Ethernet II, IPv4, UDP, RFC 1071],
                         fields.js [pole pro rentgen: posun, délka, hodnota z bajtů, názvy CZ/Wireshark], pcap.js (plán)
-  cli/                  terminály nad pohledem (bez DOM): shell.js (dialekt podle typu uzlu), wincmd.js
+  cli/                  terminály nad pohledem (bez DOM): commands.js (registr příkazů, rozh. 63: zdroj
+                        nápovědy help/? i taháku), shell.js (dialekt podle typu uzlu), wincmd.js
                         (ipconfig, ipconfig /all, arp -a; úroveň 3: ping, tracert, arp -d, route print = netstat -nr),
                         ios.js (switch: show mac address-table), iosrouter.js (router: R1> / enable / R1#,
                         show ip route, show ip interface brief, show ip arp, ping; traceroute a konfigurace odmítnuté)
@@ -108,6 +109,8 @@ tests/
   core/vectors.test.js  runner vektorů (kap. 8)
 tools/
   bundle.mjs            jednosouborová offline verze (iterace 3–4)
+  tahak.mjs             generuje prirucka/tahak.md z js/cli/commands.js (test tests/core/tahak.test.js)
+prirucka/               materiály pro učitele (rozh. 63): README.md, tahak.md (generovaný, ručně neupravovat)
 docs/                   dokumentace týmu
 ```
 
@@ -530,6 +533,11 @@ dál kontroluje tvar všech vektorů.
 Hotovo = `tests/run_all.sh` končí „VŠE PROŠLO“.
 
 ## 9. Jak přidat protokol / scénář (návod, platí od iterace 2)
+
+**Příkaz terminálu:** implementace v `cli/<dialekt>.js`, pak záznam v `js/cli/commands.js` (`usage`,
+`example` pro příkaz s argumentem, `platform`, `where`, `from`, `short`, `ask`) a `node tools/tahak.mjs`.
+Nápověda `help`/`?` se bere z registru; `tests/core/tahak.test.js` ověří, že terminál příkaz od úrovně `from`
+přijme (u Windows i že o úroveň níž ne) a že `prirucka/tahak.md` je aktuální.
 
 **Protokol:** (1) spec v `docs/spec/<proto>.md` od projektanta, (2) `js/proto/<proto>.js` podle
 kap. 4.1, (3) kódování a pole pro rentgen ve `js/wire/encode.js`, (4) zápis do `registry.js`
