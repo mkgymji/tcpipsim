@@ -67,6 +67,7 @@ Terminál v této úrovni není.
 Student sám nastaví počítač nebo najde a opraví chybu v hotové síti úrovně 4; simulátor vyhodnotí
 „funguje / nefunguje a proč“. Příkazy označené „úlohy“ mění stav jen v úlohách.
 Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` každému stejnou (nebo jinou) chybu.
+Na běžné stránce simulátoru jsou úlohy skryté. Zpřístupní je odkaz https://mkgymji.github.io/tcpipsim/#ulohy (menu všech úloh) nebo odkaz na konkrétní úlohu níže; menu pak zůstane v té záložce prohlížeče.
 
 | Úloha | Odkaz | Co trénuje |
 | --- | --- | --- |
@@ -75,7 +76,7 @@ Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` k
 | 5 Soused ano, server ne | https://mkgymji.github.io/tcpipsim/#uloha=5 | „u nás“ × „jinam“: bez brány jen místní síť (L3) |
 | 7 Nejde ani soused | https://mkgymji.github.io/tcpipsim/#uloha=7 | IP čti vždy s maskou: jedna číslice a brána je „cizí“ (L3) |
 | 10 Web neodpovídá | https://mkgymji.github.io/tcpipsim/#uloha=10 | síť jde, služba ne: RST, connection refused (L4/L7) |
-| 11 Nastav DNS server | https://mkgymji.github.io/tcpipsim/#uloha=11 | jméno × adresa: bez DNS funguje vše „pod ním“ (L7) |
+| 11 Podle adresy ano, podle jména ne | https://mkgymji.github.io/tcpipsim/#uloha=11 | jméno × adresa: bez DNS funguje vše „pod ním“ (L7) |
 | 3 Ping občas projde, web ne | https://mkgymji.github.io/tcpipsim/#uloha=3 | jedna IP, dvě MAC: stopa v arp -a (L2/L3) |
 | 13 Síť nejde | https://mkgymji.github.io/tcpipsim/#uloha=13&seed=1 | souhrnná: jedna náhodná chyba, postup od L1 nahoru |
 

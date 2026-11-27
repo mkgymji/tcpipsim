@@ -226,7 +226,7 @@ ve stejné síti? (Odpověď: bránu a DNS; stačí IP a maska. Navíc zprávu p
 
 ---
 
-## Úloha 11: Nastav DNS server
+## Úloha 11: Podle adresy ano, podle jména ne
 
 **Zadání.**
 - Alice má správně IP, masku i bránu. Na `192.168.2.10` se dostane, ale **`www.skola.lan` se nenačte**: počítač hlásí, že jméno nezná.

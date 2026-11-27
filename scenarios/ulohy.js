@@ -124,9 +124,9 @@ export const TASKS = {
     answer: 'Odmítnutí (RST) poslal server sám: paket k němu došel, jen tam neběží program. Timeout = odpověď nepřišla vůbec (cestou se ztratil, nebo ho zahodil firewall).',
   },
   11: {
-    id: 11, kind: 'a', title: 'Nastav DNS server', short: 'jméno × adresa: bez DNS funguje vše „pod ním“ (L7)',
+    id: 11, kind: 'b', title: 'Podle adresy ano, podle jména ne', short: 'jméno × adresa: bez DNS funguje vše „pod ním“ (L7)',
     story: ['Alice má správně IP, masku i bránu. Na `192.168.2.10` se dostane, ale **`www.skola.lan` se nenačte**: jméno nezná.',
-      'Nastav jí DNS server tak, aby otevřela web podle jména.'],
+      'Zjisti, co Alici chybí, a oprav to tak, aby otevřela web **podle jména**.'],
     goal: '`nslookup www.skola.lan` vrátí 192.168.2.10 a web se otevře.',
     faults: [{ kind: 'config', node: 'PC1', set: { dns: [] } }],
     hints: ['Co funguje, když zadáš **adresu**, a co když **jméno**? Co musí počítač umět, aby jméno převedl na adresu?',

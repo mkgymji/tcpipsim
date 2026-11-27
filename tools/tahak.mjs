@@ -41,7 +41,8 @@ export function tahakMarkdown() {
   out.push('', '## Modelové situace (úlohy)', '',
     'Student sám nastaví počítač nebo najde a opraví chybu v hotové síti úrovně 4; simulátor vyhodnotí',
     '„funguje / nefunguje a proč“. Příkazy označené „úlohy“ mění stav jen v úlohách.',
-    'Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` každému stejnou (nebo jinou) chybu.', '',
+    'Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` každému stejnou (nebo jinou) chybu.',
+    'Na běžné stránce simulátoru jsou úlohy skryté. Zpřístupní je odkaz https://mkgymji.github.io/tcpipsim/#ulohy (menu všech úloh) nebo odkaz na konkrétní úlohu níže; menu pak zůstane v té záložce prohlížeče.', '',
     '| Úloha | Odkaz | Co trénuje |', '| --- | --- | --- |');
   for (const id of TASK_ORDER) {
     const t = TASKS[id];

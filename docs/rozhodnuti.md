@@ -302,3 +302,6 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     - Po zapojení kabelu (situace 1) se žádný ARP Announcement nekreslí — označené zjednodušení.
     - Odkaz `#uloha=N&seed=S`; pořadí v hodině podle didaktika (4, 1, 5, 7, 10; doma 11, 3, 13).
     - Nejistá místa (situace 7 brána mimo podsíť, výstupy Windows) zůstávají „ověřit“ (rozh. 46).
+
+70. **Úlohy jsou ve výchozí stránce skryté** (Michal): menu „Úlohy“ se ukáže jen po odkazu `#uloha=N` nebo `#ulohy` (první úloha + menu) a pak zůstane v té záložce prohlížeče. Odkazy má učitel v taháku.
+71. **Názvy a zadání úloh popisují příznak, nikdy příčinu** (Michal: úloha se nesmí jmenovat „Vadné DNS“). Úloha 11 → „Podle adresy ano, podle jména ne“. Příčinu zná jen učitel (sloupec v taháku).

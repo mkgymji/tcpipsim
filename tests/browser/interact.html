@@ -461,6 +461,7 @@ f.onload = async () => {
 
     // ---------- modelové situace (úlohy, ui.md kap. 15): dialog IPv4, kabel, Zkontrolovat ----------
     check(q4('#tmenu-list a[href="#uloha=4"]'), 'menu Úlohy obsahuje úlohu 4');
+    check(q4('#tmenu').hidden, 'rozh. 70: bez odkazu na úlohy je menu Úlohy skryté');
     let waitT = loaded();
     w4.location.hash = '#uloha=4';
     await waitT; await wait(400);
@@ -468,6 +469,7 @@ f.onload = async () => {
     let qt = (s) => dt.querySelector(s);
     const typeT = (line) => { const i = qt('#term-input'); i.value = line; i.dispatchEvent(new wt.KeyboardEvent('keydown', { key: 'Enter', bubbles: true })); };
     check(dt.documentElement.dataset.core === 'ok' && dt.title.startsWith('Úloha 4'), `úloha 4: režim úloh (${dt.title})`);
+    check(!qt('#tmenu').hidden, 'rozh. 70: po odkazu #uloha=4 je menu Úlohy vidět');
     qt('#t-check').click();
     check(qt('.tres.fail') && /DHCP/.test(qt('.tres').textContent), 'úloha 4: výchozí stav nefunguje (APIPA)');
     typeT('ipconfig');

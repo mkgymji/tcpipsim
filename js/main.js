@@ -34,7 +34,14 @@ function fillTaskMenu(current) {
   list.innerHTML = TASK_ORDER.map((id) => `<li><a href="${formatTaskHash(id)}"${id === current ? ' aria-current="page"' : ''}><b>${id}</b> ${esc(TASKS[id].title)}</a></li>`).join('');
 }
 
-const taskHash = parseTaskHash(location.hash);
+// Úlohy jsou skryté (rozh. 70): menu se ukáže jen po odkazu od učitele (#uloha=N nebo #ulohy)
+// a pak zůstane v této záložce prohlížeče (sessionStorage), aby šlo přepínat mezi úrovněmi a úlohami.
+const wantsTasks = /(^#|&)ulohy(&|$)/.test(location.hash);
+const taskHash = parseTaskHash(location.hash) ?? (wantsTasks ? { id: TASK_ORDER[0], seed: null } : null);
+try { if (taskHash) sessionStorage.setItem('tcpipsim.tasks', '1'); } catch { /* bez úložiště jen pro tuto stránku */ }
+let tasksOn = Boolean(taskHash);
+try { tasksOn = tasksOn || sessionStorage.getItem('tcpipsim.tasks') === '1'; } catch { /* nic */ }
+document.getElementById('tmenu')?.toggleAttribute('hidden', !tasksOn);
 fillTaskMenu(taskHash?.id);
 if (taskHash) startTasks(taskHash); else startLevels();
 
@@ -48,6 +55,7 @@ function startTasks(th) {
   document.getElementById('btn-questions').addEventListener('click', () => document.getElementById('questions').showModal());
   window.addEventListener('hashchange', () => {
     const h = parseTaskHash(location.hash);
+    if (/(^#|&)ulohy(&|$)/.test(location.hash)) return;
     if (!h || h.id !== th.id || (h.seed != null && h.seed !== th.seed)) location.reload();
   });
   document.body.classList.add('ready');
