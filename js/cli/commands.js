@@ -60,6 +60,12 @@ export const COMMANDS = [
     ask: 'Na kterých portech server čeká? Proč u UDP není LISTEN?' },
   { usage: 'ss -tan', platform: 'linux', where: 'server', from: 4, short: 'všechna spojení TCP',
     ask: 'Kolik spojení je ESTAB a z jakého socketu klienta?' },
+  { usage: 'ip a', platform: 'linux', where: 'server', from: 4, short: 'IP adresa a MAC rozhraní eth0 (Linuxové „ipconfig“)',
+    ask: 'Kde ve výpisu je MAC a kde IP adresa? Která vrstva je která?' },
+  { usage: 'ip r', platform: 'linux', where: 'server', from: 4, short: 'směrovací tabulka: výchozí brána a místní síť',
+    ask: 'Kam server pošle odpověď Alici z jiné sítě?' },
+  { usage: 'ip n', platform: 'linux', where: 'server', from: 4, short: 'ARP tabulka Linuxu (místo staršího arp)',
+    ask: 'Proč server zná MAC routeru, ale ne MAC Alice?' },
   { usage: 'clear', platform: 'linux', where: 'server', from: 4, short: 'vymazat okno', ask: '' },
   // modelové situace (Úlohy, rozh. 66–69): zásah do služby jen v úlohách, v úrovni 4 jen výpis
   { usage: 'systemctl status nginx', platform: 'linux', where: 'server', from: 4, tasks: true, short: 'běží webová služba? (active / inactive)',

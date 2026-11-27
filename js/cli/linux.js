@@ -32,6 +32,47 @@ function ss(node, flags) {
   return lines;
 }
 
+
+// iproute2 (Debian 13): ip a, ip r, ip n. Rozhraní eth0; IPv6 se nevypisuje (zjednodušení simulátoru).
+const IFACE = 'eth0';
+function bcast(ip, prefix) {
+  const n = ip.split('.').reduce((a, b) => (a << 8) + Number(b), 0) >>> 0;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const b = (n | ~mask) >>> 0;
+  return [b >>> 24, (b >>> 16) & 255, (b >>> 8) & 255, b & 255].join('.');
+}
+function netOf(ip, prefix) {
+  const n = ip.split('.').reduce((a, b) => (a << 8) + Number(b), 0) >>> 0;
+  const mask = prefix === 0 ? 0 : (0xffffffff << (32 - prefix)) >>> 0;
+  const b = (n & mask) >>> 0;
+  return [b >>> 24, (b >>> 16) & 255, (b >>> 8) & 255, b & 255].join('.');
+}
+function ipAddr(node) {
+  const lines = [
+    '1: lo: <LOOPBACK,UP,LOWER_UP> mtu 65536 qdisc noqueue state UNKNOWN group default qlen 1000',
+    '    link/loopback 00:00:00:00:00:00 brd 00:00:00:00:00:00',
+    '    inet 127.0.0.1/8 scope host lo',
+    '       valid_lft forever preferred_lft forever',
+    `2: ${IFACE}: <BROADCAST,MULTICAST,UP,LOWER_UP> mtu 1500 qdisc fq_codel state UP group default qlen 1000`,
+    { text: `    link/ether ${node.mac} brd ff:ff:ff:ff:ff:ff`, mark: 'l2' },
+  ];
+  if (node.ip) {
+    lines.push({ text: `    inet ${node.ip}/${node.prefix} brd ${bcast(node.ip, node.prefix)} scope global ${IFACE}`, mark: 'l3' });
+    lines.push('       valid_lft forever preferred_lft forever');
+  }
+  return lines;
+}
+function ipRoute(node) {
+  const lines = [];
+  if (node.gateway) lines.push(`default via ${node.gateway} dev ${IFACE} proto static`);
+  if (node.ip) lines.push(`${netOf(node.ip, node.prefix)}/${node.prefix} dev ${IFACE} proto kernel scope link src ${node.ip}`);
+  return lines;
+}
+function ipNeigh(node) {
+  return (node.arp_cache ?? []).map((e) => ({ text: `${e.ip} dev ${IFACE} lladdr ${e.mac} REACHABLE`, mark: 'l2' }));
+}
+const NETTOOLS = (w) => ({ lines: [`Command '${w}' not found, but can be installed with:`, 'sudo apt install net-tools'] });
+
 // systemd jednotky simulovaných aplikací (Debian 13): web = nginx, dns = named (balík bind9)
 const UNITS = { nginx: { app: 'web', desc: 'A high performance web server and a reverse proxy server', path: '/usr/lib/systemd/system/nginx.service' },
   named: { app: 'dns', desc: 'BIND Domain Name Server', path: '/usr/lib/systemd/system/named.service' } };
@@ -79,6 +120,21 @@ export function linuxExec(node, line, opts = {}) {
     return { lines: ss(node, flags), note: flags.includes('l') ? 'LISTEN = aplikace čeká na klienty; UDP nemá spojení, proto UNCONN. Send-Q u LISTEN = velikost fronty nových spojení.'
       : 'ESTAB = spojení běží. Šířky sloupců počítá ss podle obsahu (simulátor je zarovnává pevně).' };
   }
+  if (word === 'ip') {
+    const sub = (args[0] ?? '').replace(/^-.*/, '');
+    if (!sub) return { lines: ['Usage: ip [ OPTIONS ] OBJECT { COMMAND | help }', 'where  OBJECT := { address | route | neigh | link | ... }'] };
+    if ('address'.startsWith(sub) || sub === 'addr') return { lines: ipAddr(node), note: 'inet = IP adresa/prefix (L3), link/ether = MAC adresa (L2). Simulátor zjednodušuje: adresy IPv6 nevypisuje.' };
+    if ('route'.startsWith(sub)) return { lines: ipRoute(node), note: 'default via = výchozí brána; druhý řádek = přímo připojená síť.' };
+    if ('neighbour'.startsWith(sub) || 'neighbor'.startsWith(sub)) {
+      const l = ipNeigh(node);
+      return { lines: l, note: l.length ? 'ip neigh = ARP tabulka Linuxu (IP → MAC sousedů ve stejné síti).' : 'ARP tabulka je prázdná: server zatím s nikým v síti nemluvil.' };
+    }
+    return { lines: [`Object "${args[0]}" is unknown, try "ip help".`] };
+  }
+  if (word === 'arp' || word === 'ifconfig') return { ...NETTOOLS(word), note: word === 'arp'
+    ? 'Na nových Linuxech se ARP tabulka vypisuje příkazem ip neigh (zkráceně ip n). Starý balík net-tools (arp, ifconfig, netstat) už není ve výchozí instalaci.'
+    : 'Na nových Linuxech se adresy vypisují příkazem ip a (ip address).' };
+  if (word === 'ipconfig') return { lines: ['ipconfig: command not found'], note: 'ipconfig je příkaz Windows. Na Linuxu: ip a (adresy), ip r (směrování), ip n (ARP tabulka).' };
   if (word === 'netstat') return { lines: [`Command 'netstat' not found, but can be installed with:`, 'sudo apt install net-tools'], note: 'Na nových Linuxech je netstat nahrazený příkazem ss (zkus ss -tuln).' };
   if (word === 'help') return { lines: helpLines('server'), note: 'Nápověda simulátoru.' };
   return { lines: [`${word}: command not found`] };

@@ -58,6 +58,9 @@ Terminál v této úrovni není.
 | `curl -v <URL>` | PC (Windows) | HTTP požadavek a odpověď | Co poslal klient (>) a co vrátil server (<)? Jaký je stavový kód? |
 | `ss -tuln` | server (Linux) | naslouchající sockety TCP a UDP | Na kterých portech server čeká? Proč u UDP není LISTEN? |
 | `ss -tan` | server (Linux) | všechna spojení TCP | Kolik spojení je ESTAB a z jakého socketu klienta? |
+| `ip a` | server (Linux) | IP adresa a MAC rozhraní eth0 (Linuxové „ipconfig“) | Kde ve výpisu je MAC a kde IP adresa? Která vrstva je která? |
+| `ip r` | server (Linux) | směrovací tabulka: výchozí brána a místní síť | Kam server pošle odpověď Alici z jiné sítě? |
+| `ip n` | server (Linux) | ARP tabulka Linuxu (místo staršího arp) | Proč server zná MAC routeru, ale ne MAC Alice? |
 | `clear` | server (Linux) | vymazat okno |  |
 | `systemctl status nginx` | server (Linux), úlohy | běží webová služba? (active / inactive) | Proč ping na server projde, i když web neběží? |
 | `sudo systemctl start nginx` | server (Linux), úlohy | spustí webovou službu (také stop, restart) | Co se po spuštění objeví ve výpisu ss -tuln? |
