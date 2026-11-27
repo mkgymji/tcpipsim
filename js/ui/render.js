@@ -197,9 +197,14 @@ export function layerInfo(modelId, layerId) {
   if (!r) return '';
   const members = r.members.length > 1 ? `<p class="who">Odpovídá vrstvám ISO/OSI: ${r.members.map((n) => `L${n}`).join(', ')}</p>` : '';
   const title = r.name.startsWith('Vrstva') ? r.name.toLowerCase() : `${r.name.toLowerCase()} vrstva`;
+  // rozh. 67: bloky „Co řeší“, „Kdo se stará“, „Jak se jmenují data“; klíčové slovo tučně
+  const item = (d) => `<li><b>${esc(d.key)}</b>${d.text ? `${d.text.startsWith('(') ? ' ' : ': '}${esc(d.text)}` : ''}${d.items
+    ? `<ul>${d.items.map((x) => `<li>${esc(x)}</li>`).join('')}</ul>` : ''}</li>`;
+  const note = (t) => (t ? `<p class="who">${esc(t)}</p>` : '');
   return `<h3>Co dělá ${esc(r.badge)}, ${esc(title)}</h3>
-    <p>${esc(r.role)}</p><p class="who">Kdo se stará: <b>${esc(r.who)}</b></p>
-    <p class="who">Jak se tu jmenují data: <b>${esc(r.pdu)}</b></p>${r.detail ? `<p class="who">${esc(r.detail)}</p>` : ''}${members}`;
+    <div class="lblock"><h4>Co řeší</h4>${note(r.intro)}<ul class="does">${r.does.map(item).join('')}</ul>${note(r.note)}</div>
+    <div class="lblock"><h4>Kdo se stará</h4><p><b>${esc(r.who)}</b></p>${note(r.whoNote)}</div>
+    <div class="lblock"><h4>Jak se jmenují data</h4><p><b>${esc(r.pdu)}</b>${r.pduNote ? `: ${esc(r.pduNote)}` : ''}</p></div>${members}`;
 }
 
 // Panel Detail: co je obálka (nebo data, bity). Název vrstvy podle režimu přepínače.

@@ -2,6 +2,7 @@
 // (enable, disable), show ip route, show ip interface brief, show ip arp (= show arp), ping;
 // traceroute se v úrovni 3 odmítne, konfigurace až v úrovni 5. Zkratky slov jako IOS. Bez DOM.
 // opts = { mode: 'user' | 'priv', sim(command, args) -> { events, done }, highlight: prefix, arpClear() }.
+import { helpLines } from './commands.js';
 import { macCisco, maskString } from '../core/addr.js';
 import { parsePrefix } from '../proto/ipv4.js';
 
@@ -111,9 +112,7 @@ export function routerExec(node, line, opts = {}) {
   const cmd = line.trim();
   if (cmd === '') return { lines: [] };
   if (cmd === '?') {
-    return { lines: ['  enable                    privilegovaný režim (R1#)', '  show ip route             směrovací tabulka',
-      '  show ip interface brief   rozhraní a jejich adresy', '  show ip arp               ARP tabulka routeru', '  ping <IP>                 ping z routeru'],
-    note: 'Nápověda simulátoru (zkrácená).' };
+    return { lines: helpLines('router', opts.level), note: 'Nápověda simulátoru (zkrácená).' };
   }
   const p = parse(cmd);
   const caret = (at) => ({ lines: [`${' '.repeat(prompt.length + at)}^`, "% Invalid input detected at '^' marker.", ''] });

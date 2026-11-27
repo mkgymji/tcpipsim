@@ -25,7 +25,7 @@ export function execute(node, line, opts = {}) {
   if (d === 'linux') return linuxExec(node, line, opts);
   if (d === 'windows') return winExec(node, line, opts);
   if (node.type === 'router') return routerExec(node, line, opts);
-  if (d === 'ios') return iosExec(node, line);
+  if (d === 'ios') return iosExec(node, line, opts);
   return { lines: [], note: 'Hub nemá konzoli: nic si nepamatuje a nic nenastavuje.' };
 }
 

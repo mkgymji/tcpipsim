@@ -99,10 +99,5 @@ export function winExec4(node, cmd, lc, opts) {
       '    Data Length . . . . . : 4', '    Section . . . . . . . : Answer', `    A (Host) Record . . . : ${e.data}`, ''])],
     note: 'DNS cache operačního systému: sem se uloží odpověď pro prohlížeč a curl (nslookup cache nepoužívá).' };
   }
-  if (lc === 'help' || lc === '?' || lc === '/?') {
-    return { lines: ['', 'ipconfig /all     adresy a DNS server', 'nslookup <jméno>  DNS dotaz (jméno -> IP)', 'netstat -an       sockety: LISTENING, ESTABLISHED, TIME_WAIT',
-      'curl -v <URL>     HTTP požadavek a odpověď', 'ping <IP>         ICMP Echo', 'arp -a            ARP tabulka', 'ipconfig /displaydns  DNS cache', 'cls               vymazat okno', ''],
-    note: 'Nápověda simulátoru (skutečný Windows má příkaz help jinak).' };
-  }
   return null;
 }

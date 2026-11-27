@@ -3,6 +3,7 @@
 // hodnoty ze stavu simulace v daném kroku. Bez DOM.
 // Vstup: node = uzel z pohledu (label, ip, prefix, mac, gateway, arp_cache, routing_table);
 // opts = { level, sim(command, args) -> { events, done } (ping/tracert z jádra), arpDelete(ip | null) }.
+import { helpLines } from './commands.js';
 import { macWindows, maskString, broadcastOf, multicastMac } from '../core/addr.js';
 import { winExec4 } from './wincmd4.js';
 
@@ -197,12 +198,6 @@ function winExec3(node, cmd, lc, opts) {
     return { lines: [], note: 'Na školním PC potřebuješ příkazový řádek spuštěný jako správce. Simulátor: tabulka se vymaže jen pro tvé další příkazy v terminálu v tomto kroku; animace scénáře jde dál podle scénáře.' };
   }
   if (lc === 'route print' || lc === 'route print -4' || lc === 'netstat -nr' || lc === 'netstat -rn' || lc === 'netstat -r') return routePrint(node);
-  if (lc === 'help' || lc === '?' || lc === '/?') {
-    return { lines: ['', 'ipconfig          IP adresa, maska a brána', 'ipconfig /all     navíc MAC adresa (Physical Address)',
-      'arp -a            ARP tabulka (IP -> MAC)', 'arp -d            smaže dynamické záznamy ARP', 'ping <IP>         ICMP Echo, 4 dotazy (-n N)',
-      'tracert <IP>      cesta skok po skoku', 'route print       směrovací tabulka (= netstat -nr)', 'cls               vymazat okno', ''],
-    note: 'Nápověda simulátoru (skutečný Windows má příkaz help jinak).' };
-  }
   if (['nslookup', 'netstat', 'getmac', 'route'].includes(word)) {
     return { lines: [''], note: `Příkaz ${parts[0]} v této podobě v úrovni 3 není; zkus route print nebo netstat -nr.` };
   }
@@ -225,6 +220,9 @@ export function winExec(node, line, opts = {}) {
   }
   if (lc === 'arp -a' || lc === 'arp -g' || lc === 'arp /a') return arpA(node, level);
   if (lc === 'cls') return { lines: [], clear: true };
+  if (lc === 'help' || lc === '?' || lc === '/?') {
+    return { lines: helpLines('PC', level), note: 'Nápověda simulátoru (skutečný Windows má příkaz help jinak).' };
+  }
   if (level >= 4) {
     const r = winExec4(node, cmd, lc, opts);
     if (r) return r;
@@ -235,11 +233,6 @@ export function winExec(node, line, opts = {}) {
   }
   if (lc.startsWith('arp')) {
     return { lines: [''], note: 'Tento příkaz zpřístupní úroveň 3. Na úrovni 2 zkus „arp -a“.' };
-  }
-  if (lc === 'help' || lc === '?' || lc === '/?') {
-    return { lines: ['', 'ipconfig        IP adresa, maska a brána', 'ipconfig /all   navíc MAC adresa (Physical Address)',
-      'arp -a          ARP tabulka (IP -> MAC)', 'cls             vymazat okno', ''],
-    note: 'Nápověda simulátoru (skutečný Windows má příkaz help jinak).' };
   }
   const word = cmd.split(' ')[0];
   if (['ping', 'tracert', 'nslookup', 'netstat', 'route', 'getmac'].includes(word.toLowerCase())) {

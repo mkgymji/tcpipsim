@@ -1,6 +1,7 @@
 // Zjednodušené Cisco IOS pro switch (úroveň 2): show mac address-table (docs/spec/cmd.md kap. 6).
 // Konzole je rovnou v privilegovaném režimu (Simulátor zjednodušuje). Přijímá jednoznačné
 // zkratky slov jako IOS (sh mac add). Bez DOM.
+import { helpLines } from './commands.js';
 import { macCisco } from '../core/addr.js';
 
 export function iosPrompt(node) {
@@ -50,13 +51,12 @@ function table(node, filter) {
   return lines;
 }
 
-export function iosExec(node, line) {
+export function iosExec(node, line, opts = {}) {
   const cmd = line.trim();
   if (cmd === '') return { lines: [] };
   if (node.type === 'hub') return { lines: [], note: 'Hub nemá konzoli: nic si nepamatuje a nic nenastavuje.' };
   if (cmd === '?') {
-    return { lines: ['  show mac address-table        MAC tabulka switche', '  show mac address-table dynamic',
-      '  show mac address-table interface Fa0/1'], note: 'Nápověda simulátoru (zkrácená).' };
+    return { lines: helpLines('switch', opts.level), note: 'Nápověda simulátoru (zkrácená).' };
   }
   const p = parse(cmd);
   if (p.ambiguous) return { lines: [`% Ambiguous command:  "${cmd}"`] };

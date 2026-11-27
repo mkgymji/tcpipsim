@@ -1,5 +1,6 @@
 // Terminál Linuxu na serveru SRV1 (úroveň 4, cmd.md kap. 14 a 18): ss -tuln, ss -tan, ss -uan.
 // Hodnoty ze stavu kroku (tabulka spojení, aplikace). Bez DOM.
+import { helpLines } from './commands.js';
 import { STATE_SS } from '../proto/tcp.js';
 
 export const linuxPrompt = (node) => `student@${String(node.label ?? node.id).toLowerCase()}:~$`;
@@ -42,6 +43,6 @@ export function linuxExec(node, line) {
       : 'ESTAB = spojení běží. Šířky sloupců počítá ss podle obsahu (simulátor je zarovnává pevně).' };
   }
   if (word === 'netstat') return { lines: [`Command 'netstat' not found, but can be installed with:`, 'sudo apt install net-tools'], note: 'Na nových Linuxech je netstat nahrazený příkazem ss (zkus ss -tuln).' };
-  if (word === 'help') return { lines: ['ss -tuln   naslouchající sockety TCP a UDP', 'ss -tan    všechna spojení TCP', 'clear      vymazat okno'], note: 'Nápověda simulátoru.' };
+  if (word === 'help') return { lines: helpLines('server'), note: 'Nápověda simulátoru.' };
   return { lines: [`${word}: command not found`] };
 }

@@ -282,3 +282,12 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     „Kdo se stará“, „Jak se jmenují data“; krátké věty. Platí pro všechny delší texty (vysvětlivky,
     poznámky): odrážky místo souvětí, klíčové slovo tučně, max ~3 řádky na blok. Znění vrstev zůstává
     podle rozh. 49 (Michal), mění se jen členění.
+68. **Výběr modelových situací (Michal 2026-11-27), zdola nahoru:**
+    1 odpojený kabel (L1: `ipconfig` → Media disconnected) · 3 konflikt IP adres (L2/L3: student odhalí
+    přes `arp -a` — jedna IP, střídající se MAC; viníkem je zařízení bez detekce duplicity, např. síťová
+    tiskárna, protože Windows by konflikt samy ohlásily, RFC 5227 — ověří projektant) · 4 (a) nastav Alici
+    IP, masku, bránu, DNS · 5 (b) chybějící brána · 7 (b) IP mimo síť (překlep) · 10 (b) web neodpovídá —
+    služba neběží / RST · 11 (a) nastav DNS server · 13 souhrnná „síť nejde“ s náhodně vybranou chybou
+    z 1, 3, 5, 7, 10, 11, postup od L1 nahoru.
+    Odložené (zeptat se Michala později): 2 kabel ve špatném portu, 6 špatná maska (proxy ARP),
+    8 konfigurace routeru v IOS, 9 chybějící trasa zpět, 12 špatný DNS záznam.
