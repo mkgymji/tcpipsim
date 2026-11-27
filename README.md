@@ -14,7 +14,7 @@ maturita z IVT – okruh Počítačové sítě).
 
 | Úroveň | Obsah | Stav |
 |---|---|---|
-| 1 Barvičky | vrstvy ISO/OSI a TCP/IP, zapouzdření a rozbalení zprávy | hotovo |
+| 1 Obálky | vrstvy ISO/OSI a TCP/IP, zapouzdření a rozbalení zprávy | hotovo |
 | 2 Adresy | MAC, IP, port; hub vs. switch, MAC tabulka; UDP | hotovo |
 | 3 Směrování | ARP, ping (ICMP), brána, router, směrovací tabulka, TTL, tracert, hledání chyb | hotovo |
 | 4 Transport a aplikace | DNS (UDP), TCP handshake, HTTP, ukončení spojení, socket a multiplex, retransmise | hotovo |

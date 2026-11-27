@@ -20,7 +20,7 @@ Terminologie: `docs/slovnik.md`. Úroveň 1 podrobně: `scenarios/uroven1-zapouz
 
 | Úroveň | Nová myšlenka | Co se objeví | Co zůstane skryté |
 |---|---|---|---|
-| 1 Barvičky | Data se po cestě obalují: každá vrstva přidá svou obálku, příjemce je sundává | vrstvy, obálky, bity na drátě, ISO/OSI vs. TCP/IP | adresy, protokoly, sítě mezi uzly |
+| 1 Obálky | Data se po cestě obalují: každá vrstva přidá svou obálku, příjemce je sundává | vrstvy, obálky, bity na drátě, ISO/OSI vs. TCP/IP | adresy, protokoly, sítě mezi uzly |
 | 2 Adresy | Obálka nese adresu a každá vrstva čte jen tu svou | MAC, IP, port; hub vs. switch | maska, směrování, ARP |
 | 3 Směrování | Doručení po úsecích: MAC se mění na každém úseku, IP zůstává | maska, brána, ARP, směrovací tabulka, TTL | transportní spolehlivost |
 | 4 Transport a aplikace | Spolehlivost a rozlišení aplikací jsou práce transportní vrstvy | porty, sockety, UDP vs. TCP, handshake, DNS, HTTP | konfigurace zařízení |
@@ -28,7 +28,7 @@ Terminologie: `docs/slovnik.md`. Úroveň 1 podrobně: `scenarios/uroven1-zapouz
 
 ---
 
-## Úroveň 1: Barvičky
+## Úroveň 1: Obálky
 
 **Nová myšlenka.** Zpráva jede dolů zásobníkem vrstev, každá vrstva ji obalí svou obálkou
 (zapouzdření); po drátě jdou jen bity; příjemce obálky sundává ve stejném pořadí v opačném směru.

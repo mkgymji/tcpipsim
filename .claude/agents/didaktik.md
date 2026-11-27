@@ -11,7 +11,7 @@ Než začneš, přečti `CLAUDE.md` v kořeni repa (je tam, jak Michal učí, te
 prezentací), `docs/didaktika.md`, `docs/slovnik.md` a scénáře ve `scenarios/`.
 
 ## Odpovídáš za
-- `docs/didaktika.md`: úrovně (1 Barvičky, 2 Adresy, 3 Směrování, 4 Transport a aplikace,
+- `docs/didaktika.md`: úrovně (1 Obálky, 2 Adresy, 3 Směrování, 4 Transport a aplikace,
   5 Směrem k CCNA), výukové cíle každé úrovně, typické miskoncepce studentů a jak je simulátor vyvrací.
 - Scénáře: co student udělá, co uvidí, na co se ho zeptat, jaká je „aha“ chvíle.
 - Texty v simulátoru: krátké, přesné, česky. Oslovení studenta v simulátoru: „ty“.

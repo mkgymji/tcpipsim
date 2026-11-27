@@ -1,6 +1,6 @@
 # Vývoj tcpipsim
 
-Stav: iterace 3. Úrovně 1 „Barvičky“ a 2 „Adresy“ beze změny chování, úroveň 3 „Směrování“ funguje
+Stav: iterace 3. Úrovně 1 „Obálky“ a 2 „Adresy“ beze změny chování, úroveň 3 „Směrování“ funguje
 (kroky 0–25 v částech A–D podle `scenarios/uroven3-smerovani.md`: ARP s frontou a 3 pokusy, ICMP Echo,
 Time Exceeded, Destination Unreachable, router s LPM a TTL, tracert, chyby brány s „Oprav bránu“,
 terminál Windows i Cisco IOS routeru). Přenos se ve všech úrovních kreslí jako „U“ (rozhodnutí 38,
@@ -274,7 +274,7 @@ samostatně proti reálným rámcům (hexdump z Wiresharku jako vektor).
 
 | Úroveň | Výchozí protokoly |
 |---|---|
-| 1 Barvičky | ethernet, ipv4, udp (zpráva Alice → Bob; adresy skryté) |
+| 1 Obálky | ethernet, ipv4, udp (zpráva Alice → Bob; adresy skryté) |
 | 2 Adresy | ethernet, ipv4, udp (+ hub, switch; ARP tabulka jen předvyplněná, rozhodnutí 14; ARP a ICMP v úrovni 3) |
 | 3 Směrování | ethernet, arp, ipv4, icmp, udp (+ router; ping, tracert; ARP se opravdu posílá) |
 | 4 Transport a aplikace | + tcp, dns, http |
@@ -650,7 +650,7 @@ Odhad v pracovních dnech vývojáře (agent + kontrola), bez času ostatních r
 
 | Iterace | Obsah | Jádro | UI | Celkem | Riziko |
 |---|---|---|---|---|---|
-| 1 | úroveň 1 Barvičky: world, pdu, link, trace, timeline (krok vpřed/vzad), ethernet+ipv4+udp bez adres v UI, výtah, ovládání, scénář z JSON | 3 | 4 | 7 | nízké |
+| 1 | úroveň 1 Obálky: world, pdu, link, trace, timeline (krok vpřed/vzad), ethernet+ipv4+udp bez adres v UI, výtah, ovládání, scénář z JSON | 3 | 4 | 7 | nízké |
 | 2 | úroveň 2 Adresy: arp, icmp (ping), hub, switch, runner vektorů (ping-hub, ping-switch), topologie a tabulky v UI, rentgen L2/L3, sekvenční diagram, terminál cmd (`ping`, `arp -a`, `ipconfig`) | 5 | 5 | 10 | střední (rentgen, sekvenční diagram) |
 | 3 | úroveň 3 Směrování: router, routing table, LPM, ICMP time exceeded/unreachable, `tracert`, IOS CLI základ, vektor ping-router, export pcap, sdílení odkazem, offline bundle | 6 | 4 | 10 | střední (IOS CLI rozsah) |
 | 4 | úroveň 4 Transport a aplikace: udp, tcp (handshake, ACK, ztráta, retransmise, ukončení), dns, http, `netstat`/`nslookup`, editor topologie | 9 | 6 | 15 | vysoké (TCP, editor) |

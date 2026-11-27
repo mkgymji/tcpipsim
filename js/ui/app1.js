@@ -1,4 +1,4 @@
-// Adaptér úrovně 1 „Barvičky“: výtah se dvěma PC na jednom kabelu, panel Detail.
+// Adaptér úrovně 1 „Obálky“: výtah se dvěma PC na jednom kabelu, panel Detail.
 // Chování beze změny proti iteraci 1 (jen přesunuto z main.js).
 import scn from '../../scenarios/uroven1-zapouzdreni.js';
 import { buildLevel1 } from '../scenario/level1.js';

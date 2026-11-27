@@ -3,11 +3,11 @@
 <head>
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
-  <title>tcpipsim: Úroveň 1 Barvičky</title>
+  <title>tcpipsim: Úroveň 1 Obálky</title>
   <link rel="icon" href="img/favicon.svg" type="image/svg+xml">
   <link rel="apple-touch-icon" href="img/apple-touch-icon.png">
   <meta name="description" content="Výukový simulátor sítě TCP/IP: zapouzdření zprávy ve vrstvách ISO/OSI a TCP/IP, adresy MAC, IP a porty, hub a switch, směrování přes router, ARP, ping a tracert.">
-  <link rel="stylesheet" href="css/app.css?v=64">
+  <link rel="stylesheet" href="css/app.css?v=65">
   <script>
     // Zachytí chyby ještě před načtením modulů; smoke test čte data-errors z DOM.
     (function () {
@@ -38,7 +38,7 @@
   <header class="top">
     <h1>tcpipsim</h1>
     <div class="seg lvlseg" role="group" aria-label="Úroveň">
-      <button type="button" data-level="1" aria-pressed="true">1 Barvičky</button>
+      <button type="button" data-level="1" aria-pressed="true">1 Obálky</button>
       <button type="button" data-level="2" aria-pressed="false">2 Adresy</button>
       <button type="button" data-level="3" aria-pressed="false">3 Směrování</button>
       <button type="button" data-level="4" aria-pressed="false">4 Transport</button>
@@ -122,6 +122,6 @@
     <p id="q-tips" class="q-tips"></p>
   </dialog>
 
-  <script type="module" src="js/main.js?v=64" onerror="window.__tcpipsimModuleFailed()"></script>
+  <script type="module" src="js/main.js?v=65" onerror="window.__tcpipsimModuleFailed()"></script>
 </body>
 </html>

@@ -16,7 +16,7 @@ Cílový rozměr 1280x720 a víc (projektor), návrh ladíme na 1400x900. Pevná
 
 ```
 +----------------------------------------------------------------------------------+
-| tcpipsim  Úroveň 1: Barvičky - PC A posílá zprávu PC B        [ISO/OSI (7)|TCP/IP (4)] |
+| tcpipsim  Úroveň 1: Obálky - PC A posílá zprávu PC B        [ISO/OSI (7)|TCP/IP (4)] |
 +----------------------------------------------------------------------+-----------+
 | TOPOLOGIE (výška ~150 px)                                            | VYSVĚTLIVKA|
 |   [PC A] ================ kabel ================ [PC B]              | Krok 4/10  |

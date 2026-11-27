@@ -178,7 +178,7 @@ f.onload = async () => {
     $('#btn-motion').click();
 
     check(!root.dataset.errors, `stránka bez chyb (${root.dataset.lastError ?? ''})`);
-    check(d.title === 'tcpipsim: Úroveň 1 Barvičky', `title úrovně 1 (${d.title})`);
+    check(d.title === 'tcpipsim: Úroveň 1 Obálky', `title úrovně 1 (${d.title})`);
     check($('.lvlseg [data-level="1"]').getAttribute('aria-pressed') === 'true', 'výběr úrovně ukazuje 1');
 
     // ---- úroveň 2: přepnutí výběrem v záhlaví (stránka se načte znovu) ----

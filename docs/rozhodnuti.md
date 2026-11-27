@@ -259,3 +259,5 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     - RST na zavřený port 8080 (O4) s poznámkou, že firewall by segment zahodil mlčky.
     - ARP cache a MAC tabulky předvyplněné (úroveň 3 je ukázala), označit „Simulátor zjednodušuje“.
     - Klient = `curl` (v terminálu `curl -v`, poznámka o aliasu v PowerShellu); SRV1 autoritativní DNS bez rekurze.
+
+61. **Úroveň 1 se jmenuje „Obálky“** (dříve interní „Barvičky“; studenty při pilotu 2026-11-27 název mátl).

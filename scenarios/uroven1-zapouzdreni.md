@@ -1,4 +1,4 @@
-# Scénář úrovně 1: Barvičky (zapouzdření)
+# Scénář úrovně 1: Obálky (zapouzdření)
 
 Text pro implementaci. Stav: návrh učitele (iterace 1), texty kroků upravené po kontrole
 úrovně 1 (rozhodnuti.md body 17–22). Platné znění je v `uroven1-zapouzdreni.js`; texty závislé
