@@ -2,7 +2,6 @@
   "format": "tcpipsim-vector/1",
   "id": "uloha-kabel",
   "level": 4,
-  "skip": "jádro zatím neumí klíče modelových situací (ulohy.md kap. 5)",
   "title": "Modelová situace 1: kabel Alice vytažený, ping na bránu bez jediného přenosu",
   "description": "Topologie úrovně 4 (routing.md kap. 9) jako základ modelové situace (ulohy.md kap. 1). Linka L1 (Alice - SW1) má connected: false. Rozhraní eth0 Alice je bez linky (ipconfig: Media State . . . : Media disconnected), Windows mu odebere adresu i cesty, proto odvozená směrovací tabulka Alice je prázdná. Ping na 192.168.1.1 nemá kudy odejít: žádný ARP, žádný přenos; chyba link_down (Windows: PING: transmit failed. General failure., ověřit).",
   "spec_refs": [

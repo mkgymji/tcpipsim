@@ -17,6 +17,8 @@ curl a webový server HTTP/1.1), `proto/tcp.js`, `proto/dns.js`, `proto/http.js`
 (`wire/fields.js`), terminál `nslookup`, `netstat -an`, `curl -v` (`cli/wincmd4.js`) a `ss` na SRV1
 (`cli/linux.js`), UI `ui/app4.js` + `ui/render4.js` (adaptér úrovně 3 s konfigurací). Všechny vektory
 projektanta kromě `tracert-dva-routery` procházejí bez `skip`.
+Iterace 5: modelové situace (úlohy 1, 3, 4, 5, 7, 10, 11, 13; rozhodnutí 66–69): `#uloha=N&seed=S`, menu Úlohy,
+dialog IPv4, kabely kliknutím, `systemctl` na SRV1, vyhodnocení „funguje / nefunguje a proč“ (kap. 9).
 Rozhodnutí jsou psaná s důvodem, aby šla zpětně zvrátit.
 
 ## 0. Rychlý start
@@ -107,6 +109,7 @@ tests/
   proto/*.test.js       testy protokolů (kódování, checksumy)
   vectors/*.json        testovací vektory projektanta (docs/spec/vektory.md)
   core/vectors.test.js  runner vektorů (kap. 8)
+scenarios/ulohy.js      modelové situace (úlohy): zadání, poruchy, nápovědy, pravidla vyhodnocení
 tools/
   bundle.mjs            jednosouborová offline verze (iterace 3–4)
   tahak.mjs             generuje prirucka/tahak.md z js/cli/commands.js (test tests/core/tahak.test.js)
@@ -555,6 +558,21 @@ startuje, až rámec opravdu odejde (`onTx`). Kroky událostí ve vektorech = č
 rámce; `tools/vectors/gen5.py` je tak opravený (FIN-WAIT-1 v kroku zavření, `tcp_retransmit` v čase RTO,
 `ip_forward` v kroku příchodu do R1). Pískoviště terminálu: `scenario/level4.js` `whatIf4` (stav kroku:
 ARP, MAC, LISTEN/ESTABLISHED/TIME-WAIT, DNS cache). Odkaz: `index.html#u=4&k=16a&t=PC1&c=netstat%20-an`.
+
+**Modelové situace (úlohy, rozh. 66–69):** data `scenarios/ulohy.js` (zadání, nápovědy, `faults`, cíl
+`goalRun`, `checks`, deklarativní pravidla textů `rules` s `when: { reason, changed, facts, success }`,
+u úlohy 13 `variants` + `checklist`). Stav a zásahy `scenario/task.js` (bez DOM): `createTask` (topologie
+úrovně 4 + porucha; Alice má `ipv4_config` = dialog), `applyFix` (ipv4, link, printer, service, arp_delete,
+arp_clear), `runCommand` (příkaz terminálu = samostatná simulace ze stavu úlohy; ARP, MAC a DNS tabulky se
+mezi příkazy pamatují), `evaluate` (cíl + kontroly na kopii stavu → `core/diagnose.js` první selhání zdola:
+link_down, no_address, mask_wrong, no_route, arp_failed, ip_conflict, arp_stale, wrong_next_hop,
+no_dns_server, dns_failed, connection_refused; navíc ip_conflict_config). `core/hostcfg.js`: validace dialogu
+podle Windows, APIPA z MAC, detekce konfliktu (`acd`, později nastavený uzel prohraje, bez kreslení ARP Probe),
+efektivní topologie. Jádro: linka `connected: false` (rozhraní bez cest, `ip_drop` `link_down`), `apps[].running`,
+`proc_delay_steps`, router neodpoví na ARP od odesílatele mimo síť rozhraní, SYN, který neodejde, hned selže,
+vlastní IP se doručí uvnitř. Varianta úlohy 13 = `fnv1a("u13|" + seed) mod 8`. UI `ui/apptask.js`
++ `ui/rendertask.js`, vstup `#uloha=N[&seed=S]` (main.js volí režim úloh místo úrovní). Novou úlohu přidáš
+záznamem v `TASKS` a `TASK_ORDER`, test v `tests/core/ulohy.test.js` (výchozí stav, oprava, špatný pokus).
 
 **Krok končí svou událostí (`until`) a hlídá ho `expect`:** krok bez `until` trvá až do začátku dalšího
 kroku, a tak by zahrnul i zprávu, kterou jádro vyšle těsně před událostí dalšího kroku (recenze úrovně 4,

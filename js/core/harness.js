@@ -15,7 +15,7 @@ const UNSUPPORTED = {};
 
 export const EVENT_KINDS = ['nic_drop', 'arp_learn', 'arp_ignore', 'arp_queue', 'mac_learn', 'flood', 'forward',
   'filter', 'repeat', 'ip_forward', 'ip_deliver', 'ip_drop', 'udp_send', 'udp_deliver', 'udp_no_listener',
-  'arp_fail', 'arp_expire', 'tcp_state', 'tcp_retransmit', 'link_loss', 'http_request', 'http_response', 'dns_answer'];
+  'arp_fail', 'arp_expire', 'tcp_state', 'tcp_rst', 'tcp_retransmit', 'link_loss', 'http_request', 'http_response', 'dns_answer'];
 
 // Protokoly pro přehrání vektoru: úroveň 3 a vektory s ping/tracert mají ARP a ICMP (ARP se
 // opravdu posílá), starší vektory úrovně 2 jen předvyplněnou ARP tabulku (rozhodnutí 14).
@@ -97,6 +97,8 @@ export function runVector(vector) {
   return { records, transmissions, events, finalState: final, initialRoutes, appResult: { received, apps: appResults(records) } };
 }
 
+const HTTP_ERRORS = { refused: 'connection_refused' };
+
 // Výsledky aplikací ping a tracert ze záznamu (vektory.md kap. 7): ping = sent, received (jen
 // Echo Reply), replies[], errors[]; tracert = reached, hops[] (sondy jednoho TTL = jeden skok).
 export function appResults(records) {
@@ -111,7 +113,9 @@ export function appResults(records) {
         out.push({ node: st.node, command: st.command, name: r.name, server: r.server, authoritative: r.authoritative,
           rcode: r.rcode, answers: r.answers ?? [], kind: r.kind });
       } else {
-        out.push({ node: st.node, command: st.command, kind: r.kind, status: r.status, reason: r.reason,
+        // chyba místo odpovědi (ulohy.md kap. 5): status null, error connection_refused | no_route | timeout …
+        const error = r.kind === 'response' || r.kind === 'open' ? undefined : (HTTP_ERRORS[r.kind] ?? r.kind);
+        out.push({ node: st.node, command: st.command, kind: r.kind, status: r.status ?? null, error, reason: r.reason,
           content_length: r.content_length, body_len: r.body_len, local: r.local, remote: r.remote, retransmissions: r.retransmissions });
       }
       continue;

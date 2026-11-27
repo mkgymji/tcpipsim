@@ -44,11 +44,15 @@ export function buildWorld(topology, initialState = {}) {
     if (isL3(n.type)) {
       node.state.arp_cache = clone(initialState.arp_cache?.[n.id] ?? []);
       node.state.ipId = n.ip_id_start ?? 1;
-      node.state.routing_table = deriveRoutes(n);
+      // rozhraní bez linky (kabel vytažený, ulohy.md kap. 5): bez adres a cest (Windows i IOS „down“)
+      const down = downInterfaces(topology, n.id);
+      if (down.length) node.state.down = down;
+      node.state.routing_table = deriveRoutes(n).filter((r) => !down.includes(r.if));
     }
     if (isHost(n.type)) {
+      // zastavená služba (apps[].running: false) nemá socket
       const sockets = initialState.udp_sockets?.[n.id]
-        ?? (n.apps ?? []).filter((a) => a.proto === 'udp' && a.port != null).map((a) => ({ app: a.name, port: a.port }));
+        ?? (n.apps ?? []).filter((a) => a.proto === 'udp' && a.port != null && a.running !== false).map((a) => ({ app: a.name, port: a.port }));
       node.state.udp_sockets = clone(sockets);
     }
     if (n.type === 'switch') node.state.mac_table = clone(initialState.mac_table?.[n.id] ?? []);
@@ -59,9 +63,20 @@ export function buildWorld(topology, initialState = {}) {
   return { nodes, links };
 }
 
-// Protější konec linky připojené k uzlu `node` na rozhraní/portu `ifName`.
+// Rozhraní uzlu, jejichž linka má `connected: false` (vytažený kabel).
+export function downInterfaces(topology, nodeId) {
+  const out = [];
+  for (const l of topology.links ?? []) {
+    if (l.connected !== false) continue;
+    for (const end of [l.a, l.b]) if (end.node === nodeId) out.push(end.if);
+  }
+  return out;
+}
+
+// Protější konec linky připojené k uzlu `node` na rozhraní/portu `ifName` (vytažený kabel = žádný).
 function peerOf(world, node, ifName) {
   for (const l of Object.values(world.links)) {
+    if (l.connected === false) continue;
     if (l.a.node === node && l.a.if === ifName) return { link: l, peer: l.b };
     if (l.b.node === node && l.b.if === ifName) return { link: l, peer: l.a };
   }
@@ -198,7 +213,7 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
       if (q.items.length > ARP_PARAMS.queueMax) {
         const old = q.items.shift();
         emit('ip_drop', { node: nodeId, layer: 3, pdu: old.pkt, reason: 'queue', detail: 'fronta ARP plná: nejstarší paket zahozen' });
-        if (old.owner) appFail(old.owner, { kind: 'arp_failed', from: iface.ip });
+        if (old.owner) ownerFail(old.owner, { kind: 'arp_failed', from: iface.ip });
       }
       emit('arp_queue', { node: nodeId, ip: nextHop, if: iface.name, pdu: pkt, waiting: q.items.length,
         detail: `paket čeká ve frontě, ARP na ${nextHop} už běží` });
@@ -231,13 +246,20 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
       const fwd = q.items.find((it) => !it.owner);
       if (fwd) sendIcmpError(nodeId, fwd.pkt, ICMP.UNREACH, 1);
     }
-    for (const it of q.items) if (it.owner) appFail(it.owner, { kind: 'arp_failed', from: iface.ip });
+    for (const it of q.items) if (it.owner) ownerFail(it.owner, { kind: 'arp_failed', from: iface.ip });
   });
 
   // Příjem ARP (RFC 826, arp.md kap. 4).
   function arpReceive(node, ifName, frame) {
     const h = frame.payload.h;
     const iface = ifaceOf(node, ifName);
+    // Cisco IOS neodpoví na ARP dotaz od odesílatele mimo síť rozhraní (debug arp: „wrong cable“;
+    // ulohy.md kap. 3.5, ověřit v Packet Traceru)
+    if (node.type === 'router' && h.op === 1 && h.tpa === iface.ip && !sameSubnet(h.spa, iface.ip, iface.prefix)) {
+      emit('arp_ignore', { node: node.id, ip: h.tpa, op: h.op, pdu: frame.payload, refreshed: false, foreign: true,
+        detail: `odesílatel ${h.spa} není v síti rozhraní ${iface.name} (${iface.ip}/${iface.prefix}): router neodpoví` });
+      return;
+    }
     const known = node.state.arp_cache.find((x) => x.ip === h.spa);
     if (known && known.type !== 'static') arpStore(node, h.spa, h.sha, ifName, 'z ARP zprávy');
     if (h.tpa !== iface.ip) {
@@ -270,7 +292,18 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
   // Odeslání paketu, který uzel sám vytvořil: výběr cesty (LPM), next hop, ARP, rámec.
   function ipOutput(nodeId, pkt, owner) {
     const node = world.nodes[nodeId];
+    // vlastní adresa: doručí se uvnitř zásobníku, na kabel nic nejde (RFC 1122 3.2.1.3)
+    if (isHost(node.type) && (pkt.h.dst.startsWith('127.') || myIps(node).includes(pkt.h.dst))) {
+      emit('ip_local', { node: nodeId, dst: pkt.h.dst, pdu: pkt, detail: `${pkt.h.dst} je vlastní adresa: doručeno uvnitř, nic se neodeslalo` });
+      sched.schedule({ type: 'host.local', delay: 0, payload: { node: nodeId, pkt } });
+      return { local: true };
+    }
     const route = lookupRoute(node.state.routing_table, pkt.h.dst);
+    if (!route && node.state.down?.length) {
+      emit('ip_drop', { node: nodeId, layer: 3, pdu: pkt, reason: 'link_down',
+        detail: `${node.state.down.join(', ')} bez linky (Media disconnected) -> žádná cesta k ${pkt.h.dst}` });
+      return { error: 'link_down' };
+    }
     if (!route) {
       emit('ip_drop', { node: nodeId, layer: 3, pdu: pkt, reason: 'no_route',
         detail: `pro ${pkt.h.dst} není v tabulce žádná cesta (${node.gateway ? 'žádná nesedí' : 'chybí výchozí brána'}): nic se neodešle` });
@@ -400,6 +433,8 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     return true;
   }
   function appFail(owner, res) { appResult(owner, res); }
+  // vlastník paketu ve frontě ARP: běh pingu/tracertu, nebo TCP (owner.fail)
+  function ownerFail(owner, res) { if (owner.fail) owner.fail(res); else appFail(owner, res); }
 
   function appDone(run) {
     run.done = true;
@@ -469,8 +504,13 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
         detail: `cílová MAC ${dst} není moje ani broadcast` });
       return;
     }
-    sched.schedule({ type: 'host.rx', delay: 0, payload: { node: node.id, if: ifName, frame } });
+    // proc_delay_steps (ulohy.md kap. 5): pomalejší zařízení (tiskárna) zpracuje rámec o kroky později
+    sched.schedule({ type: 'host.rx', delay: (node.proc_delay_steps ?? 0) * DEFAULT_DELAY, payload: { node: node.id, if: ifName, frame } });
   }
+  sched.on('host.local', (ev) => {
+    const node = world.nodes[ev.payload.node];
+    hostIp(node, node.interfaces[0].name, ev.payload.pkt);
+  });
 
   sched.on('host.rx', (ev) => {
     const { node: id, if: ifName, frame } = ev.payload;
@@ -493,7 +533,7 @@ export function runNetwork({ topology, initialState = {}, actions = [], maxEvent
     const id = node.id;
     const iface = ifaceOf(node, ifName);
     const decap = (pdu, layer) => emit('decap', { node: id, layer, proto: pdu.proto, removed: pdu, pdu: pdu.payload });
-    if (pkt.h.dst !== iface.ip && !(arpOn && pkt.h.dst === broadcastOf(iface.ip, iface.prefix))) {
+    if (pkt.h.dst !== iface.ip && !pkt.h.dst.startsWith('127.') && !(arpOn && pkt.h.dst === broadcastOf(iface.ip, iface.prefix))) {
       emit('ip_drop', { node: id, layer: 3, pdu: pkt, detail: `cílová IP ${pkt.h.dst} není moje` });
       return;
     }

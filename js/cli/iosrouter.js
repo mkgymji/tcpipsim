@@ -78,7 +78,7 @@ export function showIpRoute(node, { filter = null, highlight = null } = {}) {
 function showIpIntBrief(node) {
   const lines = ['Interface              IP-Address      OK? Method Status                Protocol'];
   for (const i of node.interfaces) {
-    lines.push(`${FULL(i.name).padEnd(23)}${(i.ip ?? 'unassigned').padEnd(16)}YES ${(i.ip ? 'manual' : 'unset').padEnd(7)}${'up'.padEnd(22)}up`);
+    lines.push(`${FULL(i.name).padEnd(23)}${(i.ip ?? 'unassigned').padEnd(16)}YES ${(i.ip ? 'manual' : 'unset').padEnd(7)}${(i.down ? 'down' : 'up').padEnd(22)}${i.down ? 'down' : 'up'}`);
   }
   return lines;
 }

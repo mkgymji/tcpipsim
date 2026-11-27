@@ -3,7 +3,6 @@
   "id": "uloha-web-rst",
   "level": 4,
   "seed": 1,
-  "skip": "jádro zatím neumí klíče modelových situací (ulohy.md kap. 5)",
   "title": "Modelová situace 10: web na SRV1 neběží, SYN na port 80 dostane RST, ACK",
   "description": "Topologie úrovně 4 (routing.md kap. 9) jako základ modelové situace (ulohy.md kap. 1). Aplikace web na SRV1 má running: false (nginx zastavený), DNS běží; ARP cache a MAC tabulky předvyplněné jako ve vektorech úrovně 4. Alice pošle SYN na 192.168.2.10:80, SRV1 odpoví RST, ACK (seq 0, ack = ISN Alice + 1, okno 0; RFC 9293 kap. 3.10.7.1, tcp.md kap. 7.3). L3 je v pořádku (TTL 64 -> 63 přes R1), selhává L4. Simulátor zjednodušuje: Windows po RST zkouší SYN ještě dvakrát, simulátor ne.",
   "spec_refs": [
@@ -752,7 +751,7 @@
       {
         "step": 4,
         "node": "SRV1",
-        "event": "tcp_state",
+        "event": "tcp_rst",
         "detail": "port 80: žádný socket (služba web zastavená) -> RST, ACK"
       },
       {

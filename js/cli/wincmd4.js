@@ -18,6 +18,10 @@ export function netstatLines(node) {
 /** Výpis nslookup (cmd.md kap. 15). r = { timeouts, result } (result = výsledek dns_resolve, nebo null = běží). */
 export function formatNslookup(name, server, r) {
   const out = [];
+  if (r.result?.kind === 'no_server') {
+    // bez DNS serveru (ulohy.md kap. 3.7, text ověřit)
+    return ['*** Default servers are not available', 'Server:  UnKnown', 'Address:  127.0.0.1', '', `*** UnKnown can't find ${name}: No response from server`, ''];
+  }
   for (let i = 0; i < (r.timeouts ?? 0); i++) out.push('DNS request timed out.', '    timeout was 2 seconds.');
   out.push('Server:  UnKnown', `Address:  ${server}`, '');
   const res = r.result;
@@ -48,7 +52,10 @@ export function formatCurl(url, verbose, r) {
     out.push(`curl: (7) ${msg}`, '');
     return { lines: out, note: 'SRV1 odpověděl RST: na portu nikdo nenaslouchá. Přesné znění hlášky curl ověřujeme při pilotu.' };
   }
-  if (res.kind !== 'response') return { lines: [`curl: (28) Connection timed out`, ''] };
+  if (res.kind === 'no_route' || res.kind === 'link_down') {
+    return { lines: [`curl: (7) Failed to connect to ${host} port ${port} after 0 ms: Couldn't connect to server`, ''], note: 'Paket neměl kudy odejít (žádná cesta). Přesné znění ověřujeme při pilotu.' };
+  }
+  if (res.kind !== 'response') return { lines: [`curl: (28) Failed to connect to ${host} port ${port} after 21000 ms: Timed out`, ''], note: 'Odpověď nepřišla. Simulátor zkracuje čekání; skutečný curl čeká déle.' };
   const text = res.text ?? '';
   const [head, body = ''] = text.split('\r\n\r\n');
   if (verbose) {

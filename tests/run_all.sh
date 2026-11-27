@@ -34,7 +34,8 @@ else
     # (#u=3: krok s routerem a konzolí IOS, krok tracertu s živým výpisem terminálu Windows).
     for HASH in "" "#u=2&k=13&t=SW1&c=show%20mac%20address-table" "#u=3&k=9&t=R1&c=enable&c=show%20ip%20route" \
                 "#u=3&k=20&t=PC1&c=tracert%20192.168.2.20" \
-                "#u=4&k=21&t=SRV1&c=ss%20-tan" "#u=4&k=31&t=PC1&c=nslookup%20www.skola.lan"; do
+                "#u=4&k=21&t=SRV1&c=ss%20-tan" "#u=4&k=31&t=PC1&c=nslookup%20www.skola.lan" \
+                "#uloha=4" "#uloha=13&seed=1"; do
       timeout 90 "$BROWSER" --headless --disable-gpu --no-sandbox --no-first-run \
         --user-data-dir="$TMP/profile" --allow-file-access-from-files \
         --enable-logging=stderr --v=0 --virtual-time-budget=5000 \

@@ -477,3 +477,33 @@ zkrátí na „odesílatel ↓“ / „příjemce ↑“ místo oříznutí „z
   `ipconfig /displaydns`), SRV1 Linux (`student@srv1:~$`, `ss -tuln`, `ss -tan`; tmavě šedé záhlaví).
 - **Kontrola rozvržení:** `tests/browser/interact.html` měří při 1280×720 překryvy štítků, useknuté IP adresy
   v topologii a vodorovné přetečení tabulek karet.
+
+## 15. Modelové situace (úlohy, rozhodnutí 66–69)
+
+- **Vstup:** odkaz `#uloha=N` (`#uloha=13&seed=S`; bez seedu ho stránka vylosuje a zapíše do adresy) nebo menu
+  **Úlohy** v záhlaví vedle úrovní (pořadí 4, 1, 5, 7, 10, 11, 3, 13, u každé „co trénuje“). Titulek
+  „Úloha N Název · TCP/IP výukový simulátor“. Režim nemá časovou osu: lišta krokování a přepínač modelu
+  vrstev jsou skryté, zůstává patička s licencí.
+- **Rozvržení (1280×720):** vlevo nahoře topologie úrovně 4 (+ tiskárna PRT1 na SW1 Fa0/2, je-li v úloze),
+  pod ní terminál (otevřený, výchozí Alice). Vpravo karta zadání (číslo, název, druh „nastavení“ / „síť
+  nejde“, příběh v odrážkách, **Cíl**, tlačítka **Zkontrolovat** a **Obnovit úlohu**, výsledek), nápovědy,
+  rentgen. Pravý sloupec se posouvá.
+- **Topologie:** klik na zařízení = vybrat; pod plánem lišta akcí („Alice: Terminál, Vlastnosti IPv4“;
+  tiskárna „Nastavení sítě“; router a switch „Konzole“). Adresa Alice a tiskárny v plánu není („IP: zjisti“),
+  student ji zjistí `ipconfig`. Kabel = malé kolečko uprostřed linky; vytažený kabel je čárkovaný červený,
+  vede jen do půlky a má štítek „vytažený“. Klik zapojí / odpojí (s poznámkou do terminálu).
+- **Dialog „Vlastnosti protokolu IPv4“:** pole jako Windows (česky, anglický název drobně): DHCP / ruční
+  adresa, IP, maska, brána, DNS upřednostňovaný a náhradní. Pole zašednou podle volby; maska se po opuštění
+  pole IP předvyplní podle třídy. Chyby (oktet > 255, 127, ≥ 224, nespojitá maska, adresa sítě / broadcast)
+  odmítne s českou větou a citací Windows; brána mimo síť = varování „Uložit i tak?“ (Ano / Ne).
+- **Vyhodnocení:** rámeček zelený „Funguje“, oranžový „Funguje, ale…“ (obejití, např. odpojená tiskárna),
+  červený „Nefunguje“ se štítkem vrstvy. Texty podle pravidel úlohy (typické špatné pokusy didaktika), jinak
+  obecná věta k důvodu. Po úspěchu kontrolní otázka (rozbalovací odpověď); u úlohy 13 kontrolní seznam
+  od L1 nahoru a hodnocení zvolené vrstvy a zbytečných zásahů.
+- **Nápovědy 1–3:** tlačítka, další je zamčená, dokud se neotevře předchozí; otevřená nápověda má žluté
+  pozadí role tipu. Vyhodnocení řekne „Použil jsi N nápovědy“.
+- **Rentgen:** rámce, které poslední příkaz poslal po kabelu u zařízení terminálu (ven / dovnitř, krátký
+  souhrn, max. 40); klik = tabulka polí a bajty (`render3.xrayHtml3`).
+- **Ohnisko (rozh. 56):** jeden panel má rámeček a „Sleduj tady“, ostatní jsou ztlumené (0.85): na začátku
+  a po Zkontrolovat karta zadání, po příkazu terminál, po kliku na rámec rentgen, po výběru uzlu topologie.
+- **Texty (rozh. 67):** odrážky, **tučné** klíčové slovo, `kód`; zjednodušení vždy „Simulátor zjednodušuje: …“.

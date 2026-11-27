@@ -32,3 +32,15 @@ export function parseHash(hash, steps) {
 export function formatHash(step, modelId, level = 1) {
   return `#${level === 1 ? '' : `u=${level}&`}k=${stepLabel(step)}&m=${modelId}`;
 }
+
+// Modelová situace: #uloha=4, #uloha=13&seed=7 (rozh. 69). Vrací { id, seed } nebo null.
+export function parseTaskHash(hash) {
+  const p = new URLSearchParams(String(hash ?? '').replace(/^#/, ''));
+  if (!p.has('uloha')) return null;
+  const seed = Number.parseInt(p.get('seed') ?? '', 10);
+  return { id: Number.parseInt(p.get('uloha'), 10), seed: Number.isFinite(seed) && seed > 0 ? seed : null };
+}
+
+export function formatTaskHash(id, seed = null) {
+  return `#uloha=${id}${seed != null ? `&seed=${seed}` : ''}`;
+}

@@ -1097,3 +1097,116 @@ body.lvl4 .explain > .stephead { flex-wrap: wrap; row-gap: 2px; }
 /* štítek věže (R1, SW1) nepřekrývá blok zprávy */
 body.lvl4 .lane .float { position: relative; z-index: 6; }
 .conn4 .ct4 th { white-space: nowrap; }
+
+/* ---------- menu Úlohy v záhlaví (rozh. 69) ---------- */
+.tmenu { position: relative; flex: none; }
+.tmenu > summary { list-style: none; cursor: pointer; padding: 0 10px; }
+.tmenu > summary::-webkit-details-marker { display: none; }
+.tmenu > summary::after { content: "▾"; font-size: 14px; }
+.tmenu[open] > summary { background: var(--ink); color: #fff; }
+.tmenu ol { position: absolute; z-index: 30; top: calc(100% + 6px); left: 0; width: 420px; margin: 0; padding: 6px; list-style: none; background: var(--panel); border: 3px solid var(--ink); border-radius: 10px; box-shadow: 0 8px 24px rgba(0,0,0,.25); }
+.tmenu li a { display: block; padding: 6px 10px; border-radius: 6px; color: var(--ink); text-decoration: none; font-size: 16px; }
+.tmenu li a b { display: inline-block; min-width: 26px; }
+.tmenu li a small { display: block; margin-left: 26px; color: var(--muted); font-size: 14px; }
+.tmenu li a:hover, .tmenu li a:focus-visible, .tmenu li a[aria-current] { background: #E4E6E9; }
+
+/* ---------- režim úloh (docs/ui.md kap. 15) ---------- */
+body.taskmode { grid-template-rows: 56px minmax(0, 1fr) 30px; --aside-w: 440px; }
+body.taskmode .controls > :not(.license) { display: none; }
+body.taskmode .controls { justify-content: flex-end; }
+body.taskmode header.top .seg:not(.lvlseg), body.taskmode #btn-motion { display: none; }
+body.taskmode main { grid-template-columns: minmax(0, 1fr) var(--aside-w); }
+.tleft { display: grid; grid-template-rows: minmax(250px, 46%) minmax(0, 1fr); gap: 12px; min-height: 0; }
+.tleft .termwin { grid-row: 2; }
+.taside { display: flex; flex-direction: column; gap: 10px; min-height: 0; overflow: auto; padding: 4px; }
+.taside .card { flex: none; }
+#app[data-task-focus] :is(#ttopo, #tcard, #thints, #info, #termwin):not([data-focus]) { opacity: .85; }
+#tcard[data-focus] { --fc: var(--ink); }
+#ttopo[data-focus] { --fc: var(--ink); }
+#tcard[data-focus] .thead::after, #ttopo[data-focus] .tag::after { content: "Sleduj tady"; margin-left: 8px; background: var(--fc); color: #fff; font: 700 14px/20px var(--font); padding: 1px 9px; border-radius: 6px; white-space: nowrap; }
+
+.ttopo { position: relative; padding: 0; overflow: hidden; }
+.ttopo .tag { position: absolute; top: 6px; left: 12px; font-size: 15px; color: var(--muted); font-weight: 600; z-index: 3; display: flex; align-items: center; }
+.ttopo .tag small { font-weight: 400; margin-left: 8px; }
+.tstage { position: absolute; top: 30px; left: 0; right: 0; bottom: 44px; }
+.tnet { position: absolute; top: 0; bottom: 0; border: 2px dashed var(--line); border-radius: 10px; }
+.tnet.n1 { left: 1%; width: 40%; } .tnet.n2 { left: 60%; width: 39%; }
+.tnet span { position: absolute; top: 2px; right: 8px; font-size: 14px; color: var(--muted); font-weight: 600; }
+.tnet.n2 span { right: auto; left: 8px; }
+.tlines { position: absolute; inset: 0; width: 100%; height: 100%; }
+.tlines .tw { stroke: var(--ink); stroke-width: 5; vector-effect: non-scaling-stroke; stroke-linecap: round; }
+.tlines .tw.off { stroke: #B3301A; stroke-dasharray: 8 6; }
+.tnode { position: absolute; transform: translate(-50%, -50%); display: flex; flex-direction: column; align-items: center; z-index: 2; }
+.tdev { display: flex; flex-direction: column; align-items: center; gap: 0; background: var(--panel); border: 3px solid var(--line); border-radius: 10px; padding: 3px 8px; cursor: pointer; min-width: 92px; }
+.tdev svg { width: 40px; height: 34px; }
+.t-switch .tdev svg, .t-router .tdev svg { width: 34px; height: 30px; }
+.tdev b { font-size: 16px; line-height: 1.1; }
+.tdev small { font-size: 14px; color: var(--muted); }
+.tdev .tip-q { font-style: italic; }
+.tnode.sel .tdev { border-color: var(--ink); box-shadow: 0 0 0 3px var(--panel), 0 0 0 6px var(--ink); }
+.tacts { position: absolute; left: 10px; right: 10px; bottom: 4px; height: 36px; display: flex; gap: 8px; align-items: center; font-size: 16px; }
+.tacts.muted { color: var(--muted); font-size: 15px; }
+.tacts .btn { height: 34px; font-size: 15px; padding: 0 10px; border-width: 2px; }
+.tcable { position: absolute; transform: translate(-50%, -50%); z-index: 1; width: 18px; height: 18px; border-radius: 50%; border: 2px solid var(--ink); background: var(--panel); cursor: pointer; padding: 0; font-size: 13px; font-weight: 700; }
+.tcable:hover { background: #E4E6E9; }
+.tcable.off { width: auto; height: 28px; border-radius: 8px; padding: 0 8px; border-color: #B3301A; color: #B3301A; background: #FBEAE7; }
+
+.tcard h2 { margin: 0; font-size: 20px; }
+.thead { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.tno { background: var(--ink); color: #fff; border-radius: 6px; padding: 1px 8px; font-weight: 700; font-size: 15px; }
+.tkind { border: 2px solid var(--muted); color: var(--muted); border-radius: 6px; padding: 0 6px; font-size: 14px; font-weight: 600; }
+.tstory { margin: 4px 0 8px; padding-left: 20px; font-size: 17px; }
+.tstory li { margin: 2px 0; }
+.tcard code, .thints code, .tres code, .tcheck code { font: 15px var(--mono); background: #EEF0F3; padding: 0 4px; border-radius: 4px; }
+.tgoal { margin: 6px 0; font-size: 17px; }
+.tseed { margin: 4px 0; }
+.tlayer { display: flex; gap: 8px; align-items: center; margin: 6px 0; font-size: 16px; }
+.tlayer select { font: inherit; padding: 4px 6px; border: 2px solid var(--ink); border-radius: 6px; }
+.tbtns { display: flex; gap: 10px; align-items: center; margin: 8px 0 4px; }
+.tbtns .btn.main { min-width: 0; height: 46px; }
+.tres { margin-top: 8px; border: 3px solid var(--line); border-radius: 10px; padding: 8px 12px; }
+.tres h3 { margin: 0 0 4px; font-size: 19px; display: flex; gap: 8px; align-items: center; }
+.tres p { margin: 4px 0; font-size: 16px; }
+.tres.ok { border-color: #00695C; background: #E5F2EF; }
+.tres.partial { border-color: #8A5200; background: #FFF4E0; }
+.tres.fail { border-color: #B3301A; background: #FBEAE7; }
+.tl-chip { font-size: 14px; border: 2px solid currentColor; border-radius: 6px; padding: 0 6px; }
+.tchecks { margin: 4px 0; padding-left: 20px; font-size: 15px; }
+.tchecks .no { color: #B3301A; }
+.tcheck { border-collapse: collapse; margin: 8px 0; font-size: 14px; width: 100%; }
+.tcheck caption { text-align: left; font-weight: 700; font-size: 15px; margin-bottom: 2px; }
+.tcheck th, .tcheck td { border: 1px solid var(--line); padding: 2px 5px; text-align: left; vertical-align: top; }
+.tcheck td small { display: block; color: var(--muted); }
+.tq { margin-top: 6px; font-size: 15px; }
+.tq summary { cursor: pointer; font-weight: 600; }
+.thints h3 { font-size: 17px; }
+.thints h3 small { font-weight: 400; color: var(--muted); font-size: 14px; }
+.thint-btn { display: flex; margin: 4px 0; height: 38px; font-size: 15px; }
+.thint-btn[disabled] { border-color: var(--line); color: var(--line); cursor: default; }
+.thint { margin: 4px 0; padding: 6px 10px; background: var(--role-tip-bg, #FFE28A); border-radius: 8px; font-size: 16px; }
+.tframes { list-style: none; margin: 4px 0; padding: 0; max-height: 170px; overflow: auto; border: 1px solid var(--line); border-radius: 6px; }
+.tframes button { display: block; width: 100%; text-align: left; border: 0; border-bottom: 1px solid #E4E6E9; background: var(--panel); padding: 3px 6px; font: 14px var(--mono); cursor: pointer; }
+.tframes button.on { background: var(--role-xray, #3D5A73); color: #fff; }
+.tframes .dir { display: inline-block; min-width: 56px; font-family: var(--font); font-weight: 700; }
+.txray { margin-top: 6px; border-top: 2px solid var(--line); padding-top: 4px; }
+.termwin .term-h .term-sw { margin-left: auto; font-size: 14px; opacity: .9; }
+#tdlg { max-width: 620px; }
+.dlg-ipv4 h2 { margin: 0 0 2px; font-size: 20px; }
+.dlg-ipv4 h2 small { font-weight: 400; color: var(--muted); }
+.dlg-ipv4 fieldset { border: 2px solid var(--line); border-radius: 8px; margin: 8px 0; padding: 6px 10px; }
+.dlg-ipv4 legend { font-weight: 700; padding: 0 4px; }
+.dlg-r { display: block; margin: 3px 0; font-size: 16px; }
+.dlg-r small, .dlg-f small { color: var(--muted); font-size: 13px; }
+.dlg-f { display: grid; grid-template-columns: 1fr 190px; align-items: center; gap: 8px; margin: 4px 0 4px 24px; font-size: 16px; }
+.dlg-f span small { display: block; }
+.dlg-f input { font: 17px var(--mono); padding: 4px 6px; border: 2px solid var(--ink); border-radius: 6px; }
+.dlg-f input:disabled { border-color: var(--line); background: #EEF0F3; }
+.dlg-msg p { margin: 6px 0; padding: 6px 10px; border-radius: 8px; font-size: 16px; }
+.dlg-msg small { display: block; color: var(--muted); font-size: 13px; }
+.dlg-err { background: #FBEAE7; border: 2px solid #B3301A; }
+.dlg-warn { background: #FFF4E0; border: 2px solid #8A5200; }
+.dlg-btns { display: flex; gap: 10px; margin-top: 8px; }
+.tlist li { margin: 6px 0; }
+.tlist small { color: var(--muted); }
+.dlg-ipv4 p.small { font-size: 15px; margin: 2px 0; }
+.dlg-ipv4 .muted { color: var(--muted); }

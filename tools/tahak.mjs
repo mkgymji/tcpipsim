@@ -4,6 +4,7 @@ import { writeFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 import { COMMANDS } from '../js/cli/commands.js';
 import { LEVELS } from '../js/levels.js';
+import { TASKS, TASK_ORDER } from '../scenarios/ulohy.js';
 
 const WHERE = { PC: 'PC (Windows)', switch: 'switch (IOS)', router: 'router (IOS)', server: 'server (Linux)' };
 const cell = (s) => String(s).replace(/\|/g, '\\|');
@@ -34,9 +35,20 @@ export function tahakMarkdown() {
     if (!list.length) { out.push('Žádné nové příkazy.'); continue; }
     out.push('| Příkaz | Kde | Co ukáže | Na co se zeptat |', '| --- | --- | --- | --- |');
     for (const c of list) {
-      out.push(`| \`${cell(c.usage)}\` | ${WHERE[c.where]}${c.priv ? ', R1#' : ''} | ${cell(c.short)} | ${cell(c.ask)} |`);
+      out.push(`| \`${cell(c.usage)}\` | ${WHERE[c.where]}${c.priv ? ', R1#' : ''}${c.tasks ? ', úlohy' : ''} | ${cell(c.short)} | ${cell(c.ask)} |`);
     }
   }
+  out.push('', '## Modelové situace (úlohy)', '',
+    'Student sám nastaví počítač nebo najde a opraví chybu v hotové síti úrovně 4; simulátor vyhodnotí',
+    '„funguje / nefunguje a proč“. Příkazy označené „úlohy“ mění stav jen v úlohách.',
+    'Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` každému stejnou (nebo jinou) chybu.', '',
+    '| Úloha | Odkaz | Co trénuje |', '| --- | --- | --- |');
+  for (const id of TASK_ORDER) {
+    const t = TASKS[id];
+    out.push(`| ${id} ${cell(t.title)} | https://mkgymji.github.io/tcpipsim/#uloha=${id}${t.seeded ? '&seed=1' : ''} | ${cell(t.short)} |`);
+  }
+  out.push('', '### Postup, když síť nejde (od L1 nahoru)', '', '| Vrstva | Otázka | Příkaz | Dobrý výsledek |', '| --- | --- | --- | --- |');
+  for (const [l, q, cmd, okv] of TASKS[13].checklist) out.push(`| ${l} | ${cell(q)} | ${cell(cmd)} | ${cell(okv)} |`);
   out.push('', '## Dál', '',
     'Navazující nástroj: Cisco Packet Tracer (zdarma, netacad.com) — volné stavění sítí a konfigurace pro CCNA.', '');
   return out.join('\n');

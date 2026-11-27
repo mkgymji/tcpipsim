@@ -14,7 +14,7 @@ const LABELS = {
   wins: 'WINS Proxy Enabled. . . . . . . .', conn: 'Connection-specific DNS Suffix  .',
   desc: 'Description . . . . . . . . . . .', phys: 'Physical Address. . . . . . . . .',
   dhcp: 'DHCP Enabled. . . . . . . . . . .', auto: 'Autoconfiguration Enabled . . . .',
-  ipv4: 'IPv4 Address. . . . . . . . . . .', mask: 'Subnet Mask . . . . . . . . . . .',
+  ipv4: 'IPv4 Address. . . . . . . . . . .', apipa: 'Autoconfiguration IPv4 Address. .', media: 'Media State . . . . . . . . . . .', mask: 'Subnet Mask . . . . . . . . . . .',
   gw: 'Default Gateway . . . . . . . . .', dns: 'DNS Servers . . . . . . . . . . .', netbios: 'NetBIOS over Tcpip. . . . . . . .',
 };
 const dots = (key) => `   ${LABELS[key]} : `;
@@ -35,20 +35,38 @@ function ipconfig(node, all, level = 2) {
       `${dots('routing')}No`, `${dots('wins')}No`);
   }
   // mezi „Windows IP Configuration“ a adaptérem jsou dva prázdné řádky (cmd.md kap. 2)
-  out.push('', 'Ethernet adapter Ethernet:', '', `${dots('conn')}`);
+  out.push('', 'Ethernet adapter Ethernet:', '');
+  // modelové situace (ulohy.md kap. 3.1, 3.2, 3.3): vytažený kabel, APIPA, adresa v konfliktu
+  const st = node.addr_state ?? {};
+  const off = node.media === 'disconnected';
+  if (off) out.push({ text: `${dots('media')}Media disconnected`, mark: 'l2' });
+  out.push(`${dots('conn')}`);
   if (all) {
     out.push(`${dots('desc')}Simulated Ethernet Adapter`,
       { text: `${dots('phys')}${macWindows(node.mac, true)}`, mark: 'l2' },
-      `${dots('dhcp')}No`, `${dots('auto')}Yes`);
+      `${dots('dhcp')}${st.dhcp ? 'Yes' : 'No'}`, `${dots('auto')}Yes`);
   }
-  out.push({ text: `${dots('ipv4')}${node.ip}${all ? '(Preferred)' : ''}`, mark: 'l3' },
-    `${dots('mask')}${maskString(node.prefix)}`,
-    `${dots('gw')}${node.gateway ?? ''}`);
+  if (off) {
+    out.push('');
+    return { lines: out, note: 'Kabel není zapojený: Windows u rozhraní neukazuje adresu ani bránu (nastavení zůstává uložené). Přesný výpis ověřujeme při pilotu.' };
+  }
+  if (st.apipa) {
+    if (st.duplicate && all) out.push({ text: `${dots('ipv4')}${st.duplicate}(Duplicate)`, mark: 'l3' });
+    out.push({ text: `${dots('apipa')}${node.ip}${all ? '(Preferred)' : ''}`, mark: 'l3' },
+      `${dots('mask')}${maskString(node.prefix)}`, `${dots('gw')}`);
+  } else {
+    out.push({ text: `${dots('ipv4')}${node.ip}${all ? '(Preferred)' : ''}`, mark: 'l3' },
+      `${dots('mask')}${maskString(node.prefix)}`,
+      `${dots('gw')}${node.gateway ?? ''}`);
+  }
   // úroveň 4 (cmd.md kap. 14): adresa DNS serveru z konfigurace
   if (all && level >= 4 && node.dns_servers?.length) out.push({ text: `${dots('dns')}${node.dns_servers[0]}`, mark: 'l3' });
   if (all) out.push(`${dots('netbios')}Enabled`);
   out.push('');
   const note = ['Na školním PC uvidíš navíc řádek s adresou IPv6, tu simulátor nemá.'];
+  if (st.apipa) note.push(st.duplicate ? `Adresu ${st.duplicate} už v síti někdo má: Windows ji nepoužije a vezme náhradní 169.254.x.x (APIPA). Přesné řádky ověřujeme při pilotu.`
+    : 'Adresa 169.254.x.x (APIPA) = Windows nedostaly adresu od DHCP serveru a přidělily si náhradní. Simulátor zjednodušuje: DHCP nemá (úroveň 5).');
+  if (all && level >= 4 && !node.dns_servers?.length && node.addr_state !== undefined) note.push('Bez DNS serveru na školním PC uvidíš u DNS Servers podivné adresy fec0:… (IPv6 náhradní hodnota, nefunguje); simulátor řádek vynechá.');
   if (!node.gateway && level < 3) note.push('Výchozí brána (Default Gateway) je prázdná: síť je jen jedna, bez routeru (úroveň 3).');
   // úroveň 3: bez diagnózy (rozhodnutí 51), student ji má najít sám
   return { lines: out, note: note.join(' ') };
@@ -57,6 +75,7 @@ function ipconfig(node, all, level = 2) {
 const col = (s, w) => String(s).padEnd(w);
 
 function arpA(node, level = 2) {
+  if (node.media === 'disconnected') return { lines: ['No ARP Entries Found.', ''], note: 'Rozhraní bez kabelu nemá žádné sousedy.' };
   const rows = node.arp_cache.map((e) => ({ ip: e.ip, mac: e.mac, type: e.type ?? 'dynamic' }));
   // statické řádky, které Windows ukazuje vždy (rozhodnutí 26): broadcast sítě, multicast, omezený broadcast
   const statics = [broadcastOf(node.ip, node.prefix), '224.0.0.22', '224.0.0.251', '224.0.0.252', '239.255.255.250']
@@ -89,7 +108,7 @@ export function formatPing(dst, events, done) {
   for (const e of events) {
     const r = e.result;
     if (r.kind === 'reply') { lines.push({ text: `Reply from ${r.from}: bytes=${r.bytes ?? 32} time<1ms TTL=${r.ttl}`, mark: 'l3' }); counted++; real++; }
-    else if (r.kind === 'no_route') lines.push('PING: transmit failed. General failure.');
+    else if (r.kind === 'no_route' || r.kind === 'link_down') lines.push('PING: transmit failed. General failure.');
     else if (r.kind === 'arp_failed') { lines.push(`Reply from ${r.from}: Destination host unreachable.`); counted++; }
     else if (r.kind === 'unreachable') { lines.push(`Reply from ${r.from}: Destination ${r.code === 0 ? 'net' : 'host'} unreachable.`); counted++; }
     else if (r.kind === 'ttl_exceeded') { lines.push(`Reply from ${r.from}: TTL expired in transit.`); counted++; }
@@ -170,7 +189,7 @@ function winExec3(node, cmd, lc, opts) {
     }
     if (!isIp(target)) {
       return { lines: [word === 'ping' ? `Ping request could not find host ${target}. Please check the name and try again.`
-        : `Unable to resolve target system name ${target}.`, ''], note: 'Jména počítačů překládá DNS; to přijde v úrovni 4. Zadej IP adresu.' };
+        : `Unable to resolve target system name ${target}.`, ''], note: opts.level >= 4 ? 'Simulátor zjednodušuje: ping a tracert tu umí jen IP adresu. Jméno přelož příkazem nslookup.' : 'Jména počítačů překládá DNS; to přijde v úrovni 4. Zadej IP adresu.' };
     }
     const run = opts.sim?.(word, word === 'ping' ? { dst: target, count } : { dst: target, max_hops: 30, probes: 3, resolve: false });
     if (!run) return { lines: [''], note: 'Simulace pro tento příkaz tu není k dispozici.' };
@@ -179,7 +198,7 @@ function winExec3(node, cmd, lc, opts) {
       const notes = [];
       if (!run.done) notes.push('Ping běží: odpovědi se doplní, jak budeš krokovat (Vpřed).');
       if (run.done && run.events.some((e) => ['arp_failed', 'unreachable', 'ttl_exceeded'].includes(e.result.kind))) notes.push('Pozor: Windows tu počítá jako přijaté i chybové hlášení, ne odpověď cíle. Ping se nepovedl. (Znění ověřujeme při pilotu.)');
-      if (run.events.some((e) => e.result.kind === 'no_route')) notes.push('Přesné znění hlášky bez brány ověřujeme při pilotu.');
+      if (run.events.some((e) => e.result.kind === 'no_route' || e.result.kind === 'link_down')) notes.push('Přesné znění hlášky bez brány ověřujeme při pilotu.');
       if (run.done && run.events.some((e) => e.result.kind === 'reply')) notes.push('Simulátor zjednodušuje: časy <1 ms jsou orientační.');
       return { lines, note: notes.join(' ') || undefined };
     }

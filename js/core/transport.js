@@ -38,7 +38,7 @@ export function installTransport(c) {
   for (const n of Object.values(world.nodes)) {
     if (!isHost(n.type)) continue;
     const init = c.initialState.tcp_connections?.[n.id]
-      ?? (n.apps ?? []).filter((a) => a.proto === 'tcp' && a.port != null)
+      ?? (n.apps ?? []).filter((a) => a.proto === 'tcp' && a.port != null && a.running !== false)
         .map((a) => ({ local: sock('0.0.0.0', a.port), remote: '0.0.0.0:0', state: 'LISTEN' }));
     n.state.tcp_connections = [];
     for (const e of init) {
@@ -93,7 +93,7 @@ export function installTransport(c) {
     const ack = flags & FLAG.ACK ? tcb.rcvNxt : 0;
     const syn = Boolean(flags & FLAG.SYN);
     const h = { sport: tcb.lport, dport: tcb.rport, seq, ack, flags, flagsText: flagsString(flags),
-      hdrLen: syn ? 24 : 20, window: TCP_PARAMS.window, urgent: 0,
+      hdrLen: syn ? 24 : 20, window: flags & FLAG.RST ? 0 : TCP_PARAMS.window, urgent: 0,   // RST: okno 0 (tcp.md kap. 7.3)
       options: syn ? [{ kind: 2, name: 'MSS', value: TCP_PARAMS.mss }] : undefined,
       rel: { seq: (seq - (tcb.iss ?? 0)) >>> 0, ack: flags & FLAG.ACK ? (ack - (tcb.irs ?? 0)) >>> 0 : 0 },
       isn: { local: tcb.iss ?? 0, remote: tcb.irs ?? 0 }, retransmit: Boolean(opt.retransmit) };
@@ -120,7 +120,11 @@ export function installTransport(c) {
         r.timer = sched.schedule({ type: 'tcp.rto', delay: r.rto, payload: { tcb, r } });
       });
     }
-    ipOutput(tcb.node, pkt, null);
+    // SYN klienta, který neodejde (bez cesty, bez linky, ARP bez odpovědi): spojení hned selže,
+    // jinak by čekalo na RTO, které se spouští až odesláním rámce (ulohy.md kap. 1.2)
+    const owner = syn && !(flags & FLAG.ACK) && tcb.role === 'client' ? { fail: (res) => synFail(tcb, res.kind) } : null;
+    const res = ipOutput(tcb.node, pkt, owner);
+    if (res?.error && owner) owner.fail({ kind: res.error });
     return seg;
   }
 
@@ -142,6 +146,12 @@ export function installTransport(c) {
     r.rto *= 2;
     tcpSend(tcb, r.flags, r.text, { seq: r.seq, retransmit: true, entry: r });
   });
+
+  function synFail(tcb, kind) {
+    if (tcb.closed) return;
+    setState(tcb, 'CLOSED', `SYN-SENT -> CLOSED (SYN neodešel: ${kind})`);
+    appEvent(tcb, 'error', { kind });
+  }
 
   // RST na segment bez spojení a bez naslouchající aplikace (tcp.md kap. 7.3).
   function sendRst(node, pkt) {
@@ -292,7 +302,7 @@ export function installTransport(c) {
     } else if (kind === 'eof') {
       tcpClose(tcb);
     } else if (kind === 'error') {
-      finish(run, { kind: arg.kind, local: tcb.entry.local, remote: tcb.entry.remote });
+      finish(run, { kind: arg.kind, local: tcb.entry.local, remote: tcb.entry.remote, retransmissions: tcb.retransmissions ?? 0 });
     }
   }
 

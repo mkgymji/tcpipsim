@@ -61,6 +61,11 @@ export const COMMANDS = [
   { usage: 'ss -tan', platform: 'linux', where: 'server', from: 4, short: 'všechna spojení TCP',
     ask: 'Kolik spojení je ESTAB a z jakého socketu klienta?' },
   { usage: 'clear', platform: 'linux', where: 'server', from: 4, short: 'vymazat okno', ask: '' },
+  // modelové situace (Úlohy, rozh. 66–69): zásah do služby jen v úlohách, v úrovni 4 jen výpis
+  { usage: 'systemctl status nginx', platform: 'linux', where: 'server', from: 4, tasks: true, short: 'běží webová služba? (active / inactive)',
+    ask: 'Proč ping na server projde, i když web neběží?' },
+  { usage: 'sudo systemctl start nginx', platform: 'linux', where: 'server', from: 4, tasks: true, short: 'spustí webovou službu (také stop, restart)',
+    ask: 'Co se po spuštění objeví ve výpisu ss -tuln?' },
 ];
 
 // Příkazy pro uzel `where` dostupné na úrovni `level`.

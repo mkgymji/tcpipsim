@@ -59,6 +59,37 @@ Terminál v této úrovni není.
 | `ss -tuln` | server (Linux) | naslouchající sockety TCP a UDP | Na kterých portech server čeká? Proč u UDP není LISTEN? |
 | `ss -tan` | server (Linux) | všechna spojení TCP | Kolik spojení je ESTAB a z jakého socketu klienta? |
 | `clear` | server (Linux) | vymazat okno |  |
+| `systemctl status nginx` | server (Linux), úlohy | běží webová služba? (active / inactive) | Proč ping na server projde, i když web neběží? |
+| `sudo systemctl start nginx` | server (Linux), úlohy | spustí webovou službu (také stop, restart) | Co se po spuštění objeví ve výpisu ss -tuln? |
+
+## Modelové situace (úlohy)
+
+Student sám nastaví počítač nebo najde a opraví chybu v hotové síti úrovně 4; simulátor vyhodnotí
+„funguje / nefunguje a proč“. Příkazy označené „úlohy“ mění stav jen v úlohách.
+Pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13. U úlohy 13 dá `&seed=N` každému stejnou (nebo jinou) chybu.
+
+| Úloha | Odkaz | Co trénuje |
+| --- | --- | --- |
+| 4 Nastav Alici | https://mkgymji.github.io/tcpipsim/#uloha=4 | IP, maska, brána a DNS: každý údaj má svou roli (L3, L7) |
+| 1 Odpojený kabel | https://mkgymji.github.io/tcpipsim/#uloha=1 | začni zdola: Media disconnected (L1) |
+| 5 Chybějící brána | https://mkgymji.github.io/tcpipsim/#uloha=5 | „u nás“ × „jinam“: bez brány jen místní síť (L3) |
+| 7 IP mimo síť (překlep) | https://mkgymji.github.io/tcpipsim/#uloha=7 | IP čti vždy s maskou: jedna číslice a brána je „cizí“ (L3) |
+| 10 Web neodpovídá | https://mkgymji.github.io/tcpipsim/#uloha=10 | síť jde, služba ne: RST, connection refused (L4/L7) |
+| 11 Nastav DNS server | https://mkgymji.github.io/tcpipsim/#uloha=11 | jméno × adresa: bez DNS funguje vše „pod ním“ (L7) |
+| 3 Konflikt IP adres | https://mkgymji.github.io/tcpipsim/#uloha=3 | jedna IP, dvě MAC: stopa v arp -a (L2/L3) |
+| 13 Síť nejde | https://mkgymji.github.io/tcpipsim/#uloha=13&seed=1 | souhrnná: jedna náhodná chyba, postup od L1 nahoru |
+
+### Postup, když síť nejde (od L1 nahoru)
+
+| Vrstva | Otázka | Příkaz | Dobrý výsledek |
+| --- | --- | --- | --- |
+| L1 | Je kabel zapojený? | `ipconfig` (Media disconnected?), v obrázku kabel | IPv4 řádky jsou vidět |
+| L3 | Má Alice správnou IP, masku, bránu, DNS? | `ipconfig /all` | IP v síti brány, brána vyplněná, DNS Servers |
+| L2/L3 | Dosáhnu na bránu? | `ping 192.168.1.1`, pak `arp -a` | odpovědi; v `arp -a` MAC brány |
+| L3 | Dosáhnu na server přes router? | `ping 192.168.2.10` (`tracert -d`) | TTL=63 |
+| L7 | Přeloží se jméno? | `nslookup www.skola.lan` | Address 192.168.2.10 |
+| L4/L7 | Odpovídá služba? | `curl -v http://www.skola.lan`; na SRV1 `ss -tuln` | 200 OK / LISTEN na :80 |
+| L2/L3 | Odpovídá ten, koho čekám? (konflikt) | `arp -a` × `show ip arp` na R1; TTL v pingu | MAC sedí |
 
 ## Dál
 

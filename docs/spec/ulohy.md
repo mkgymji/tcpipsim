@@ -1,6 +1,6 @@
 # Modelové situace (úlohy)
 
-Stav: návrh projektanta, 2026-11-27. Podklad: `docs/rozhodnuti.md` body 66 a 68 (kontext 39, 41, 59, 60).
+Stav: návrh projektanta, 2026-11-27; situace 3 upravena podle rozh. 69 (vývojář, implementace). Podklad: `docs/rozhodnuti.md` body 66 a 68 (kontext 39, 41, 59, 60).
 Navazuje na `routing.md` kap. 9 (topologie úrovně 4), `cmd.md`, `arp.md`, `tcp.md` kap. 7.3, `vektory.md` kap. 10.
 Zdroje: RFC 826 (ARP), RFC 5227 (IPv4 Address Conflict Detection), RFC 3927 (IPv4 link-local, APIPA),
 RFC 1122 kap. 3.3.1 (výběr next hopu), RFC 9293 kap. 3.10.7.1 (RST na zavřený port), Microsoft Learn
@@ -40,7 +40,7 @@ student najde a opraví předpřipravenou chybu. Úloha se zadává odkazem (`#u
 | `link` | `link`, `connected: false`, `end` (`a`/`b`, který konec je vytažený) | kabel Alice vytažený z karty | 1 |
 | `config` | `node`, `set` (`ip`, `prefix`, `gateway`, `dns_servers`) | brána `null`, IP s překlepem | 4, 5, 7, 11 |
 | `service` | `node`, `app`, `running: false` | web na SRV1 neběží | 10 |
-| `add_node` | uzel + linka (formát `vektory.md` kap. 2) | tiskárna s IP Cyrila na SW1 Fa0/2 | 3 |
+| `add_node` | uzel + linka (formát `vektory.md` kap. 2) | tiskárna s IP brány na SW1 Fa0/2 (rozh. 69) | 3 |
 
 - **`goal`** — podmínka úspěchu, vždy **funkční** (výsledek příkazu v simulaci), ne porovnání konfigurace
   s „řešením“. Student, který zvolí jinou funkční cestu (např. jinou volnou IP), uspěje. Druhy:
@@ -219,62 +219,36 @@ Ping statistics for 192.168.1.1:
   konflikt (provoz „chodí jen někdy“) vzniká, když jedno ze zařízení **detekci nemá**: levná síťová
   tiskárna, kamera, starší embedded zařízení se statickou IP. To je viník situace 3.
 
-**Úloha:**
+**Úloha (upraveno podle rozh. 69: tiskárna má IP brány, ne Cyrila):**
 
-- **Porucha (`add_node`):** `PRN1` „Tiskárna“ — `type: "pc"` s `device: "printer"`, MAC 02:00:00:00:00:05,
-  **192.168.1.30/24** (IP Cyrila; někdo ji nastavil podle papírku se starým rozpisem), brána 192.168.1.1,
+- **Porucha (`add_node`):** `PRT1` „Tiskárna“ — `type: "pc"` s `device: "printer"`, MAC 02:00:00:00:00:05,
+  **192.168.1.1/24** (IP brány R1; někdo ji opsal z papírku jako „adresu tiskárny“), brána 192.168.1.1,
   TTL 64, `acd: false` (bez RFC 5227: nezkouší, neohlašuje, nebrání se), připojena na **SW1 Fa0/2**
-  (volný port, linka L7). Tiskárna odpovídá na ARP a ping, žádné aplikace. Tiskárna **odpovídá pomaleji**
-  (zpracování o 1 krok déle než PC; `proc_delay_steps: 1`) — **Simulátor zjednodušuje:** ve skutečnosti
-  rozhoduje náhoda, kdo odpoví později; tady je pořadí pevné, aby úloha byla opakovatelná.
-- Proč Cyril nic nehlásí: tiskárna sama nic nevysílá; její ARP odpovědi jsou unicast pro Alici, takže je
-  přepínač Cyrilovi nedoručí. Cyril (Windows) proto konflikt nevidí — RFC 5227 kap. 2.4 platí jen pro
-  pakety, které stanice opravdu přijme.
-- **Cíl:** Alice `ping 192.168.1.30` 4× s odpovědí **od Cyrila** (TTL=128) a `curl http://www.skola.lan`
-  z Cyrila → 200 (check, aby oprava nerozbila Cyrila).
+  (volný port, linka L7). Tiskárna odpovídá na ARP a ping, žádné aplikace, pakety dál nepředává.
+  Tiskárna **odpovídá pomaleji** (zpracování o 1 krok déle než PC; `proc_delay_steps: 1`) — **Simulátor
+  zjednodušuje:** ve skutečnosti rozhoduje náhoda, kdo odpoví později; tady je pořadí pevné.
+- Proč nikdo nic nehlásí: tiskárna sama nic nevysílá; její ARP odpovědi jsou unicast pro tazatele. R1
+  (Cisco IOS) duplicitu zaznamená jen z paketů, které sám přijme (syslog `%IP-4-DUPADDR`), Alice nic.
+- **Cíl:** `curl http://www.skola.lan` z Alice → 200 a check `ping 192.168.2.10` 4× ze 4 (stabilita).
 - **Jak se projeví (pevné pořadí, vektor `uloha-konflikt-ip`):**
-  1. Alice pošle ARP request „kdo má 192.168.1.30?“ (broadcast). Odpoví **oba**: Cyril (krok 4) a tiskárna
-     (krok 5). V rentgenu jsou na jeden dotaz **dvě odpovědi s různou MAC** — to je přímý důkaz.
-  2. Alice po první odpovědi pošle Echo Request na MAC Cyrila; druhá odpověď (tiskárna) podle RFC 826
-     (merge, `arp.md` kap. 4) záznam **přepíše** na MAC tiskárny.
-  3. `ping` (4 dotazy; vektor jen `-n 2`): první odpověď od Cyrila `TTL=128`, další od tiskárny `TTL=64` (Linuxový firmware).
-     Stejná IP, jiné TTL = jiné zařízení:
-
-```
-C:\Users\student>ping 192.168.1.30
-
-Pinging 192.168.1.30 with 32 bytes of data:
-Reply from 192.168.1.30: bytes=32 time<1ms TTL=128
-Reply from 192.168.1.30: bytes=32 time<1ms TTL=64
-Reply from 192.168.1.30: bytes=32 time<1ms TTL=64
-Reply from 192.168.1.30: bytes=32 time<1ms TTL=64
-```
-
-  4. Střídání MAC: když Cyril sám začne komunikovat s Alicí (akce scénáře „Cyril pošle Alici zprávu“ nebo
-     `ping 192.168.1.10` z Cyrila), Alice dostane od Cyrila ARP request se SPA 192.168.1.30 a podle RFC 826
-     přepíše záznam zpět na MAC Cyrila. Pak se zas vyhraje tiskárna při dalším ARP (po `arp -d` nebo po
-     vypršení záznamu). `arp -a` po jednotlivých krocích:
-
-```
-C:\Users\student>arp -a
-
-Interface: 192.168.1.10 --- 0x4
-  Internet Address      Physical Address      Type
-  192.168.1.30          02-00-00-00-00-05     dynamic
-  192.168.1.255         ff-ff-ff-ff-ff-ff     static
-  255.255.255.255       ff-ff-ff-ff-ff-ff     static
-```
-
-  a po zprávě od Cyrila `192.168.1.30   02-00-00-00-00-03   dynamic`.
-- **Jak to student odhalí:** (1) `arp -a` u Alice po pingu; (2) `ipconfig /all` u Cyrila → `Physical Address
-  02-00-00-00-00-03` ≠ MAC v ARP cache Alice → „na adrese .30 je ještě někdo jiný“; (3) TTL 128 vs. 64;
-  (4) `show mac address-table` na SW1 (`cmd.md` kap. 6) → MAC 0200.0000.0005 na Fa0/2 → najde fyzický port
-  a tím zařízení. Poznámka (ne úkol): v reálné síti prozradí výrobce první 3 bajty MAC (OUI, registr IEEE;
-  např. vyhledání „OUI lookup“); simulátor používá lokálně spravované MAC 02:…, které výrobce nemají.
-- **Oprava:** kliknutím na tiskárnu → „Nastavení sítě“ (napodobuje panel/webové rozhraní tiskárny) → IP
-  192.168.1.50 (libovolná volná). Pak u Alice `arp -d 192.168.1.30` (nebo počkat na vypršení záznamu,
-  `arp.md` kap. 5.1) a znovu ping → všechny odpovědi TTL=128. Didaktická pointa: „opravit zdroj a pak
-  vyčistit zastaralou cache“. Praxe: tiskárnám se dává rezervace v DHCP nebo adresa mimo rozsah (úroveň 5).
+  1. Alice pošle ARP request „kdo má 192.168.1.1?“ (broadcast). Odpoví **oba**: R1 (u Alice v kroku 4)
+     a tiskárna (krok 5). V rentgenu jsou na jeden dotaz **dvě odpovědi s různou MAC**.
+  2. Alice pošle první paket routeru (první odpověď); druhá odpověď (tiskárna) podle RFC 826 (merge,
+     `arp.md` kap. 4) záznam **přepíše** na MAC tiskárny. Další pakety do jiné sítě jdou tiskárně, ta je
+     zahodí (cílová IP není její): `ping 192.168.2.10` vrátí první odpověď (TTL=63) a pak `Request timed out.`;
+     web nejde (DNS dotaz ještě projde přes R1, SYN už jde tiskárně). Tím sedí příběh „jednou jde, jednou ne“.
+  3. Vektor: `ping -n 2 192.168.1.1` → první odpověď od R1 `TTL=255`, druhá od tiskárny `TTL=64`.
+     Stejná IP, jiné TTL = jiné zařízení.
+  4. Záznam se „vrátí“ k R1 až po `arp -d` (nebo vypršení) a novém ARP; pak se zase přepíše na tiskárnu.
+- **Jak to student odhalí:** (1) `arp -a` u Alice: `192.168.1.1   02-00-00-00-00-05`; (2) na R1 `show ip arp`
+  → vlastní adresa rozhraní `192.168.1.1  -  0200.0000.0101` ≠ MAC v ARP cache Alice; (3) TTL 255 vs. 64
+  v `ping 192.168.1.1`; (4) `show mac address-table` na SW1 → MAC 0200.0000.0005 na Fa0/2 → tiskárna.
+- **Oprava:** klik na tiskárnu → „Nastavení sítě“ (napodobuje panel tiskárny) → IP 192.168.1.50 (volná).
+  Pak u Alice `arp -d` (zastaralý záznam; vyhodnocovač jinak hlásí `arp_stale`) a znovu ping.
+  Didaktická pointa: „opravit zdroj a pak vyčistit zastaralou cache“.
+- **Vyhodnocení:** `ip_conflict` (next hop, jehož IP má v doméně L2 víc zařízení, nebo dvě odpovědi s různou
+  MAC); po opravě bez `arp -d` `arp_stale`; tiskárna s jinou obsazenou adresou `ip_conflict_config`;
+  odpojená tiskárna = „obejití, ne oprava“.
 - **Navazující ukázka (volitelně, ne v situaci 13):** student nastaví Alici IP 192.168.1.30 v dialogu →
   Alice pošle 3 ARP Probe (SPA 0.0.0.0), Cyril odpoví → `ipconfig /all` ukáže `(Duplicate)` + APIPA. Ukazuje,
   proč Windows takový konflikt odhalí sám.
@@ -442,15 +416,15 @@ Address:  127.0.0.1
 |---|---|---|---|---|
 | 0 | kabel Alice vytažený u PC | 1 | `link` L1, konec `a` | `link_down` |
 | 1 | kabel vytažený u R1 Gi0/0 | 1b | `link` L3, konec `a` | `arp_failed` (brána neodpovídá) → upřesnění „zkontroluj fyzické spojení k bráně“ |
-| 2 | tiskárna s IP Cyrila | 3 | `add_node` PRN1 | cíl: ping .30 od Cyrila; `ip_conflict` |
+| 2 | tiskárna s IP brány (rozh. 69) | 3 | `add_node` PRT1 | check: ping 192.168.2.10 4×; `ip_conflict` |
 | 3 | chybí brána | 5 | `gateway: null` | `no_route` |
 | 4 | IP 192.168.11.10 | 7 | `ip` | `arp_failed` / `no_route` (kap. 3.5) |
 | 5 | IP 192.168.10.10 (překlep jinak) | 7 | `ip` | totéž, jiná hodnota (aby si studenti neopisovali) |
 | 6 | web neběží | 10 | `service` web | `connection_refused` |
 | 7 | chybí DNS | 11 | `dns_servers: []` | `no_dns_server` |
 
-Cíl situace 13 je společný (`curl http://www.skola.lan` z Alice → 200), u chyby 2 navíc ping .30 → TTL 128 ×4
-(jinak by konflikt na cíl nepůsobil). Zadání pro studenta: „Alice hlásí, že jí nejde školní web. Zjisti,
+Cíl situace 13 je společný (`curl http://www.skola.lan` z Alice → 200), u chyby 2 navíc ping 192.168.2.10 4× ze 4
+(stabilita). Zadání pro studenta: „Alice hlásí, že jí nejde školní web. Zjisti,
 kde je chyba, a oprav ji.“ Všechny opravy z kap. 3 jsou povolené (dialog IPv4 u Alice, kabely, tiskárna,
 terminál SRV1).
 
@@ -487,13 +461,13 @@ terminál SRV1).
 
 ## 6. Vektory
 
-Generátor `tools/vectors/gen6.py` (`python3 tools/vectors/gen6.py tests/vectors`). Všechny mají `skip`,
-dokud jádro neumí nové klíče z kap. 5.
+Generátor `tools/vectors/gen6.py` (`python3 tools/vectors/gen6.py tests/vectors`). Jádro je umí (iterace 5), `skip` už nemají.
+V `uloha-web-rst` je událost u SRV1 `tcp_rst` (jádro RST na zavřený port nezapisuje jako změnu stavu `tcp_state`).
 
 | Soubor | Co ověřuje | Přenosů |
 |---|---|---|
 | `uloha-kabel.json` | situace 1: L1 `connected: false`, prázdná odvozená směrovací tabulka Alice, ping bez přenosu, chyba `link_down` | 0 |
-| `uloha-konflikt-ip.json` | situace 3: jeden ARP request, dvě odpovědi (Cyril krok 4, tiskárna krok 5), přepis ARP cache podle RFC 826, `ping -n 2`: TTL 128 od Cyrila, pak TTL 64 od tiskárny; MAC tabulka SW1 s Fa0/2 | 16 |
+| `uloha-konflikt-ip.json` | situace 3 (rozh. 69): jeden ARP request na bránu, dvě odpovědi (R1 krok 4, tiskárna krok 5), přepis ARP cache podle RFC 826, `ping -n 2 192.168.1.1`: TTL 255 od R1, pak TTL 64 od tiskárny; MAC tabulka SW1 s Fa0/2 | 16 |
 | `uloha-web-rst.json` | situace 10: web `running: false`, SYN → `RST, ACK` (seq 0, ack ISN+1, okno 0) přes router, `connection_refused`, žádné TCP spojení na konci | 8 |
 
 ## 7. Ověřit při pilotu (souhrn, priorita)

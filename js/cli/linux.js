@@ -15,7 +15,7 @@ function ss(node, flags) {
   const all = flags.includes('a');
   const rows = [];
   if (udpOn) {
-    for (const a of (node.apps ?? []).filter((x) => x.proto === 'udp' && x.port != null)) rows.push(['udp', 'UNCONN', 0, 0, `0.0.0.0:${a.port}`, '0.0.0.0:*']);
+    for (const a of (node.apps ?? []).filter((x) => x.proto === 'udp' && x.port != null && x.running !== false)) rows.push(['udp', 'UNCONN', 0, 0, `0.0.0.0:${a.port}`, '0.0.0.0:*']);
   }
   if (tcpOn) {
     for (const c of node.tcp_connections ?? []) {
@@ -32,10 +32,47 @@ function ss(node, flags) {
   return lines;
 }
 
-export function linuxExec(node, line) {
-  const cmd = line.trim().replace(/\s+/g, ' ');
+// systemd jednotky simulovaných aplikací (Debian 13): web = nginx, dns = named (balík bind9)
+const UNITS = { nginx: { app: 'web', desc: 'A high performance web server and a reverse proxy server', path: '/usr/lib/systemd/system/nginx.service' },
+  named: { app: 'dns', desc: 'BIND Domain Name Server', path: '/usr/lib/systemd/system/named.service' } };
+const unitOf = (name) => { const u = String(name ?? '').replace(/\.service$/, ''); return u === 'bind9' ? 'named' : u; };
+
+// systemctl status|start|stop|restart <jednotka> (ulohy.md kap. 3.6). opts.service(app, running)
+// = zásah v modelové situaci; bez něj (úroveň 4) službu jen ukáže.
+function systemctl(node, args, sudo, opts) {
+  const [verb, name] = args;
+  if (!verb) return { lines: [], note: 'Simulátor umí systemctl status | start | stop | restart <služba>, například systemctl status nginx.' };
+  const unit = unitOf(name);
+  const u = UNITS[unit];
+  if (!name) return { lines: [`Too few arguments.`] };
+  if (!u) return { lines: [`Unit ${name.replace(/\.service$/, '')}.service could not be found.`], note: 'Na SRV1 běží nginx (web) a named (DNS).' };
+  const apps = (node.apps ?? []).filter((a) => a.name === u.app);
+  const running = apps.length && apps.every((a) => a.running !== false);
+  if (verb === 'status' || verb === 'is-active') {
+    if (verb === 'is-active') return { lines: [running ? 'active' : 'inactive'] };
+    return { lines: [{ text: `${running ? '●' : '○'} ${unit}.service - ${u.desc}`, mark: running ? 'l3' : undefined },
+      `     Loaded: loaded (${u.path}; enabled; preset: enabled)`,
+      { text: running ? '     Active: active (running) since Fri 2026-11-27 08:00:00 CET; 1min ago' : '     Active: inactive (dead) since Fri 2026-11-27 07:55:00 CET; 5min ago', mark: running ? 'l3' : 'l2' }],
+    note: 'Simulátor zjednodušuje: skutečný výpis má ještě PID, paměť a poslední řádky logu; časy jsou pevné.' };
+  }
+  if (!['start', 'stop', 'restart'].includes(verb)) return { lines: [`Unknown command verb '${verb}'.`] };
+  if (!sudo) return { lines: [`Failed to ${verb} ${unit}.service: Access denied`, `See system logs and 'systemctl status ${unit}.service' for details.`], note: 'Spouštět a zastavovat služby smí jen správce: napiš před příkaz sudo.' };
+  if (!opts.service) return { lines: [], note: 'Simulátor: ve scénáři úrovně 4 služby běží podle scénáře. Spouštět a zastavovat je můžeš v modelových situacích (Úlohy).' };
+  const on = verb !== 'stop';
+  opts.service(u.app, on);
+  const note = u.app === 'dns' && on && running ? 'DNS (named, UDP 53) už běžel. Webová služba je nginx (TCP 80).'
+    : on ? `Služba ${unit} běží a otevřela naslouchající socket (ověř ss -tuln). Simulátor zjednodušuje: sudo se neptá na heslo.` : `Služba ${unit} je zastavená: její socket zmizel.`;
+  return { lines: [], note };
+}
+
+export function linuxExec(node, line, opts = {}) {
+  let cmd = line.trim().replace(/\s+/g, ' ');
   if (!cmd) return { lines: [] };
+  let sudo = false;
+  if (cmd.startsWith('sudo ')) { sudo = true; cmd = cmd.slice(5); }
   const [word, ...args] = cmd.split(' ');
+  if (word === 'systemctl') return systemctl(node, args, sudo, opts);
+  if (word === 'service' && args.length >= 2) return systemctl(node, [args[1], args[0]], sudo, opts);
   if (word === 'clear') return { lines: [], clear: true };
   if (word === 'ss') {
     const flags = args.filter((a) => a.startsWith('-')).map((a) => a.slice(1)).join('');
