@@ -263,3 +263,22 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
 61. **Úroveň 1 se jmenuje „Obálky“** (dříve interní „Barvičky“; studenty při pilotu 2026-11-27 název mátl).
 
 62. **Titulek stránky: „<úroveň> · TCP/IP výukový simulátor“** (Michal vybral z návrhů), logo vlevo nahoře zůstává „tcpipsim“.
+
+## 2026-11-27 — Michal po pilotu: příručka, hřiště, modelové situace
+
+63. **Složka `prirucka/`** pro materiály učitele (vedle vývojářské `docs/`). Hned: **tahák příkazů**
+    (`prirucka/tahak.md`, tisknutelná A4: po úrovních Windows cmd / Cisco IOS, „co ukáže“, „na co se zeptat“).
+    Generuje se z registru příkazů v kódu a test hlídá, že tahák odpovídá tomu, co terminál umí.
+    V taháku i odkaz na Cisco Packet Tracer (navazující nástroj pro CCNA).
+64. **Průvodce úrovněmi až po dokončení všech úrovní** (každá změna by se musela promítat do dokumentace;
+    tahák se doplňuje levně). Forma podle posudku didaktika (tmp/posudek-hriste.md): učitelská stránka na úroveň.
+65. **Hřiště (volný editor topologie) se nedělá.** Volnou práci se sítí pokrývá Packet Tracer.
+66. **Modelové situace** (další velký krok): (a) **nastavení uzlu** — student sám nastaví PC (IP, maska,
+    brána, DNS), aby se dostal na server; jen konfigurace, bez hledání chyby; (b) **„síť nejde“** — hledání
+    a oprava chyby v předpřipravené síti. Hotová topologie z úrovní 3–4, vyhodnocení „funguje / nefunguje
+    a proč“, zadání odkazem. Specifikace až po taháku.
+67. **Dlouhé texty strukturovat** (pilot: popis L4 v detailu úrovně 1 je zeď textu, dvojrole a)/b) zaniká).
+    Detail vrstvy: oddělené bloky „Co řeší“ (a) a b) jako samostatné body s tučným klíčovým slovem),
+    „Kdo se stará“, „Jak se jmenují data“; krátké věty. Platí pro všechny delší texty (vysvětlivky,
+    poznámky): odrážky místo souvětí, klíčové slovo tučně, max ~3 řádky na blok. Znění vrstev zůstává
+    podle rozh. 49 (Michal), mění se jen členění.
