@@ -92,6 +92,13 @@ export function runCommand(task, nodeId, command, args, { persist = true } = {})
   return { records, topo, result: appResults(records).find((a) => a.node === nodeId) ?? null, apps };
 }
 
+// Jméno -> IP resolverem uzlu (ping a tracert jménem; DNS cache se pamatuje). Vrací IP nebo null.
+export function resolveName(task, nodeId, name) {
+  const r = runCommand(task, nodeId, 'dns_resolve', { name });
+  const res = r.apps.find((x) => x.command === 'dns_resolve')?.result;
+  return res?.kind === 'answer' ? res.answers?.find((a) => a.type === 'A')?.data ?? null : null;
+}
+
 // ---- zásahy studenta ----
 
 function snapshotFacts(task) {
@@ -185,7 +192,7 @@ export function reasonText(diag, topo) {
   const d = diag.detail ?? {};
   const L = (id) => label(topo, id);
   switch (diag.reason) {
-    case 'link_down': return `Kabel u ${L(diag.node)} **není zapojený**. Bez fyzického spojení neprojde ani bit (L1).`;
+    case 'link_down': return `Kabel u ${L(diag.node)} **není zapojený**${d.end === 'path' ? ' (cestou k cíli)' : ''}. Bez fyzického spojení neprojde ani bit (L1).`;
     case 'no_address': return d.duplicate ? `Adresu ${d.duplicate} už v síti má **${L(d.conflictWith)}**. Windows konflikt zjistí a adresu nepoužije (Duplicate), dostane jen 169.254.x.x.`
       : `${L(diag.node)} **nemá platnou IP adresu** této sítě (jen náhradní 169.254.x.x, protože DHCP server tu není).`;
     case 'mask_wrong': return `Maska ${maskString(d.prefix)} **neodpovídá síti** (ostatní mají ${maskString(d.expected)}). Simulátor zjednodušuje: proxy ARP routeru nemodeluje, takovou kombinaci rovnou odmítne.`;
@@ -199,7 +206,7 @@ export function reasonText(diag, topo) {
     }
     case 'ip_conflict': return `Adresu **${d.ip}** používají **dvě zařízení** (${(d.nodes ?? []).filter(Boolean).map(L).join(' a ')}). Na jeden ARP dotaz přijdou dvě odpovědi s různou MAC.`;
     case 'ip_conflict_config': return `Adresu **${d.ip}** mají **dvě zařízení**: ${d.nodes.map(L).join(' a ')}. Každá IP smí být v síti jen jednou.`;
-    case 'arp_stale': return `${L(diag.node)} má v ARP tabulce pro ${d.ip} MAC ${macW(d.mac)}, ta ale patří zařízení ${L(d.owner)}. **Záznam je zastaralý**: smaž ho (\`arp -d\`).`;
+    case 'arp_stale': return `${L(diag.node)} má v ARP tabulce pro ${d.ip} MAC ${macW(d.mac)}, ta ale patří zařízení ${L(d.owner)}${d.unreachable ? ', které je odpojené' : ''}. **Záznam je zastaralý**: pakety jdou na špatné místo. Smaž ho (\`arp -d\`).`;
     case 'wrong_next_hop': return `Paket dostal **${L(diag.node)}**, který ho dál nepošle (není router a cílová adresa ${d.dst} není jeho).`;
     case 'no_dns_server': return 'Jméno se nepřeložilo na IP adresu: **chybí DNS server**.';
     case 'dns_failed': return d.rcode ? 'DNS server odpověděl, ale jméno nezná.' : `DNS server ${d.server}${d.owner ? ` (${L(d.owner)})` : ''} na dotaz **neodpověděl**: neběží na něm služba DNS (UDP 53).`;

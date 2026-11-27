@@ -3,7 +3,7 @@
 // příkazu. Stav sítě drží js/scenario/task.js (bez DOM); tady jen kreslení a události.
 import { TASKS, TASK_ORDER } from '../../scenarios/ulohy.js';
 import base from '../../scenarios/uroven4-transport.js';
-import { createTask, applyFix, evaluate, runCommand, nodeView, effTopo, hint3Of } from '../scenario/task.js';
+import { createTask, applyFix, evaluate, runCommand, nodeView, effTopo, hint3Of, resolveName } from '../scenario/task.js';
 import { validateIpv4, classMask } from '../core/hostcfg.js';
 import { dialectOf, promptOf, execute } from '../cli/shell.js';
 import { termLinesHtml, termTitle } from './render2.js';
@@ -23,7 +23,7 @@ const ACTIONS = {
 /** Úvodní seznam úloh (neznámé číslo v adrese). */
 function taskListHtml() {
   return `<div class="card tcard"><h2>Modelové situace</h2><p>Vyber úlohu (pořadí pro hodinu: 4, 1, 5, 7, 10; doma 11, 3, 13):</p>
-    <ol class="tlist">${TASK_ORDER.map((id) => `<li><a href="${formatTaskHash(id)}">Úloha ${id}: ${esc(TASKS[id].title)}</a> <small>${esc(TASKS[id].short)}</small></li>`).join('')}</ol></div>`;
+    <ol class="tlist">${TASK_ORDER.map((id) => `<li><a href="${formatTaskHash(id)}">Úloha ${id}: ${esc(TASKS[id].title)}</a></li>`).join('')}</ol></div>`;
 }
 
 export function startTaskMode({ id, seed }) {
@@ -119,6 +119,7 @@ export function startTaskMode({ id, seed }) {
         const events = r.records.filter((x) => x.kind === 'app.event').map((x) => ({ seq: x.seq, ttl: x.ttl, probe: x.probe, result: x.result }));
         return { events, done: true, result: r.result, records: r.records };
       },
+      resolve: (name) => resolveName(task, nid, name),
       arpDelete(ip) { applyFix(task, { kind: 'arp_delete', node: nid, ip }); },
       arpClear() { applyFix(task, { kind: 'arp_clear', node: nid }); },
       service(app, on) { applyFix(task, { kind: 'service', node: nid, app, running: on }); },

@@ -50,10 +50,10 @@ export function formatCurl(url, verbose, r) {
     const msg = `Failed to connect to ${host} port ${port} after 4 ms: Couldn't connect to server`;
     if (verbose) out.push(`* connect to ${ip} port ${port} from ${res.local?.split(':')[0]} port ${res.local?.split(':')[1]} failed: Connection refused`, `* ${msg}`, '* closing connection #0');
     out.push(`curl: (7) ${msg}`, '');
-    return { lines: out, note: 'SRV1 odpověděl RST: na portu nikdo nenaslouchá. Přesné znění hlášky curl ověřujeme při pilotu.' };
+    return { lines: out, note: 'SRV1 odpověděl RST: na portu nikdo nenaslouchá.' };
   }
   if (res.kind === 'no_route' || res.kind === 'link_down') {
-    return { lines: [`curl: (7) Failed to connect to ${host} port ${port} after 0 ms: Couldn't connect to server`, ''], note: 'Paket neměl kudy odejít (žádná cesta). Přesné znění ověřujeme při pilotu.' };
+    return { lines: [`curl: (7) Failed to connect to ${host} port ${port} after 0 ms: Couldn't connect to server`, ''], note: 'Paket neměl kudy odejít (žádná cesta).' };
   }
   if (res.kind !== 'response') return { lines: [`curl: (28) Failed to connect to ${host} port ${port} after 21000 ms: Timed out`, ''], note: 'Odpověď nepřišla. Simulátor zkracuje čekání; skutečný curl čeká déle.' };
   const text = res.text ?? '';
@@ -86,7 +86,7 @@ export function winExec4(node, cmd, lc, opts) {
     if (!r) return { lines: [''], note: 'Simulace pro tento příkaz tu není k dispozici.' };
     return { lines: formatNslookup(name, node.dns_servers?.[0] ?? '?', r),
       note: r.timeouts ? 'UDP dotaz nic nepotvrzuje: zopakoval ho až nslookup (aplikace) po 2 s.'
-        : 'nslookup se ptá DNS serveru přímo (cache nepoužívá). Server UnKnown: SRV1 nemá reverzní záznam pro svou adresu (ověřit při pilotu).' };
+        : 'nslookup se ptá DNS serveru přímo (cache nepoužívá). Server UnKnown: SRV1 nemá reverzní záznam pro svou adresu.' };
   }
   if (word === 'curl' || word === 'curl.exe') {
     const verbose = parts.includes('-v');

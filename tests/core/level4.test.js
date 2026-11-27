@@ -204,3 +204,22 @@ test('úrovně 1–3 beze změny: ICMP ping na úrovni 4 dál funguje (whatIf na
   const rep = r.records.find((x) => x.kind === 'app.event' && x.result.kind === 'reply');
   assert.equal(rep.result.ttl, 63, 'Linux 64 - 1');
 });
+
+test('ping jménem v úrovni 4 přeloží DNS (samostatná simulace), v úrovni 3 skutečná hláška Windows', async () => {
+  const { execute, plain } = await import('../../js/cli/shell.js');
+  const { buildLevel4, whatIf4, resolve4 } = await import('../../js/scenario/level4.js');
+  const { whatIf } = await import('../../js/scenario/level3.js');
+  const s4 = (await import('../../scenarios/uroven4-transport.js')).default;
+  const tl = buildLevel4(s4).timeline;
+  const v = tl.view(3);
+  const node = v.nodes.PC1;
+  const out = plain(execute(node, 'ping www.skola.lan', { level: 4, resolve: (n) => resolve4(s4, v, 'PC1', n),
+    sim: (c, a) => whatIf(s4, v, 'PC1', c, a) }));
+  assert.match(out, /Pinging www\.skola\.lan \[192\.168\.2\.10\]/);
+  assert.match(out, /Reply from 192\.168\.2\.10/);
+  assert.equal(tl.view(3).step.num, v.step.num);   // krok scénáře se nezměnil
+  const r3 = execute(node, 'ping www.skola.lan', { level: 3 });
+  assert.match(plain(r3), /Ping request could not find host www\.skola\.lan\. Please check the name and try again\./);
+  assert.doesNotMatch(`${plain(r3)} ${r3.note}`, /umí jen IP/);
+  void whatIf4;
+});

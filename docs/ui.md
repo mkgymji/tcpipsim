@@ -481,7 +481,7 @@ zkrátí na „odesílatel ↓“ / „příjemce ↑“ místo oříznutí „z
 ## 15. Modelové situace (úlohy, rozhodnutí 66–69)
 
 - **Vstup:** odkaz `#uloha=N` (`#uloha=13&seed=S`; bez seedu ho stránka vylosuje a zapíše do adresy) nebo menu
-  **Úlohy** v záhlaví vedle úrovní (pořadí 4, 1, 5, 7, 10, 11, 3, 13, u každé „co trénuje“). Titulek
+  **Úlohy** v záhlaví vedle úrovní (pořadí 4, 1, 5, 7, 10, 11, 3, 13; titulek popisuje příznak, ne příčinu; „co trénuje“ je jen v taháku). Titulek
   „Úloha N Název · TCP/IP výukový simulátor“. Režim nemá časovou osu: lišta krokování a přepínač modelu
   vrstev jsou skryté, zůstává patička s licencí.
 - **Rozvržení (1280×720):** vlevo nahoře topologie úrovně 4 (+ tiskárna PRT1 na SW1 Fa0/2, je-li v úloze),

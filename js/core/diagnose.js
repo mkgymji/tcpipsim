@@ -41,6 +41,14 @@ export function diagnose({ topo, source, records, result, goal }) {
   if (routerIf && sameSubnet(sif.ip, routerIf.ip, routerIf.prefix) && sif.prefix !== routerIf.prefix) {
     return out('mask_wrong', source, { prefix: sif.prefix, expected: routerIf.prefix });
   }
+  // vrstvy pod aplikační mají přednost: vytažený kabel u routeru, serveru nebo cílového uzlu (L1)
+  function downOnPath(serverIp) {
+    const key = new Set(['R1', 'SRV1', ...ownersOfIp(topo, serverIp ?? '').map((n) => n.id)]);
+    const l = topo.links.find((x) => x.connected === false && [x.a, x.b].some((e) => key.has(e.node)));
+    if (!l) return null;
+    const end = [l.a, l.b].find((e) => key.has(e.node));
+    return out('link_down', end.node, { link: l.id, end: 'path' });
+  }
   const gwOutside = Boolean(src.gateway) && !sameSubnet(src.gateway, sif.ip, sif.prefix);
   // 4. záznam v čase: první selhání, které se týká zdroje
   for (const r of records) {
@@ -69,8 +77,10 @@ export function diagnose({ topo, source, records, result, goal }) {
         return out('ip_conflict', source, { ip: r.arp.ip, macs: [r.arp.mac], nodes: same.map((n) => n.id), used: ownerOfMac(topo, r.arp.mac)?.id ?? null });
       }
       const owner = ownerOfMac(topo, r.arp.mac);
-      if (owner && !(owner.interfaces ?? []).some((i) => i.ip === r.arp.ip)) {
-        return out('arp_stale', source, { ip: r.arp.ip, mac: r.arp.mac, owner: owner.id, real: ownersOfIp(topo, r.arp.ip).map((n) => n.id) });
+      // zastaralý záznam: MAC patří někomu, kdo tu IP nemá, nebo kdo už není v síti (odpojený kabel)
+      const gone = owner && !peers.has(owner.id);
+      if (owner && (gone || !(owner.interfaces ?? []).some((i) => i.ip === r.arp.ip))) {
+        return out('arp_stale', source, { ip: r.arp.ip, mac: r.arp.mac, owner: owner.id, unreachable: gone, real: ownersOfIp(topo, r.arp.ip).map((n) => n.id) });
       }
     }
     if (r.kind === 'ip_drop' && r.node !== source && isHost(nodeOf(topo, r.node)?.type) && r.pdu?.h?.src === sif.ip && !r.reason) {
@@ -79,6 +89,7 @@ export function diagnose({ topo, source, records, result, goal }) {
     if (r.kind === 'app.result' && r.node === source && r.command === 'dns_resolve') {
       const d = r.result;
       if (d.kind === 'no_server') return out('no_dns_server', source, {});
+      if (d.kind === 'timeout' && downOnPath(d.server)) return downOnPath(d.server);
       if (d.kind === 'timeout') return out('dns_failed', source, { server: d.server, owner: ownersOfIp(topo, d.server)[0]?.id ?? null });
       if (d.rcode) return out('dns_failed', source, { server: d.server, rcode: d.rcode });
     }
@@ -87,12 +98,12 @@ export function diagnose({ topo, source, records, result, goal }) {
   if (goal.command === 'ping') {
     const n = result?.received ?? 0;
     if (n >= (goal.replies_min ?? 1)) return out('ok', source, { received: n });
-    return out('timeout', source, { received: n });
+    return downOnPath(null) ?? out('timeout', source, { received: n });
   }
   if (result?.kind === 'response') {
     if (result.status === (goal.status ?? 200)) return out('ok', source, { status: result.status });
     return out('http_error', source, { status: result.status });
   }
   if (result?.kind === 'refused') return out('connection_refused', source, { remote: result.remote });
-  return out('timeout', source, { kind: result?.kind ?? null });
+  return downOnPath(null) ?? out('timeout', source, { kind: result?.kind ?? null });
 }

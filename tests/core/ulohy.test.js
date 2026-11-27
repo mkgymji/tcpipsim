@@ -4,7 +4,7 @@ import { test } from 'node:test';
 import assert from 'node:assert/strict';
 import base from '../../scenarios/uroven4-transport.js';
 import { TASKS, TASK_ORDER } from '../../scenarios/ulohy.js';
-import { createTask, applyFix, evaluate, runCommand, nodeView, variantOf, hint3Of } from '../../js/scenario/task.js';
+import { createTask, applyFix, evaluate, runCommand, nodeView, variantOf, hint3Of, resolveName } from '../../js/scenario/task.js';
 import { validateIpv4, apipaOf, effectiveTopology } from '../../js/core/hostcfg.js';
 import { execute, plain } from '../../js/cli/shell.js';
 
@@ -19,7 +19,7 @@ function term(task, id, line) {
     const run = runCommand(task, id, c, c === 'http_get' ? { ...args, client: 'curl' } : args);
     const events = run.records.filter((x) => x.kind === 'app.event').map((x) => ({ seq: x.seq, ttl: x.ttl, probe: x.probe, result: x.result }));
     return { events, done: true, result: run.apps.at(-1)?.result ?? null, records: run.records, timeouts: 0 };
-  }, service: (app, on) => applyFix(task, { kind: 'service', node: id, app, running: on }), arpDelete: (ip) => applyFix(task, { kind: 'arp_delete', node: id, ip }) });
+  }, resolve: (name) => resolveName(task, id, name), service: (app, on) => applyFix(task, { kind: 'service', node: id, app, running: on }), arpDelete: (ip) => applyFix(task, { kind: 'arp_delete', node: id, ip }) });
   return `${plain(r)}\n${r.note ?? ''}`;
 }
 
@@ -98,7 +98,7 @@ test('typické špatné pokusy dají text didaktika', () => {
   e = evaluate(t); assert.equal(e.status, 'partial'); assert.match(text(e), /obejití/);
 });
 
-test('úloha 3 (rozh. 69): arp -a ukáže u brány MAC tiskárny, ping vrátí první odpověď a pak nic', () => {
+test('úloha 3 (rozh. 69): arp -a ukáže u brány MAC tiskárny, ping na server jen občas odpoví', () => {
   const t = mk(3);
   const out = term(t, 'PC1', 'ping 192.168.2.10');
   assert.match(out, /Reply from 192\.168\.2\.10: .*TTL=63/);
@@ -197,4 +197,58 @@ test('dialog IPv4: validace podle Windows (ulohy.md kap. 2.2)', () => {
   assert.match(v({ ip: '' }).errors[0].cs, /Vyplň IP/);
   assert.equal(validateIpv4({ mode: 'dhcp', dnsMode: 'auto' }).cfg.mode, 'dhcp');
   assert.equal(effectiveTopology(mk(4).topology).nodes.find((n) => n.id === 'PC1').interfaces[0].prefix, 16);
+});
+
+test('každá úloha: vytažený kabel Alice = důvod na L1 (vrstvy pod aplikační mají přednost)', () => {
+  for (const id of TASK_ORDER) {
+    const t = mk(id, 1);
+    applyFix(t, { kind: 'link', link: 'L1', connected: false });
+    const e = evaluate(t);
+    assert.equal(e.reason, 'link_down', `úloha ${id}`);
+    assert.equal(e.layer, 'L1', `úloha ${id}`);
+  }
+  // úloha 3: odpojená tiskárna nesmí tvrdit, že na serveru neběží DNS
+  const t = mk(3);
+  runCommand(t, 'PC1', 'ping', { dst: '192.168.1.1', count: 2 });
+  applyFix(t, { kind: 'link', link: 'L7', connected: false });
+  const e = evaluate(t);
+  assert.notEqual(e.reason, 'dns_failed');
+  assert.match(text(e), /odpojil/);
+  // kabel serveru vytažený: L1, ne DNS
+  const t2 = mk(4); applyFix(t2, cfg({})); applyFix(t2, { kind: 'link', link: 'L6', connected: false });
+  const e2 = evaluate(t2);
+  assert.equal(e2.layer, 'L1', text(e2));
+});
+
+test('titulky úloh neprozrazují příčinu (student review5)', () => {
+  for (const id of [1, 3, 5, 7]) assert.doesNotMatch(TASKS[id].title, /kabel|konflikt|brán|IP mimo|DNS|služb/i, `úloha ${id}`);
+});
+
+const INTERNAL = /ověřujeme|ověřit|pilot/i;
+test('do textů pro studenta neprosakují interní poznámky (ověřit, pilot)', () => {
+  assert.doesNotMatch(JSON.stringify(TASKS), INTERNAL);
+  const lines = ['ipconfig', 'ipconfig /all', 'arp -a', 'ping 192.168.1.1', 'ping 192.168.2.10', 'tracert 192.168.2.10', 'nslookup www.skola.lan',
+    'curl -v http://www.skola.lan', 'curl http://192.168.2.10:8080', 'netstat -an', 'route print', 'ping www.skola.lan', 'ipconfig /displaydns'];
+  for (const id of TASK_ORDER) {
+    const t = mk(id, 2);
+    for (const l of lines) assert.doesNotMatch(term(t, 'PC1', l), INTERNAL, `úloha ${id}: ${l}`);
+    for (const l of ['ss -tuln', 'ss -tan', 'systemctl status nginx', 'sudo systemctl start nginx']) assert.doesNotMatch(term(t, 'SRV1', l), INTERNAL, `${id}: ${l}`);
+    for (const l of ['show ip interface brief', 'show ip arp', 'show ip route', 'ping 192.168.1.10']) assert.doesNotMatch(term(t, 'R1', l), INTERNAL, `${id}: ${l}`);
+    for (const r of ['ok', 'partial', 'fail']) void r;
+    assert.doesNotMatch(text(evaluate(t)), INTERNAL);
+  }
+});
+
+test('úloha 10: ping jménem projde přes DNS; špatný zásah do Alice má vlastní text', () => {
+  const t = mk(10);
+  assert.match(term(t, 'PC1', 'ping www.skola.lan'), /Pinging www\.skola\.lan \[192\.168\.2\.10\][\s\S]*TTL=63/);
+  const e0 = text(evaluate(t));
+  applyFix(t, cfg({ dns: ['192.168.2.10'], ip: '192.168.1.12' }));
+  const e1 = text(evaluate(t));
+  assert.notEqual(e1, e0);
+  assert.match(e1, /stejný/);
+  applyFix(t, cfg({ gateway: null }));
+  assert.match(text(evaluate(t)), /rozbila/);
+  const t11 = mk(11);
+  assert.match(term(t11, 'PC1', 'ping www.skola.lan'), /could not find host/);
 });

@@ -35,3 +35,10 @@ export function whatIf4(scenario, view, nodeId, command, args) {
   return { records, result: appResults(records).find((a) => a.node === nodeId) ?? null,
     apps: records.filter((r) => r.kind === 'app.result') };
 }
+
+/** Jméno -> IP resolverem uzlu ve stavu kroku (ping/tracert jménem z terminálu). Vrací IP nebo null. */
+export function resolve4(scenario, view, nodeId, name) {
+  const r = whatIf4(scenario, view, nodeId, 'dns_resolve', { name });
+  const res = r.apps.find((x) => x.command === 'dns_resolve')?.result;
+  return res?.kind === 'answer' ? res.answers?.find((a) => a.type === 'A')?.data ?? null : null;
+}

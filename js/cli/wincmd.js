@@ -48,7 +48,7 @@ function ipconfig(node, all, level = 2) {
   }
   if (off) {
     out.push('');
-    return { lines: out, note: 'Kabel není zapojený: Windows u rozhraní neukazuje adresu ani bránu (nastavení zůstává uložené). Přesný výpis ověřujeme při pilotu.' };
+    return { lines: out, note: 'Kabel není zapojený: Windows u rozhraní neukazuje adresu ani bránu (nastavení zůstává uložené).' };
   }
   if (st.apipa) {
     if (st.duplicate && all) out.push({ text: `${dots('ipv4')}${st.duplicate}(Duplicate)`, mark: 'l3' });
@@ -64,7 +64,7 @@ function ipconfig(node, all, level = 2) {
   if (all) out.push(`${dots('netbios')}Enabled`);
   out.push('');
   const note = ['Na školním PC uvidíš navíc řádek s adresou IPv6, tu simulátor nemá.'];
-  if (st.apipa) note.push(st.duplicate ? `Adresu ${st.duplicate} už v síti někdo má: Windows ji nepoužije a vezme náhradní 169.254.x.x (APIPA). Přesné řádky ověřujeme při pilotu.`
+  if (st.apipa) note.push(st.duplicate ? `Adresu ${st.duplicate} už v síti někdo má: Windows ji nepoužije a vezme náhradní 169.254.x.x (APIPA).`
     : 'Adresa 169.254.x.x (APIPA) = Windows nedostaly adresu od DHCP serveru a přidělily si náhradní. Simulátor zjednodušuje: DHCP nemá (úroveň 5).');
   if (all && level >= 4 && !node.dns_servers?.length && node.addr_state !== undefined) note.push('Bez DNS serveru na školním PC uvidíš u DNS Servers podivné adresy fec0:… (IPv6 náhradní hodnota, nefunguje); simulátor řádek vynechá.');
   if (!node.gateway && level < 3) note.push('Výchozí brána (Default Gateway) je prázdná: síť je jen jedna, bez routeru (úroveň 3).');
@@ -102,8 +102,8 @@ function arpA(node, level = 2) {
 const isIp = (x) => /^\d{1,3}(\.\d{1,3}){3}$/.test(x) && x.split('.').every((o) => Number(o) <= 255);
 
 /** Výpis Windows ping z událostí dotazů (events: [{ seq, result }]); `done` = statistika. */
-export function formatPing(dst, events, done) {
-  const lines = ['', `Pinging ${dst} with 32 bytes of data:`];
+export function formatPing(dst, events, done, label = dst) {
+  const lines = ['', `Pinging ${label} with 32 bytes of data:`];
   let counted = 0, real = 0;
   for (const e of events) {
     const r = e.result;
@@ -124,8 +124,8 @@ export function formatPing(dst, events, done) {
 }
 
 /** Výpis Windows tracert -d (events: [{ ttl, probe, result }]); řádek skoku až po všech sondách. */
-export function formatTracert(dst, events, done, probes = 3) {
-  const lines = ['', `Tracing route to ${dst} over a maximum of 30 hops`, ''];
+export function formatTracert(dst, events, done, probes = 3, label = dst) {
+  const lines = ['', `Tracing route to ${label} over a maximum of 30 hops`, ''];
   if (events[0]?.result.kind === 'no_route') return [...lines, 'General failure.', ''];   // cmd.md kap. 9: znění ověřit
   const hops = [];
   for (const e of events) {
@@ -177,7 +177,7 @@ function winExec3(node, cmd, lc, opts) {
   if (word === 'ping' || word === 'tracert') {
     const args = parts.slice(1);
     let count = 4;
-    const target = args.filter((a, i) => !a.startsWith('-') && !(args[i - 1] && /^-[nhwi]$/i.test(args[i - 1])))[0];
+    let target = args.filter((a, i) => !a.startsWith('-') && !(args[i - 1] && /^-[nhwi]$/i.test(args[i - 1])))[0];
     const n = args.findIndex((a) => a.toLowerCase() === '-n');
     if (word === 'ping' && n >= 0) count = Math.max(1, Math.min(10, Number(args[n + 1]) || 4));
     if (!target) {
@@ -187,26 +187,36 @@ function winExec3(node, cmd, lc, opts) {
     if (word === 'ping' && isIp(target) && (target.endsWith('.255') || /\.0$/.test(target))) {
       return { lines: [''], note: 'Ping na adresu sítě nebo broadcast simulátor zatím neumí.' };
     }
+    let label = target;
+    // jméno: nejdřív DNS (resolver OS s cache), umí-li to prostředí (modelové situace)
+    if (!isIp(target) && opts.resolve) {
+      const ip = opts.resolve(target);
+      if (ip) { label = `${target} [${ip}]`; target = ip; }
+    }
     if (!isIp(target)) {
+      if (opts.resolve) {
+        return { lines: [word === 'ping' ? `Ping request could not find host ${target}. Please check the name and try again.`
+          : `Unable to resolve target system name ${target}.`, ''], note: 'Jméno se nepřeložilo na IP adresu (DNS). Zkus nslookup.' };
+      }
       return { lines: [word === 'ping' ? `Ping request could not find host ${target}. Please check the name and try again.`
-        : `Unable to resolve target system name ${target}.`, ''], note: opts.level >= 4 ? 'Simulátor zjednodušuje: ping a tracert tu umí jen IP adresu. Jméno přelož příkazem nslookup.' : 'Jména počítačů překládá DNS; to přijde v úrovni 4. Zadej IP adresu.' };
+        : `Unable to resolve target system name ${target}.`, ''], note: opts.level >= 4 ? 'Jméno se nepřeložilo na IP adresu (DNS). Zkus nslookup.' : 'Jména počítačů překládá DNS; to přijde v úrovni 4. Tady zadej IP adresu.' };
     }
     const run = opts.sim?.(word, word === 'ping' ? { dst: target, count } : { dst: target, max_hops: 30, probes: 3, resolve: false });
     if (!run) return { lines: [''], note: 'Simulace pro tento příkaz tu není k dispozici.' };
     if (word === 'ping') {
-      const lines = formatPing(target, run.events, run.done);
+      const lines = formatPing(target, run.events, run.done, label);
       const notes = [];
       if (!run.done) notes.push('Ping běží: odpovědi se doplní, jak budeš krokovat (Vpřed).');
-      if (run.done && run.events.some((e) => ['arp_failed', 'unreachable', 'ttl_exceeded'].includes(e.result.kind))) notes.push('Pozor: Windows tu počítá jako přijaté i chybové hlášení, ne odpověď cíle. Ping se nepovedl. (Znění ověřujeme při pilotu.)');
-      if (run.events.some((e) => e.result.kind === 'no_route' || e.result.kind === 'link_down')) notes.push('Přesné znění hlášky bez brány ověřujeme při pilotu.');
+      if (run.done && run.events.some((e) => ['arp_failed', 'unreachable', 'ttl_exceeded'].includes(e.result.kind))) notes.push('Pozor: Windows tu počítá jako přijaté i chybové hlášení, ne odpověď cíle. Ping se nepovedl.');
+      if (run.events.some((e) => e.result.kind === 'no_route' || e.result.kind === 'link_down')) notes.push('General failure = paket nemá kudy odejít: chybí cesta (brána) nebo kabel.');
+      if (node.addr_state?.apipa && run.events.some((e) => e.result.kind === 'no_route')) notes.push(`${node.label} nemá adresu této sítě (jen 169.254.x.x): podívej se, co ukáže ipconfig /all.`);
       if (run.done && run.events.some((e) => e.result.kind === 'reply')) notes.push('Simulátor zjednodušuje: časy <1 ms jsou orientační.');
       return { lines, note: notes.join(' ') || undefined };
     }
-    const lines = formatTracert(target, run.events, run.done);
+    const lines = formatTracert(target, run.events, run.done, 3, label);
     const notes = [];
     if (!run.done) notes.push('tracert běží: řádky přibývají, jak budeš krokovat (Vpřed).');
     if (!parts.some((p) => p.toLowerCase() === '-d')) notes.push('Bez DNS se jména nezjišťují (DNS v úrovni 4), výpis je stejný jako s -d.');
-    if (run.events[0]?.result.kind === 'no_route') notes.push('Přesné znění hlášky bez brány ověřujeme při pilotu.');
     notes.push('Simulátor animuje jednu sondu na skok, Windows posílá tři: výpis ukazuje všechny tři.');
     return { lines, note: notes.join(' ') };
   }

@@ -4,7 +4,7 @@
 // (Windows) a ss (Linux na SRV1). Příkazy nslookup a curl: běží-li ve scénáři v tomto kroku, výpis je
 // z běhu scénáře, jinak samostatná simulace ze stavu kroku (level4.whatIf4).
 import scn from '../../scenarios/uroven4-transport.js';
-import { buildLevel4, whatIf4 } from '../scenario/level4.js';
+import { buildLevel4, whatIf4, resolve4 } from '../scenario/level4.js';
 import { createLevel3 } from './app3.js';
 import { topologyHtml4, CARDS4 } from './render4.js';
 
@@ -24,6 +24,7 @@ function liveNslookup(timeline, v, nodeId) {
 function termOpts(node, v, base, timeline) {
   return {
     ...base,
+    resolve: (name) => resolve4(scn, v, node.id, name),
     sim(command, args) {
       if (command === 'nslookup') {
         const live = liveNslookup(timeline, v, node.id);

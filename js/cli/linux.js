@@ -76,7 +76,7 @@ export function linuxExec(node, line, opts = {}) {
   if (word === 'clear') return { lines: [], clear: true };
   if (word === 'ss') {
     const flags = args.filter((a) => a.startsWith('-')).map((a) => a.slice(1)).join('');
-    return { lines: ss(node, flags), note: flags.includes('l') ? 'LISTEN = aplikace čeká na klienty; UDP nemá spojení, proto UNCONN. Send-Q u LISTEN = velikost fronty nových spojení (ověřit).'
+    return { lines: ss(node, flags), note: flags.includes('l') ? 'LISTEN = aplikace čeká na klienty; UDP nemá spojení, proto UNCONN. Send-Q u LISTEN = velikost fronty nových spojení.'
       : 'ESTAB = spojení běží. Šířky sloupců počítá ss podle obsahu (simulátor je zarovnává pevně).' };
   }
   if (word === 'netstat') return { lines: [`Command 'netstat' not found, but can be installed with:`, 'sudo apt install net-tools'], note: 'Na nových Linuxech je netstat nahrazený příkazem ss (zkus ss -tuln).' };

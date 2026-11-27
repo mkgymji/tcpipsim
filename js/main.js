@@ -31,7 +31,7 @@ function savePref(key, value) {
 function fillTaskMenu(current) {
   const list = document.getElementById('tmenu-list');
   if (!list) return;
-  list.innerHTML = TASK_ORDER.map((id) => `<li><a href="${formatTaskHash(id)}"${id === current ? ' aria-current="page"' : ''}><b>${id}</b> ${esc(TASKS[id].title)}<small>${esc(TASKS[id].short)}</small></a></li>`).join('');
+  list.innerHTML = TASK_ORDER.map((id) => `<li><a href="${formatTaskHash(id)}"${id === current ? ' aria-current="page"' : ''}><b>${id}</b> ${esc(TASKS[id].title)}</a></li>`).join('');
 }
 
 const taskHash = parseTaskHash(location.hash);

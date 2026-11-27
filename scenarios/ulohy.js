@@ -2,6 +2,7 @@
 // (projektant), sjednocení rozh. 66–69. Topologie = úroveň 4; porucha = změna oproti ní (`faults`).
 // Texty: odrážky, **tučné** klíčové slovo, `kód` (rozh. 67). Pravidla `rules` jsou deklarativní:
 // `when` = { reason?, changed?, unchanged?, facts? } (viz js/scenario/task.js matchRule).
+// Titulek úlohy popisuje příznak, ne příčinu (student-tester review5); příčinu nese jen `short` (tahák).
 // Pořadí v hodině podle didaktika: 4, 1, 5, 7, 10; doma 11, 3, 13 (rozh. 69).
 
 export const TASK_ORDER = [4, 1, 5, 7, 10, 11, 3, 13];
@@ -43,13 +44,13 @@ export const TASKS = {
     answer: 'Bránu a DNS: stačí IP a maska. Zprávu pošle po IP, jméno nepotřebuje.',
   },
   1: {
-    id: 1, kind: 'b', title: 'Odpojený kabel', short: 'začni zdola: Media disconnected (L1)',
+    id: 1, kind: 'b', title: 'Alici nejde nic', short: 'začni zdola: Media disconnected (L1)',
     story: ['Alice ráno zapnula počítač a **nic nefunguje**: ani web, ani ping na Cyrila.', 'Nastavení má podle všeho v pořádku.',
       'Zjisti, kde je problém, a oprav ho.'],
     goal: 'Alice dosáhne na bránu (`ping 192.168.1.1`) a otevře `www.skola.lan`.',
     faults: [{ kind: 'link', link: 'L1', end: 'a' }],
     checks: [{ node: 'PC1', command: 'ping', args: { dst: '192.168.1.1', count: 1 }, replies_min: 1, label: 'ping 192.168.1.1' }],
-    hints: ['Pomůže tahle chyba zkoumat adresy? Vzpomeň si, na jaké vrstvě mohl problém vzniknout, a **projdi vrstvy zdola**.',
+    hints: ['Nejde vůbec nic, ani nejbližší soused. Než začneš zkoumat adresy, **projdi vrstvy zdola**: co musí fungovat jako první, aby vůbec něco odešlo?',
       'Začni `ipconfig` na Alici. Co píše u síťového rozhraní místo IP adresy?',
       'Rozhraní hlásí `Media disconnected`. Podívej se v topologii na **kabel mezi Alicí a SW1** a klikni na něj: zapojí se.'],
     ok: ['Kabel byl odpojený: **L1 (fyzická vrstva)**. Příznak byl `Media disconnected`.',
@@ -63,7 +64,7 @@ export const TASKS = {
     answer: 'Pod L3 je linková a fyzická vrstva: bez kabelu (signálu) nejde žádný rámec, takže na IP adrese nezáleží.',
   },
   5: {
-    id: 5, kind: 'b', title: 'Chybějící brána', short: '„u nás“ × „jinam“: bez brány jen místní síť (L3)',
+    id: 5, kind: 'b', title: 'Soused ano, server ne', short: '„u nás“ × „jinam“: bez brány jen místní síť (L3)',
     story: ['Alice se dostane na Cyrila, ale **na server `www.skola.lan` ne**.', 'IP, maska i DNS vypadají v pořádku.',
       'Zjisti, co jí chybí, a oprav to.'],
     goal: 'Alice pingne SRV1 (192.168.2.10) a otevře `www.skola.lan`.',
@@ -84,7 +85,7 @@ export const TASKS = {
     answer: 'Cyril je ve stejné síti (stejná síťová část podle masky), tam Alice posílá přímo. SRV1 je jinde: pro to potřebuje bránu.',
   },
   7: {
-    id: 7, kind: 'b', title: 'IP mimo síť (překlep)', short: 'IP čti vždy s maskou: jedna číslice a brána je „cizí“ (L3)',
+    id: 7, kind: 'b', title: 'Nejde ani soused', short: 'IP čti vždy s maskou: jedna číslice a brána je „cizí“ (L3)',
     story: ['Alice si nastavila IP **ručně** a nefunguje jí nic: ani Cyril, ani brána, ani server.', 'Zjisti, co je špatně, a oprav to.'],
     goal: 'Alice dosáhne na bránu, na SRV1 a otevře `www.skola.lan`.',
     faults: [{ kind: 'config', node: 'PC1', set: { ip: '192.168.11.10' } }],
@@ -109,12 +110,14 @@ export const TASKS = {
     goal: '`www.skola.lan` se načte (web na SRV1 naslouchá na TCP 80).',
     faults: [{ kind: 'service', node: 'SRV1', app: 'web', running: false }],
     hints: ['Co už víš, že funguje? Projdi vrstvy zdola: na které se objeví **první věc, která selhává**?',
-      '`ping` i `nslookup` jsou v pořádku. Zbývá to, co je nad nimi: je na SRV1 program, který **čeká na portu 80**?',
+      '`ping` i `nslookup www.skola.lan` jsou v pořádku. Zbývá to, co je nad nimi: je na SRV1 program, který **čeká na portu 80**?',
       'Na SRV1 spusť `ss -tuln`: chybí řádek s `0.0.0.0:80`. Webový server se jmenuje nginx: spusť ho `sudo systemctl start nginx`.'],
     ok: ['Na SRV1 **nenaslouchala webová služba**. Počítač zprávu dostal, ale na portu 80 nikdo nečekal, tak odpověděl **RST** (odmítnutí).',
       '**Síť byla v pořádku**, chyba byla v aplikaci. Ping (L3) projde i bez webu.'],
     rules: [
       { when: { reason: 'ok', changed: ['PC1.ip', 'PC1.prefix', 'PC1.gateway', 'PC1.dns', 'PC1.mode'] }, text: 'Nastavení Alice jsi měnil zbytečně: ping a DNS dokazovaly, že je v pořádku. Příznak „rychle odmítnuto“ znamená, že se zpráva **dostala až k serveru**.', status: 'ok' },
+      { when: { reason: 'connection_refused', changed: ['PC1.ip', 'PC1.prefix', 'PC1.gateway', 'PC1.dns', 'PC1.mode'] }, text: 'Změnil jsi nastavení Alice, ale výsledek je **stejný**: server pořád odpovídá RST. Alice chybu neměla (ping i DNS fungovaly), chyba je **na serveru**.' },
+      { when: { success: false, changed: ['PC1.ip', 'PC1.prefix', 'PC1.gateway', 'PC1.dns', 'PC1.mode'] }, text: 'Nastavení Alice bylo v pořádku (ping a DNS to dokazovaly) a tvoje změna ho **rozbila**. Obnov úlohu nebo vrať původní hodnoty; chyba je na serveru.' },
       { when: { reason: 'connection_refused' }, text: 'Server je dostupný, ale **na portu 80 nikdo nenaslouchá**: SRV1 odpověděl RST. Spojení se ani nenavázalo.' },
     ],
     question: 'Čím se liší chyba „spojení odmítnuto“ od dlouhého čekání na odpověď (timeout)? Co to říká o tom, jak daleko paket došel?',
@@ -140,20 +143,21 @@ export const TASKS = {
     answer: 'Nevěděla, jakou IP má jméno www.skola.lan: neměla se koho zeptat (DNS server). Podle IP adresy se dostane kamkoli.',
   },
   3: {
-    id: 3, kind: 'b', title: 'Konflikt IP adres', short: 'jedna IP, dvě MAC: stopa v arp -a (L2/L3)',
-    story: ['Alice si stěžuje: web jí **jednou jde a jednou ne**, `ping` na server vrátí první odpověď a pak už nic.',
-      'Nic se jí nehlásí, nastavení má stejné jako včera.', 'Zjisti proč a oprav to.'],
+    id: 3, kind: 'b', title: 'Ping občas projde, web ne', short: 'jedna IP, dvě MAC: stopa v arp -a (L2/L3)',
+    story: ['Alice si stěžuje: **web jí nejde** a `ping` na server je nespolehlivý: **občas** jedna odpověď přijde, většinou ne.',
+      'Včera vše fungovalo, nastavení nikdo neměnil a nic se jí nehlásí.', 'Zjisti proč a oprav to.'],
     goal: 'Stav je stabilní: `www.skola.lan` se otevře a `ping 192.168.2.10` projde **4×** ze 4.',
     faults: [{ kind: 'add_node', ...PRINTER }],
     checks: [{ node: 'PC1', command: 'ping', args: { dst: '192.168.2.10', count: 4 }, replies_min: 4, label: 'ping 192.168.2.10 (4×)' }],
     hints: ['Chyba, která **střídá** „funguje / nefunguje“, nesedí na špatné nastavení. Co by se na cestě od IP adresy k zařízení mohlo střídat?',
-      'IP adresu na MAC adresu překládá tabulka (`arp -a`). Sleduj řádek **brány 192.168.1.1** po `arp -d` a pingu. Odpovídá MAC tomu, co o sobě říká R1 (`show ip arp`)?',
-      'Brána má dvě různé MAC. Jedna patří R1, druhá ne. Najdi na SW1 (`show mac address-table`), **na kterém portu** druhá MAC sedí, a komu patří. Pak oprav jeho IP a vyčisti zastaralý záznam (`arp -d`).'],
+      'Alice posílá rámce na **MAC adresu**, kterou si k IP brány zapsala do **tabulky IP → MAC** (znáš ji z úrovně 3). Podívej se do ní: čí je ta MAC u 192.168.1.1? Zeptej se i R1 (konzole), jakou MAC má on sám.',
+      '`arp -a` u Alice ukáže u 192.168.1.1 MAC 02-00-00-00-00-05, R1 má podle `show ip arp` 0200.0000.0101. Druhá MAC patří někomu jinému: na SW1 `show mac address-table` řekne, **na kterém portu** sedí. Oprav adresu toho zařízení a pak smaž zastaralý záznam (`arp -d`).'],
     ok: ['Dvě zařízení měla **stejnou IP**: tiskárna dostala omylem adresu brány.',
       'Na ARP dotaz odpověděl R1 i tiskárna. Alice si zapsala tu odpověď, která přišla **poslední**, a posílala pakety tiskárně, která je dál nepošle.',
       'Tiskárna konflikt **nehlídá** (Windows by ho samy ohlásily), proto se nic nehlásilo. Viníka jsi našel podle MAC v `arp -a`.'],
     rules: [
       { when: { success: true, changed: ['link.L7'], facts: { 'links.down': 'L7' } }, text: 'Konflikt zmizel, ale tiskárna je **mimo provoz**. To je obejití, ne oprava. Zapoj ji a změň jí adresu.', status: 'partial' },
+      { when: { reason: 'arp_stale', facts: { 'links.down': 'L7' } }, text: 'Tiskárnu jsi **odpojil**, jenže Alice má v ARP tabulce pro bránu pořád její MAC: pakety jdou do prázdného portu. A i po `arp -d` by to bylo **obejití, ne oprava**: tiskárna by nefungovala. Zapoj ji a změň jí adresu.' },
       { when: { reason: 'arp_stale' }, text: 'Adresa tiskárny už je jiná, ale Alice má v ARP tabulce pro bránu **pořád MAC tiskárny** (zastaralý záznam). Smaž ho `arp -d` (nebo počkej, až vyprší) a zkus to znovu.' },
       { when: { reason: 'ip_conflict', changed: ['PC1.ip', 'PC1.gateway'] }, text: 'Alice chybu neměla. Konflikt je mezi **R1 a tiskárnou**; změna Alice ho neodstraní.' },
       { when: { reason: 'ip_conflict_config' }, text: 'Teď má stejnou adresu tiskárna a **jiné zařízení**. Vyber adresu, kterou nikdo nemá (například 192.168.1.50).' },
