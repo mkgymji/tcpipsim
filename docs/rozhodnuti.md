@@ -261,3 +261,5 @@ po `CLAUDE.md` a před svými dokumenty; při rozporu s jiným dokumentem platí
     - Klient = `curl` (v terminálu `curl -v`, poznámka o aliasu v PowerShellu); SRV1 autoritativní DNS bez rekurze.
 
 61. **Úroveň 1 se jmenuje „Obálky“** (dříve interní „Barvičky“; studenty při pilotu 2026-11-27 název mátl).
+
+62. **Titulek stránky: „<úroveň> · TCP/IP výukový simulátor“** (Michal vybral z návrhů), logo vlevo nahoře zůstává „tcpipsim“.

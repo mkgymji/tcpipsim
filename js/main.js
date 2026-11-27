@@ -306,7 +306,7 @@ function applyHash({ animate = false } = {}) {
 window.addEventListener('hashchange', () => applyHash());
 
 const level = LEVELS[levelId];
-document.title = `tcpipsim: Úroveň ${levelId} ${level.title}`;
+document.title = `${level.title} · TCP/IP výukový simulátor`;
 document.body.classList.add(`lvl${levelId}`);
 if (levelId === 4) document.body.classList.add('lvl3');   // úroveň 4 staví na rozvržení úrovně 3
 $('level-title').textContent = scenario.title;
